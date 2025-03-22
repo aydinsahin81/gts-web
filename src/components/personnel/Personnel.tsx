@@ -18,7 +18,13 @@ import {
   Tab,
   Tabs,
   Alert,
-  InputAdornment
+  InputAdornment,
+  List,
+  ListItem,
+  ListItemAvatar,
+  ListItemText,
+  ToggleButtonGroup,
+  ToggleButton
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -33,7 +39,9 @@ import {
   Group as GroupIcon,
   Search as SearchIcon,
   QrCode as QrCodeIcon,
-  PhotoLibrary as PhotoLibraryIcon
+  PhotoLibrary as PhotoLibraryIcon,
+  ViewModule as ViewModuleIcon,
+  ViewList as ViewListIcon
 } from '@mui/icons-material';
 import { ref, get, onValue, off, remove, update, set, push } from 'firebase/database';
 import { database, auth } from '../../firebase';
@@ -135,6 +143,18 @@ const TabPanel = (props: { children: React.ReactNode; value: number; index: numb
   );
 };
 
+// İnce personel kartı için styled component
+const SlimPersonnelCard = styled(Card)(({ theme }) => ({
+  borderRadius: 8,
+  boxShadow: '0 2px 6px rgba(0,0,0,0.05)',
+  margin: '4px 0',
+  transition: 'background-color 0.2s ease-in-out',
+  '&:hover': {
+    backgroundColor: theme.palette.grey[50],
+    cursor: 'pointer'
+  }
+}));
+
 const Personnel: React.FC = () => {
   // State tanımlamaları
   const [loading, setLoading] = useState(true);
@@ -153,7 +173,27 @@ const Personnel: React.FC = () => {
   const [addError, setAddError] = useState<string | null>(null);
   const [addSuccess, setAddSuccess] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
+  const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Görünüm modunu localStorage'dan yükle
+  useEffect(() => {
+    const savedViewMode = localStorage.getItem('personnelViewMode');
+    if (savedViewMode === 'list' || savedViewMode === 'card') {
+      setViewMode(savedViewMode);
+    }
+  }, []);
+
+  // Görünüm modu değiştiğinde localStorage'a kaydet
+  const handleViewModeChange = (
+    event: React.MouseEvent<HTMLElement>,
+    newViewMode: 'card' | 'list' | null
+  ) => {
+    if (newViewMode !== null) {
+      setViewMode(newViewMode);
+      localStorage.setItem('personnelViewMode', newViewMode);
+    }
+  };
 
   // Veri işleme fonksiyonu
   const processData = (personnelData: any) => {
@@ -530,20 +570,36 @@ const Personnel: React.FC = () => {
 
   return (
     <ScrollableContent>
-      {/* Başlık ve Ekleme Butonu */}
+      {/* Başlık, Görünüm Seçici ve Ekleme Butonu */}
       <HeaderContainer>
         <Typography variant="h4" component="h1" fontWeight="bold" color="primary">
           Personeller
         </Typography>
-        <Button
-          variant="contained"
-          color="primary"
-          startIcon={<AddIcon />}
-          sx={{ borderRadius: 2 }}
-          onClick={handleOpenAddModal}
-        >
-          Yeni Personel Ekle
-        </Button>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <ToggleButtonGroup
+            value={viewMode}
+            exclusive
+            onChange={handleViewModeChange}
+            aria-label="personel görünümü"
+            size="small"
+          >
+            <ToggleButton value="card" aria-label="kart görünümü">
+              <ViewModuleIcon />
+            </ToggleButton>
+            <ToggleButton value="list" aria-label="liste görünümü">
+              <ViewListIcon />
+            </ToggleButton>
+          </ToggleButtonGroup>
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<AddIcon />}
+            sx={{ borderRadius: 2 }}
+            onClick={handleOpenAddModal}
+          >
+            Yeni Personel Ekle
+          </Button>
+        </Box>
       </HeaderContainer>
       
       {/* Personel Listesi */}
@@ -570,7 +626,7 @@ const Personnel: React.FC = () => {
             Henüz personel bulunmuyor
           </Typography>
         </Box>
-      ) : (
+      ) : viewMode === 'card' ? (
         <Grid container spacing={2}>
           {personnel.map((person) => (
             <Grid item xs={12} sm={6} md={3} key={person.id}>
@@ -635,6 +691,41 @@ const Personnel: React.FC = () => {
             </Grid>
           ))}
         </Grid>
+      ) : (
+        <List sx={{ bgcolor: 'background.paper', borderRadius: 2, boxShadow: 1 }}>
+          {personnel.map((person) => (
+            <ListItem key={person.id} alignItems="center">
+              <SlimPersonnelCard onClick={() => handleOpenModal(person)} sx={{ width: '100%' }}>
+                <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <Avatar 
+                        sx={{ 
+                          width: 40, 
+                          height: 40, 
+                          bgcolor: 'primary.main',
+                          fontSize: 18,
+                          mr: 2
+                        }}
+                      >
+                        {person.name.substring(0, 1).toUpperCase()}
+                      </Avatar>
+                      <Typography variant="body1" fontWeight="medium">
+                        {person.name}
+                      </Typography>
+                    </Box>
+                    <Chip
+                      label={person.hasTask ? 'Görev Atanmış' : 'Müsait'}
+                      size="small"
+                      color={person.hasTask ? 'primary' : 'success'}
+                      sx={{ fontWeight: 'medium' }}
+                    />
+                  </Box>
+                </CardContent>
+              </SlimPersonnelCard>
+            </ListItem>
+          ))}
+        </List>
       )}
       
       {/* Personel Detay Modalı */}
