@@ -36,7 +36,8 @@ import {
   Switch,
   List,
   ToggleButtonGroup,
-  ToggleButton
+  ToggleButton,
+  Slider
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -750,13 +751,127 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
   const [orientation, setOrientation] = useState<'portrait' | 'landscape'>('portrait');
   const [pageColor, setPageColor] = useState('#ffffff');
   const printRef = useRef<HTMLDivElement>(null);
+  const [qrSize, setQrSize] = useState(120);
+  const [position, setPosition] = useState({ x: 150, y: 150 });
+  const [dragging, setDragging] = useState(false);
+  const [startPoint, setStartPoint] = useState({ x: 0, y: 0 });
+  const [showQrCode, setShowQrCode] = useState(false);
 
-  if (!task) return null;
+  // Google Charts API kullanarak QR kod URL'si oluştur
+  const getQrCodeUrl = (data: string, size: number): string => {
+    // Google Charts API kullanarak QR kod URL'si oluştur
+    return `https://chart.googleapis.com/chart?cht=qr&chl=${encodeURIComponent(data)}&chs=${size}x${size}&chld=H|0`;
+  };
+
+  // QR Kod ekleme fonksiyonu
+  const handleAddQrCode = () => {
+    setShowQrCode(true);
+  };
 
   // A5 boyutları (piksel olarak)
   const a5Dimensions = orientation === 'portrait' 
     ? { width: 420, height: 595 } // Dikey A5
     : { width: 595, height: 420 }; // Yatay A5
+
+  // Sürükleme işlemleri
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    setDragging(true);
+    setStartPoint({
+      x: e.clientX - position.x,
+      y: e.clientY - position.y
+    });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!dragging) return;
+    
+    const newX = e.clientX - startPoint.x;
+    const newY = e.clientY - startPoint.y;
+    
+    // A5 sayfa sınırları içinde kal
+    const boundedX = Math.max(qrSize / 2, Math.min(a5Dimensions.width - qrSize / 2, newX));
+    const boundedY = Math.max(qrSize / 2, Math.min(a5Dimensions.height - qrSize / 2, newY));
+    
+    setPosition({ x: boundedX, y: boundedY });
+  };
+
+  const handleMouseUp = () => {
+    setDragging(false);
+  };
+
+  // Yazdırma fonksiyonu
+  const handlePrint = () => {
+    if (!printRef.current) return;
+    
+    try {
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) {
+        alert('Popup pencerelerine izin verdiğinizden emin olun.');
+        return;
+      }
+      
+      const printContent = printRef.current.innerHTML;
+      printWindow.document.open();
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>${task?.name || 'Görev'} QR Kodu</title>
+            <style>
+              body {
+                margin: 0;
+                padding: 0;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+              }
+              .a5-container {
+                width: ${orientation === 'portrait' ? '148mm' : '210mm'};
+                height: ${orientation === 'portrait' ? '210mm' : '148mm'};
+                background-color: ${pageColor};
+                position: relative;
+                box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+              }
+              .qr-image {
+                position: absolute;
+                top: ${position.y}px;
+                left: ${position.x}px;
+                transform: translate(-50%, -50%);
+              }
+              @media print {
+                body {
+                  -webkit-print-color-adjust: exact;
+                  print-color-adjust: exact;
+                }
+                .a5-container {
+                  box-shadow: none;
+                }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="a5-container">
+              ${printContent}
+            </div>
+            <script>
+              window.onload = function() {
+                setTimeout(function() {
+                  window.print();
+                  window.close();
+                }, 500);
+              };
+            </script>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+    } catch (error) {
+      console.error('Yazdırma hatası:', error);
+      alert('Yazdırma sırasında bir hata oluştu.');
+    }
+  };
+
+  if (!task) return null;
 
   return (
     <Dialog
@@ -814,8 +929,34 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
                 boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
                 transition: 'all 0.3s ease'
               }}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+              onMouseLeave={handleMouseUp}
             >
-              {/* Boş A5 sayfa */}
+              {/* QR Kod görünümü */}
+              {showQrCode && task && (
+                <Box 
+                  sx={{ 
+                    position: 'absolute',
+                    top: position.y,
+                    left: position.x,
+                    transform: 'translate(-50%, -50%)',
+                    cursor: dragging ? 'grabbing' : 'grab'
+                  }}
+                  onMouseDown={handleMouseDown}
+                >
+                  <img 
+                    src={getQrCodeUrl(task.id, qrSize)} 
+                    alt="QR Kod" 
+                    width={qrSize} 
+                    height={qrSize} 
+                    style={{ 
+                      display: 'block',
+                      userSelect: 'none'
+                    }}
+                  />
+                </Box>
+              )}
             </Paper>
           </Box>
 
@@ -865,9 +1006,28 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
                 fullWidth
                 startIcon={<QrCodeIcon />}
                 sx={{ py: 1.5, mb: 2 }}
+                onClick={handleAddQrCode}
+                disabled={showQrCode}
               >
-                QR Kod Ekle
+                QR Ekle
               </Button>
+              
+              {showQrCode && (
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="body2" gutterBottom>
+                    QR Kod Boyutu:
+                  </Typography>
+                  <Slider
+                    min={80}
+                    max={200}
+                    step={10}
+                    value={qrSize}
+                    onChange={(_, value) => setQrSize(value as number)}
+                    valueLabelDisplay="auto"
+                    sx={{ mt: 1 }}
+                  />
+                </Box>
+              )}
             </Box>
 
             {/* Logo Ekle Butonu */}
@@ -898,10 +1058,10 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
 
             <Divider />
 
-            {/* Sayfa Rengi */}
+            {/* Arkaplan Rengi */}
             <Box>
               <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
-                A5 Sayfa Rengi
+                Arkaplan Rengi
               </Typography>
               <Grid container spacing={1}>
                 {['#ffffff', '#f5f5f5', '#fafafa', '#eeeeee', '#e0e0e0', '#FFEBEE', '#E3F2FD', '#E8F5E9', '#FFF8E1'].map((color) => (
@@ -939,6 +1099,7 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
           variant="contained"
           color="primary"
           startIcon={<PrintIcon />}
+          onClick={handlePrint}
         >
           Yazdır
         </Button>
