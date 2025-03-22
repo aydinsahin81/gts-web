@@ -5,15 +5,12 @@ import {
   Card,
   CardContent,
   Avatar,
-  List,
-  ListItem,
-  ListItemAvatar,
-  ListItemText,
   Divider,
   Button,
   CircularProgress,
   styled,
-  Chip
+  Chip,
+  Grid
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -58,7 +55,7 @@ const HeaderContainer = styled(Box)(({ theme }) => ({
 const PersonnelCard = styled(Card)(({ theme }) => ({
   borderRadius: 12,
   boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-  marginBottom: theme.spacing(2),
+  height: '100%',
   transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
   '&:hover': {
     transform: 'translateY(-2px)',
@@ -197,40 +194,42 @@ const Personnel: React.FC = () => {
           </Typography>
         </Box>
       ) : (
-        <List>
+        <Grid container spacing={2}>
           {personnel.map((person) => (
-            <PersonnelCard key={person.id}>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
-                  <ListItemAvatar>
-                    <Avatar 
-                      sx={{ 
-                        width: 56, 
-                        height: 56, 
-                        bgcolor: 'primary.main',
-                        fontSize: 24
-                      }}
-                    >
-                      {person.name.substring(0, 1).toUpperCase()}
-                    </Avatar>
-                  </ListItemAvatar>
-                  <Box sx={{ ml: 2, flex: 1 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                      <Typography variant="h6" fontWeight="bold">
-                        {person.name}
-                      </Typography>
-                      <Chip
-                        label={person.hasTask ? 'Görev Atanmış' : 'Müsait'}
-                        size="small"
-                        color={person.hasTask ? 'primary' : 'success'}
-                        sx={{ fontWeight: 'medium' }}
-                      />
+            <Grid item xs={12} sm={6} md={3} key={person.id}>
+              <PersonnelCard>
+                <CardContent>
+                  <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
+                      <Avatar 
+                        sx={{ 
+                          width: 50, 
+                          height: 50, 
+                          bgcolor: 'primary.main',
+                          fontSize: 22
+                        }}
+                      >
+                        {person.name.substring(0, 1).toUpperCase()}
+                      </Avatar>
+                      <Box sx={{ ml: 1.5 }}>
+                        <Typography variant="h6" fontWeight="bold" noWrap>
+                          {person.name}
+                        </Typography>
+                        <Chip
+                          label={person.hasTask ? 'Görev Atanmış' : 'Müsait'}
+                          size="small"
+                          color={person.hasTask ? 'primary' : 'success'}
+                          sx={{ fontWeight: 'medium', mt: 0.5 }}
+                        />
+                      </Box>
                     </Box>
+                    
+                    <Divider sx={{ my: 1 }} />
                     
                     {person.email && (
                       <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
                         <EmailIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />
-                        <Typography variant="body2" color="text.secondary">
+                        <Typography variant="body2" color="text.secondary" noWrap>
                           {person.email}
                         </Typography>
                       </Box>
@@ -254,11 +253,11 @@ const Personnel: React.FC = () => {
                       </Box>
                     )}
                   </Box>
-                </Box>
-              </CardContent>
-            </PersonnelCard>
+                </CardContent>
+              </PersonnelCard>
+            </Grid>
           ))}
-        </List>
+        </Grid>
       )}
     </ScrollableContent>
   );
