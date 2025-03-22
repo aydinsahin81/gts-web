@@ -757,6 +757,15 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
   const [dragging, setDragging] = useState(false);
   const [startPoint, setStartPoint] = useState({ x: 0, y: 0 });
   const [showQrCode, setShowQrCode] = useState(false);
+  // Dosya girişi için ref
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  // Metin düzenleme için state'ler
+  const [textContent, setTextContent] = useState('Yeni Metin');
+  const [textFont, setTextFont] = useState('Roboto');
+  const [textSize, setTextSize] = useState(16);
+  const [textColor, setTextColor] = useState('#000000');
+  const [textBold, setTextBold] = useState(false);
+  const [textItalic, setTextItalic] = useState(false);
   // Yeni state'ler
   const [pageItems, setPageItems] = useState<Array<{
     id: string;
@@ -764,9 +773,15 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
     position: { x: number, y: number };
     size?: number;
     content?: string;
+    imageUrl?: string;
     selected?: boolean;
+    font?: string;
+    fontSize?: number;
+    color?: string;
+    bold?: boolean;
+    italic?: boolean;
   }>>([]);
-
+  
   // Modal açıldığında lokalden kaydedilmiş düzeni yükle
   useEffect(() => {
     if (open && task) {
@@ -851,32 +866,210 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
       type: 'text' as const,
       position: { x: a5Dimensions.width / 2, y: a5Dimensions.height / 3 },
       content: 'Yeni Metin',
-      selected: false
+      font: 'Roboto',
+      fontSize: 16,
+      color: '#000000',
+      bold: false,
+      italic: false,
+      selected: true // Yeni eklenen metni seç
     };
     
-    setPageItems(prev => [...prev, newItem]);
+    // Önceki seçimleri kaldır ve yeni metni ekle
+    setPageItems(prev => prev.map(item => ({
+      ...item,
+      selected: false
+    })).concat(newItem));
+    
+    // Düzeni kaydet
+    setTimeout(saveLayout, 100);
+    
+    // Metin düzenleme alanını yeni metin için ayarla
+    setTextContent('Yeni Metin');
+    setTextFont('Roboto');
+    setTextSize(16);
+    setTextColor('#000000');
+    setTextBold(false);
+    setTextItalic(false);
+  };
+
+  // Metin içeriğini güncelleme
+  const handleTextContentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newContent = e.target.value;
+    setTextContent(newContent);
+    
+    // Seçili metni güncelle
+    setPageItems(prev => prev.map(item => {
+      if (item.selected && item.type === 'text') {
+        return {
+          ...item,
+          content: newContent
+        };
+      }
+      return item;
+    }));
     
     // Düzeni kaydet
     setTimeout(saveLayout, 100);
   };
 
-  // Logo ekleme işlevi
-  const handleAddLogo = () => {
-    if (!task) return;
+  // Yazı tipini güncelleme
+  const handleFontChange = (event: SelectChangeEvent) => {
+    const newFont = event.target.value;
+    setTextFont(newFont);
     
-    const newItem = {
-      id: `logo-${Date.now()}`,
-      type: 'logo' as const,
-      position: { x: a5Dimensions.width / 2, y: a5Dimensions.height / 4 },
-      size: 80,
-      content: 'logo-placeholder',
-      selected: false
-    };
-    
-    setPageItems(prev => [...prev, newItem]);
+    // Seçili metni güncelle
+    setPageItems(prev => prev.map(item => {
+      if (item.selected && item.type === 'text') {
+        return {
+          ...item,
+          font: newFont
+        };
+      }
+      return item;
+    }));
     
     // Düzeni kaydet
     setTimeout(saveLayout, 100);
+  };
+
+  // Yazı boyutunu güncelleme
+  const handleFontSizeChange = (event: Event, newValue: number | number[]) => {
+    const newSize = newValue as number;
+    setTextSize(newSize);
+    
+    // Seçili metni güncelle
+    setPageItems(prev => prev.map(item => {
+      if (item.selected && item.type === 'text') {
+        return {
+          ...item,
+          fontSize: newSize
+        };
+      }
+      return item;
+    }));
+    
+    // Düzeni kaydet
+    setTimeout(saveLayout, 100);
+  };
+
+  // Yazı rengini güncelleme
+  const handleColorChange = (color: string) => {
+    setTextColor(color);
+    
+    // Seçili metni güncelle
+    setPageItems(prev => prev.map(item => {
+      if (item.selected && item.type === 'text') {
+        return {
+          ...item,
+          color: color
+        };
+      }
+      return item;
+    }));
+    
+    // Düzeni kaydet
+    setTimeout(saveLayout, 100);
+  };
+
+  // Kalın yazıyı açıp kapatma
+  const handleToggleBold = () => {
+    const newBold = !textBold;
+    setTextBold(newBold);
+    
+    // Seçili metni güncelle
+    setPageItems(prev => prev.map(item => {
+      if (item.selected && item.type === 'text') {
+        return {
+          ...item,
+          bold: newBold
+        };
+      }
+      return item;
+    }));
+    
+    // Düzeni kaydet
+    setTimeout(saveLayout, 100);
+  };
+
+  // İtalik yazıyı açıp kapatma
+  const handleToggleItalic = () => {
+    const newItalic = !textItalic;
+    setTextItalic(newItalic);
+    
+    // Seçili metni güncelle
+    setPageItems(prev => prev.map(item => {
+      if (item.selected && item.type === 'text') {
+        return {
+          ...item,
+          italic: newItalic
+        };
+      }
+      return item;
+    }));
+    
+    // Düzeni kaydet
+    setTimeout(saveLayout, 100);
+  };
+
+  // Öğe seçildiğinde düzenleme alanlarını güncelle
+  useEffect(() => {
+    const selectedItem = pageItems.find(item => item.selected && item.type === 'text');
+    if (selectedItem && selectedItem.type === 'text') {
+      // Text ayarlarını güncelle
+      setTextContent(selectedItem.content || 'Metin');
+      setTextFont(selectedItem.font || 'Roboto');
+      setTextSize(selectedItem.fontSize || 16);
+      setTextColor(selectedItem.color || '#000000');
+      setTextBold(selectedItem.bold || false);
+      setTextItalic(selectedItem.italic || false);
+    }
+  }, [pageItems]);
+
+  // Logo ekleme işlevi
+  const handleAddLogo = () => {
+    // Dosya seçme dialogunu aç
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+  
+  // Dosya yükleme fonksiyonu
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !task) return;
+    
+    // Sadece resim dosyalarını kabul et
+    if (!file.type.startsWith('image/')) {
+      alert('Lütfen sadece resim dosyası yükleyin (PNG, JPG, JPEG).');
+      return;
+    }
+    
+    // Resmi URL olarak oku
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const imageUrl = e.target?.result as string;
+      
+      // Sayfaya logo ekle
+      const newItem = {
+        id: `logo-${Date.now()}`,
+        type: 'logo' as const,
+        position: { x: a5Dimensions.width / 2, y: a5Dimensions.height / 4 },
+        size: 100,
+        content: file.name,
+        imageUrl,
+        selected: false
+      };
+      
+      setPageItems(prev => [...prev, newItem]);
+      
+      // Düzeni kaydet
+      setTimeout(saveLayout, 100);
+    };
+    
+    reader.readAsDataURL(file);
+    
+    // Input değerini sıfırla (aynı dosyayı tekrar seçebilmek için)
+    event.target.value = '';
   };
 
   // Öğe seçme işlevi
@@ -912,15 +1105,22 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
 
   // Sürükleme işlemleri
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>, itemId: string) => {
-    setDragging(true);
+    // Olayı durdurup varsayılan eylemleri engelle
+    e.preventDefault();
+    e.stopPropagation();
     
     // Öğeyi seç
     handleSelectItem(itemId);
     
-    // Öğenin pozisyonunu bul
+    // Öğeyi sürükleme moduna al
+    setDragging(true);
+    
+    // Seçilen öğenin pozisyonunu bul
     const item = pageItems.find(i => i.id === itemId);
     if (!item) return;
     
+    // Tıklama noktası ile öğe konumu arasındaki farkı hesapla
+    // Bu, sürükleme sırasında öğenin göreceli pozisyonunu korumamızı sağlar
     setStartPoint({
       x: e.clientX - item.position.x,
       y: e.clientY - item.position.y
@@ -930,21 +1130,35 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!dragging) return;
     
+    // Varsayılan eylemleri ve metin seçimini engelle
+    e.preventDefault();
+    e.stopPropagation();
+    
     // Seçili öğeyi bul
     const selectedItem = pageItems.find(item => item.selected);
     if (!selectedItem) return;
     
+    // Yeni pozisyonu hesapla
     const newX = e.clientX - startPoint.x;
     const newY = e.clientY - startPoint.y;
     
-    // Öğe boyutunu hesapla
-    const itemSize = selectedItem.size || 50;
+    // Sınırlar için kullanılacak değerleri hesapla
+    let minEdgeDistance = 20; // Minimum kenar mesafesi
+    
+    if (selectedItem.type === 'qr') {
+      minEdgeDistance = (selectedItem.size || qrSize) / 2;
+    } else if (selectedItem.type === 'logo') {
+      minEdgeDistance = (selectedItem.size || 100) / 2;
+    } else if (selectedItem.type === 'text') {
+      // Metin için daha büyük bir sınır kullan ki tamamen görünür kalsın
+      minEdgeDistance = 50;
+    }
     
     // A5 sayfa sınırları içinde kal
-    const boundedX = Math.max(itemSize / 2, Math.min(a5Dimensions.width - itemSize / 2, newX));
-    const boundedY = Math.max(itemSize / 2, Math.min(a5Dimensions.height - itemSize / 2, newY));
+    const boundedX = Math.max(minEdgeDistance, Math.min(a5Dimensions.width - minEdgeDistance, newX));
+    const boundedY = Math.max(minEdgeDistance, Math.min(a5Dimensions.height - minEdgeDistance, newY));
     
-    // Öğenin pozisyonunu güncelle
+    // Öğenin SADECE pozisyonunu güncelle, boyutunu değiştirme
     setPageItems(prev => prev.map(item => {
       if (item.selected) {
         return {
@@ -956,10 +1170,16 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
     }));
   };
 
-  const handleMouseUp = () => {
+  const handleMouseUp = (e: React.MouseEvent<HTMLDivElement>) => {
     if (dragging) {
+      // Varsayılan eylemleri ve metin seçimini engelle
+      e.preventDefault();
+      e.stopPropagation();
+      
+      // Sürükleme modunu kapat
       setDragging(false);
-      // Düzeni kaydet
+      
+      // Değişiklikleri kaydet
       saveLayout();
     }
   };
@@ -975,7 +1195,9 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
         return;
       }
       
+      // A5 sayfadaki içeriği kopyala
       const printContent = printRef.current.innerHTML;
+      
       printWindow.document.open();
       printWindow.document.write(`
         <html>
@@ -997,12 +1219,6 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
                 position: relative;
                 box-shadow: 0 4px 8px rgba(0,0,0,0.1);
               }
-              .qr-image {
-                position: absolute;
-                top: ${position.y}px;
-                left: ${position.x}px;
-                transform: translate(-50%, -50%);
-              }
               @media print {
                 body {
                   -webkit-print-color-adjust: exact;
@@ -1020,6 +1236,12 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
             </div>
             <script>
               window.onload = function() {
+                // Yazdırma işareti olan elemanları gizle
+                const hideElements = document.querySelectorAll('.no-print');
+                hideElements.forEach(function(el) {
+                  el.style.display = 'none';
+                });
+                
                 setTimeout(function() {
                   window.print();
                   window.close();
@@ -1099,7 +1321,11 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
                 position: 'relative',
                 overflow: 'hidden',
                 boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
-                transition: 'all 0.3s ease'
+                transition: 'all 0.3s ease',
+                userSelect: 'none', // Tüm içerik için metin seçimini engelle
+                WebkitUserSelect: 'none',
+                MozUserSelect: 'none',
+                msUserSelect: 'none'
               }}
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
@@ -1124,7 +1350,11 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
                         border: item.selected ? '2px solid #1976d2' : 'none',
                         zIndex: item.selected ? 10 : 1
                       }}
-                      onMouseDown={(e) => handleMouseDown(e, item.id)}
+                      onMouseDown={(e) => {
+                        e.preventDefault(); // Metin seçimini engelle
+                        handleMouseDown(e, item.id);
+                      }}
+                      className={item.selected ? "no-print" : ""}
                     >
                       <QRCodeCanvas 
                         value={task.id}
@@ -1133,6 +1363,7 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
                         includeMargin={true}
                         bgColor="#ffffff"
                         fgColor="#000000"
+                        id={`qr-${item.id}`}
                       />
                     </Box>
                   );
@@ -1147,14 +1378,34 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
                         transform: 'translate(-50%, -50%)',
                         cursor: dragging && item.selected ? 'grabbing' : 'grab',
                         padding: '10px',
-                        background: 'rgba(255,255,255,0.8)',
+                        background: item.selected ? 'rgba(255,255,255,0.9)' : 'transparent',
                         borderRadius: '4px',
-                        border: item.selected ? '2px solid #1976d2' : '1px dashed #ccc',
-                        zIndex: item.selected ? 10 : 1
+                        border: item.selected ? '2px solid #1976d2' : 'none',
+                        zIndex: item.selected ? 10 : 1,
+                        userSelect: 'none', // Metin seçimini engelle
+                        WebkitUserSelect: 'none', // Safari için
+                        MozUserSelect: 'none', // Firefox için
+                        msUserSelect: 'none' // IE/Edge için
                       }}
-                      onMouseDown={(e) => handleMouseDown(e, item.id)}
+                      onMouseDown={(e) => {
+                        // Varsayılan metin seçme davranışını engelle
+                        e.preventDefault();
+                        handleMouseDown(e, item.id);
+                      }}
+                      className={item.selected ? "no-print" : ""}
                     >
-                      <Typography variant="body1">
+                      <Typography 
+                        variant="body1"
+                        sx={{
+                          fontFamily: item.font || 'Roboto',
+                          fontSize: `${item.fontSize || 16}px`,
+                          color: item.color || '#000000',
+                          fontWeight: item.bold ? 'bold' : 'normal',
+                          fontStyle: item.italic ? 'italic' : 'normal',
+                          whiteSpace: 'pre-wrap',
+                          pointerEvents: 'none' // İçeriğin fare etkileşimini engelle
+                        }}
+                      >
                         {item.content || 'Metin'}
                       </Typography>
                     </Box>
@@ -1169,19 +1420,36 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
                         left: item.position.x,
                         transform: 'translate(-50%, -50%)',
                         cursor: dragging && item.selected ? 'grabbing' : 'grab',
-                        width: item.size || 80,
-                        height: item.size || 80,
-                        background: '#f0f0f0',
+                        width: `${item.size}px`,
+                        height: 'auto',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         borderRadius: '4px',
-                        border: item.selected ? '2px solid #1976d2' : '1px dashed #ccc',
-                        zIndex: item.selected ? 10 : 1
+                        border: item.selected ? '2px solid #1976d2' : 'none',
+                        zIndex: item.selected ? 10 : 1,
+                        overflow: 'hidden'
                       }}
-                      onMouseDown={(e) => handleMouseDown(e, item.id)}
+                      onMouseDown={(e) => {
+                        e.preventDefault(); // Metin seçimini engelle
+                        handleMouseDown(e, item.id);
+                      }}
+                      className={item.selected ? "no-print" : ""}
                     >
-                      <ImageIcon sx={{ fontSize: 40, color: 'text.secondary' }} />
+                      {item.imageUrl ? (
+                        <img 
+                          src={item.imageUrl} 
+                          alt={item.content || 'Logo'} 
+                          style={{ 
+                            width: '100%', 
+                            height: '100%', 
+                            objectFit: 'contain',
+                            pointerEvents: 'none' // Resim etkileşimini engelle
+                          }} 
+                        />
+                      ) : (
+                        <ImageIcon sx={{ fontSize: 40, color: 'text.secondary' }} />
+                      )}
                     </Box>
                   );
                 }
@@ -1302,6 +1570,45 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
               >
                 Logo Ekle
               </Button>
+              
+              {/* Gizli dosya girişi */}
+              <input
+                type="file"
+                ref={fileInputRef}
+                style={{ display: 'none' }}
+                accept="image/png, image/jpeg, image/jpg"
+                onChange={handleFileUpload}
+              />
+              
+              {pageItems.some(item => item.type === 'logo' && item.selected) && (
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="body2" gutterBottom>
+                    Logo Boyutu:
+                  </Typography>
+                  <Slider
+                    min={50}
+                    max={300}
+                    step={10}
+                    value={pageItems.find(item => item.type === 'logo' && item.selected)?.size || 100}
+                    onChange={(_, value) => {
+                      // Seçili logonun boyutunu güncelle
+                      setPageItems(prev => prev.map(item => {
+                        if (item.type === 'logo' && item.selected) {
+                          return {
+                            ...item,
+                            size: value as number
+                          };
+                        }
+                        return item;
+                      }));
+                      // Değişiklikleri kaydet
+                      setTimeout(saveLayout, 100);
+                    }}
+                    valueLabelDisplay="auto"
+                    sx={{ mt: 1 }}
+                  />
+                </Box>
+              )}
             </Box>
 
             {/* Metin Ekle Butonu */}
@@ -1316,6 +1623,105 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
               >
                 Metin Ekle
               </Button>
+              
+              {/* Metin Düzenleme Paneli */}
+              {pageItems.some(item => item.type === 'text' && item.selected) && (
+                <Box sx={{ mt: 2, p: 2, border: '1px solid #e0e0e0', borderRadius: 1 }}>
+                  <Typography variant="subtitle2" gutterBottom>
+                    Metin Düzenleme
+                  </Typography>
+                  
+                  {/* Metin İçeriği */}
+                  <TextField
+                    fullWidth
+                    label="Metin"
+                    value={textContent}
+                    onChange={handleTextContentChange}
+                    margin="dense"
+                    size="small"
+                    multiline
+                    rows={2}
+                  />
+                  
+                  {/* Yazı Tipi */}
+                  <FormControl fullWidth margin="dense" size="small">
+                    <InputLabel>Yazı Tipi</InputLabel>
+                    <Select
+                      value={textFont}
+                      label="Yazı Tipi"
+                      onChange={handleFontChange}
+                    >
+                      <MenuItem value="Roboto">Roboto</MenuItem>
+                      <MenuItem value="Arial">Arial</MenuItem>
+                      <MenuItem value="Times New Roman">Times New Roman</MenuItem>
+                      <MenuItem value="Courier New">Courier New</MenuItem>
+                      <MenuItem value="Georgia">Georgia</MenuItem>
+                      <MenuItem value="Verdana">Verdana</MenuItem>
+                    </Select>
+                  </FormControl>
+                  
+                  {/* Yazı Boyutu */}
+                  <Box sx={{ mt: 2 }}>
+                    <Typography variant="caption" gutterBottom>
+                      Yazı Boyutu: {textSize}px
+                    </Typography>
+                    <Slider
+                      min={8}
+                      max={48}
+                      step={1}
+                      value={textSize}
+                      onChange={handleFontSizeChange}
+                      valueLabelDisplay="auto"
+                    />
+                  </Box>
+                  
+                  {/* Metin Formatı ve Rengi */}
+                  <Box sx={{ display: 'flex', alignItems: 'center', mt: 2, justifyContent: 'space-between' }}>
+                    <Box>
+                      <IconButton 
+                        size="small" 
+                        onClick={handleToggleBold}
+                        color={textBold ? "primary" : "default"}
+                        sx={{ border: textBold ? '1px solid' : 'none' }}
+                      >
+                        <Typography sx={{ fontWeight: 'bold' }}>B</Typography>
+                      </IconButton>
+                      <IconButton 
+                        size="small" 
+                        onClick={handleToggleItalic}
+                        color={textItalic ? "primary" : "default"}
+                        sx={{ border: textItalic ? '1px solid' : 'none', ml: 1 }}
+                      >
+                        <Typography sx={{ fontStyle: 'italic' }}>I</Typography>
+                      </IconButton>
+                    </Box>
+                    
+                    {/* Renk Seçici */}
+                    <Box>
+                      <Typography variant="caption" gutterBottom display="block">
+                        Yazı Rengi
+                      </Typography>
+                      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                        {['#000000', '#FF0000', '#0000FF', '#008000', '#FFA500', '#800080'].map(color => (
+                          <Box
+                            key={color}
+                            onClick={() => handleColorChange(color)}
+                            sx={{
+                              width: 24,
+                              height: 24,
+                              bgcolor: color,
+                              borderRadius: '50%',
+                              cursor: 'pointer',
+                              border: textColor === color ? '2px solid #1976d2' : '1px solid #e0e0e0',
+                              '&:hover': { opacity: 0.8 }
+                            }}
+                          />
+                        ))}
+                      </Box>
+                    </Box>
+                  </Box>
+                </Box>
+              )}
             </Box>
 
             <Divider />
