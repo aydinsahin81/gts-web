@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -61,6 +61,7 @@ import { database, auth } from '../../firebase';
 import TimeService from '../../services/TimeService';
 import TaskTimeService, { TaskTimeStatus } from '../../services/TaskTimeService';
 import MissedTaskService from '../../services/MissedTaskService';
+import { QRCodeCanvas } from 'qrcode.react';
 
 // Kaydırılabilir ana içerik için styled component
 const ScrollableContent = styled(Box)(({ theme }) => ({
@@ -757,16 +758,25 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
   const [startPoint, setStartPoint] = useState({ x: 0, y: 0 });
   const [showQrCode, setShowQrCode] = useState(false);
 
-  // Google Charts API kullanarak QR kod URL'si oluştur
-  const getQrCodeUrl = (data: string, size: number): string => {
-    // Google Charts API kullanarak QR kod URL'si oluştur
-    return `https://chart.googleapis.com/chart?cht=qr&chl=${encodeURIComponent(data)}&chs=${size}x${size}&chld=H|0`;
-  };
+  // Component mount olduğunda task verisi kontrolü
+  useEffect(() => {
+    if (task) {
+      // Debug bilgisi set etmeyi kaldırıyorum
+    } else {
+      // Debug bilgisi set etmeyi kaldırıyorum
+    }
+  }, [task]);
 
   // QR Kod ekleme fonksiyonu
-  const handleAddQrCode = () => {
+  const handleAddQrCode = useCallback(() => {
+    if (!task || !task.id) {
+      console.error("Geçerli görev veya görev ID'si yok:", task);
+      // Debug bilgisi set etmeyi kaldırıyorum
+    } else {
+      // Debug bilgisi set etmeyi kaldırıyorum
+    }
     setShowQrCode(true);
-  };
+  }, [task]);
 
   // A5 boyutları (piksel olarak)
   const a5Dimensions = orientation === 'portrait' 
@@ -871,6 +881,14 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
     }
   };
 
+  // Modal açıldığında görev durumunu sıfırla
+  useEffect(() => {
+    if (open) {
+      setShowQrCode(false);
+      // Debug bilgisi set etmeyi kaldırıyorum
+    }
+  }, [open, task]);
+
   if (!task) return null;
 
   return (
@@ -934,26 +952,28 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
               onMouseLeave={handleMouseUp}
             >
               {/* QR Kod görünümü */}
-              {showQrCode && task && (
+              {showQrCode && task && task.id && (
                 <Box 
                   sx={{ 
                     position: 'absolute',
                     top: position.y,
                     left: position.x,
                     transform: 'translate(-50%, -50%)',
-                    cursor: dragging ? 'grabbing' : 'grab'
+                    cursor: dragging ? 'grabbing' : 'grab',
+                    backgroundColor: '#ffffff',
+                    padding: '10px',
+                    borderRadius: '4px',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
                   }}
                   onMouseDown={handleMouseDown}
                 >
-                  <img 
-                    src={getQrCodeUrl(task.id, qrSize)} 
-                    alt="QR Kod" 
-                    width={qrSize} 
-                    height={qrSize} 
-                    style={{ 
-                      display: 'block',
-                      userSelect: 'none'
-                    }}
+                  <QRCodeCanvas 
+                    value={task.id}
+                    size={qrSize}
+                    level="H" // Yüksek hata düzeltme seviyesi
+                    includeMargin={true}
+                    bgColor="#ffffff"
+                    fgColor="#000000"
                   />
                 </Box>
               )}

@@ -17,6 +17,7 @@
     "@types/react-dom": "^19.0.4",
     "firebase": "^11.5.0",
     "html5-qrcode": "^2.3.8",
+    "qrcode.react": "^4.2.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.4.0",
@@ -48,5 +49,8 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "devDependencies": {
+    "@types/qrcode.react": "^1.0.5"
   }
 }
