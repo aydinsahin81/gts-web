@@ -1342,6 +1342,11 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
         // QR kodu göster
         const hasQrCode = layoutData.items.some((item: any) => item.type === 'qr');
         setShowQrCode(hasQrCode);
+
+        // Görev için seçilen tasarımı kaydet
+        if (task && task.id) {
+          localStorage.setItem(`qrLayout_${task.id}`, savedLayout);
+        }
       }
     } catch (error) {
       console.error('Tasarım yükleme hatası:', error);
@@ -1351,12 +1356,20 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
     setSelectLayoutMenuAnchor(null);
   };
 
+  // Modal kapanırken güncel düzeni görev için kaydet
+  const handleCloseWithSave = () => {
+    if (task && task.id) {
+      saveLayout(); // Mevcut tasarımı kaydet
+    }
+    onClose(); // Modalı kapat
+  };
+
   if (!task) return null;
 
   return (
     <Dialog
       open={open}
-      onClose={onClose}
+      onClose={handleCloseWithSave} // onClose yerine handleCloseWithSave kullan
       maxWidth="lg"
       fullWidth
       PaperProps={{
@@ -1377,7 +1390,7 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
         py: 2
       }}>
         <Typography variant="h6" fontWeight="bold">QR Kod Sayfası Tasarla</Typography>
-        <IconButton onClick={onClose} size="small" sx={{ color: 'white' }}>
+        <IconButton onClick={handleCloseWithSave} size="small" sx={{ color: 'white' }}>
           <CloseIcon />
         </IconButton>
       </DialogTitle>
@@ -1867,7 +1880,7 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
         <Box>
           <Button
             variant="outlined"
-            onClick={onClose}
+            onClick={handleCloseWithSave}
           >
             Kapat
           </Button>
