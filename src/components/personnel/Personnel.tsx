@@ -31,10 +31,13 @@ import {
   Upload as UploadIcon,
   PersonAdd as PersonAddIcon,
   Group as GroupIcon,
-  Search as SearchIcon
+  Search as SearchIcon,
+  QrCode as QrCodeIcon,
+  PhotoLibrary as PhotoLibraryIcon
 } from '@mui/icons-material';
 import { ref, get, onValue, off, remove, update, set, push } from 'firebase/database';
 import { database, auth } from '../../firebase';
+import { Html5Qrcode } from 'html5-qrcode';
 
 // Kaydırılabilir ana içerik için styled component
 const ScrollableContent = styled(Box)(({ theme }) => ({
@@ -149,6 +152,7 @@ const Personnel: React.FC = () => {
   const [isAddingPersonnel, setIsAddingPersonnel] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
   const [addSuccess, setAddSuccess] = useState<string | null>(null);
+  const [isScanning, setIsScanning] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Veri işleme fonksiyonu
@@ -497,6 +501,33 @@ const Personnel: React.FC = () => {
     throw new Error('Bu ID ile kayıtlı kullanıcı bulunamadı');
   };
 
+  // QR kod resim yükleme
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    
+    setIsScanning(true);
+    
+    const html5QrCode = new Html5Qrcode("qr-reader");
+    
+    // QR kodu çözümle
+    html5QrCode.scanFile(file, true)
+      .then(decodedText => {
+        setPersonnelId(decodedText);
+        setIsScanning(false);
+      })
+      .catch(error => {
+        console.error("QR kod tarama hatası:", error);
+        setAddError("QR kod tanınamadı veya geçersiz. Lütfen başka bir resim deneyin.");
+        setIsScanning(false);
+      });
+  };
+  
+  // QR kod resim yükleme butonunu tetikle
+  const handleQrCodeImageScan = () => {
+    fileInputRef.current?.click();
+  };
+
   return (
     <ScrollableContent>
       {/* Başlık ve Ekleme Butonu */}
@@ -826,29 +857,54 @@ const Personnel: React.FC = () => {
               Eklemek istediğiniz personelin ID'sini girin. Personel uygulama üzerinden kayıt olmuş olmalıdır.
             </Typography>
             
-            <TextField
-              label="Personel ID"
-              fullWidth
-              value={personnelId}
-              onChange={(e) => setPersonnelId(e.target.value)}
-              margin="normal"
-              variant="outlined"
-              required
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
-              }}
-            />
+            <Box sx={{ mb: 2 }}>
+              <TextField
+                label="Personel ID"
+                fullWidth
+                value={personnelId}
+                onChange={(e) => setPersonnelId(e.target.value)}
+                margin="normal"
+                variant="outlined"
+                required
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+              
+              <Button
+                variant="outlined"
+                color="secondary"
+                onClick={handleQrCodeImageScan}
+                startIcon={<PhotoLibraryIcon />}
+                sx={{ mt: 1 }}
+                disabled={isScanning}
+              >
+                {isScanning ? 'Taranıyor...' : 'Galeriden QR Kod Tara'}
+              </Button>
+              
+              {/* Gizli dosya yükleme input'u */}
+              <input
+                type="file"
+                accept="image/*"
+                ref={fileInputRef}
+                style={{ display: 'none' }}
+                onChange={handleImageUpload}
+              />
+              
+              {/* QR kod tarayıcısı için gizli div */}
+              <div id="qr-reader" style={{ display: 'none' }}></div>
+            </Box>
             
             <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
               <Button
                 variant="contained"
                 color="primary"
                 onClick={handleAddSinglePersonnel}
-                disabled={isAddingPersonnel || !personnelId.trim()}
+                disabled={isAddingPersonnel || !personnelId.trim() || isScanning}
                 startIcon={isAddingPersonnel ? <CircularProgress size={20} /> : <PersonAddIcon />}
               >
                 {isAddingPersonnel ? 'Ekleniyor...' : 'Personel Ekle'}
