@@ -757,26 +757,153 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
   const [dragging, setDragging] = useState(false);
   const [startPoint, setStartPoint] = useState({ x: 0, y: 0 });
   const [showQrCode, setShowQrCode] = useState(false);
+  // Yeni state'ler
+  const [pageItems, setPageItems] = useState<Array<{
+    id: string;
+    type: 'qr' | 'logo' | 'text';
+    position: { x: number, y: number };
+    size?: number;
+    content?: string;
+    selected?: boolean;
+  }>>([]);
 
-  // Component mount olduğunda task verisi kontrolü
+  // Modal açıldığında lokalden kaydedilmiş düzeni yükle
   useEffect(() => {
-    if (task) {
+    if (open && task) {
       // Debug bilgisi set etmeyi kaldırıyorum
-    } else {
-      // Debug bilgisi set etmeyi kaldırıyorum
+      loadSavedLayout();
     }
-  }, [task]);
+  }, [open, task]);
+
+  // Düzeni localStorage'dan yükle
+  const loadSavedLayout = () => {
+    if (!task || !task.id) return;
+
+    try {
+      const savedLayout = localStorage.getItem(`qrLayout_${task.id}`);
+      if (savedLayout) {
+        const layoutData = JSON.parse(savedLayout);
+        setPageItems(layoutData.items || []);
+        setOrientation(layoutData.orientation || 'portrait');
+        setPageColor(layoutData.pageColor || '#ffffff');
+        
+        // QR kodu göster
+        const hasQrCode = layoutData.items.some((item: any) => item.type === 'qr');
+        setShowQrCode(hasQrCode);
+      } else {
+        // İlk defa açılıyorsa varsayılan değerleri ayarla
+        setPageItems([]);
+        setShowQrCode(false);
+      }
+    } catch (error) {
+      console.error('Kaydedilmiş düzeni yükleme hatası:', error);
+      setPageItems([]);
+      setShowQrCode(false);
+    }
+  };
+
+  // Düzeni localStorage'a kaydet
+  const saveLayout = () => {
+    if (!task || !task.id) return;
+
+    try {
+      const layoutData = {
+        items: pageItems,
+        orientation,
+        pageColor
+      };
+      localStorage.setItem(`qrLayout_${task.id}`, JSON.stringify(layoutData));
+    } catch (error) {
+      console.error('Düzen kaydetme hatası:', error);
+    }
+  };
 
   // QR Kod ekleme fonksiyonu
   const handleAddQrCode = useCallback(() => {
     if (!task || !task.id) {
       console.error("Geçerli görev veya görev ID'si yok:", task);
-      // Debug bilgisi set etmeyi kaldırıyorum
-    } else {
-      // Debug bilgisi set etmeyi kaldırıyorum
+      return;
     }
+    
+    // QR kodu pageItems'a ekle
+    const newItem = {
+      id: `qr-${Date.now()}`,
+      type: 'qr' as const,
+      position: { x: a5Dimensions.width / 2, y: a5Dimensions.height / 2 },
+      size: qrSize,
+      content: task.id,
+      selected: false
+    };
+    
+    setPageItems(prev => [...prev, newItem]);
     setShowQrCode(true);
-  }, [task]);
+    
+    // Düzeni kaydet
+    setTimeout(saveLayout, 100);
+  }, [task, qrSize]);
+
+  // Metin ekleme işlevi
+  const handleAddText = () => {
+    if (!task) return;
+    
+    const newItem = {
+      id: `text-${Date.now()}`,
+      type: 'text' as const,
+      position: { x: a5Dimensions.width / 2, y: a5Dimensions.height / 3 },
+      content: 'Yeni Metin',
+      selected: false
+    };
+    
+    setPageItems(prev => [...prev, newItem]);
+    
+    // Düzeni kaydet
+    setTimeout(saveLayout, 100);
+  };
+
+  // Logo ekleme işlevi
+  const handleAddLogo = () => {
+    if (!task) return;
+    
+    const newItem = {
+      id: `logo-${Date.now()}`,
+      type: 'logo' as const,
+      position: { x: a5Dimensions.width / 2, y: a5Dimensions.height / 4 },
+      size: 80,
+      content: 'logo-placeholder',
+      selected: false
+    };
+    
+    setPageItems(prev => [...prev, newItem]);
+    
+    // Düzeni kaydet
+    setTimeout(saveLayout, 100);
+  };
+
+  // Öğe seçme işlevi
+  const handleSelectItem = (id: string) => {
+    setPageItems(prev => prev.map(item => ({
+      ...item,
+      selected: item.id === id
+    })));
+  };
+
+  // Seçili öğeyi silme işlevi
+  const handleDeleteSelected = () => {
+    setPageItems(prev => {
+      const newItems = prev.filter(item => !item.selected);
+      
+      // QR kodu silindi mi kontrol et
+      const hasQrCode = newItems.some(item => item.type === 'qr');
+      if (!hasQrCode) {
+        setShowQrCode(false);
+      }
+      
+      // Düzeni kaydet
+      setTimeout(saveLayout, 100);
+      
+      return newItems;
+    });
+  };
 
   // A5 boyutları (piksel olarak)
   const a5Dimensions = orientation === 'portrait' 
@@ -784,29 +911,57 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
     : { width: 595, height: 420 }; // Yatay A5
 
   // Sürükleme işlemleri
-  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>, itemId: string) => {
     setDragging(true);
+    
+    // Öğeyi seç
+    handleSelectItem(itemId);
+    
+    // Öğenin pozisyonunu bul
+    const item = pageItems.find(i => i.id === itemId);
+    if (!item) return;
+    
     setStartPoint({
-      x: e.clientX - position.x,
-      y: e.clientY - position.y
+      x: e.clientX - item.position.x,
+      y: e.clientY - item.position.y
     });
   };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!dragging) return;
     
+    // Seçili öğeyi bul
+    const selectedItem = pageItems.find(item => item.selected);
+    if (!selectedItem) return;
+    
     const newX = e.clientX - startPoint.x;
     const newY = e.clientY - startPoint.y;
     
-    // A5 sayfa sınırları içinde kal
-    const boundedX = Math.max(qrSize / 2, Math.min(a5Dimensions.width - qrSize / 2, newX));
-    const boundedY = Math.max(qrSize / 2, Math.min(a5Dimensions.height - qrSize / 2, newY));
+    // Öğe boyutunu hesapla
+    const itemSize = selectedItem.size || 50;
     
-    setPosition({ x: boundedX, y: boundedY });
+    // A5 sayfa sınırları içinde kal
+    const boundedX = Math.max(itemSize / 2, Math.min(a5Dimensions.width - itemSize / 2, newX));
+    const boundedY = Math.max(itemSize / 2, Math.min(a5Dimensions.height - itemSize / 2, newY));
+    
+    // Öğenin pozisyonunu güncelle
+    setPageItems(prev => prev.map(item => {
+      if (item.selected) {
+        return {
+          ...item,
+          position: { x: boundedX, y: boundedY }
+        };
+      }
+      return item;
+    }));
   };
 
   const handleMouseUp = () => {
-    setDragging(false);
+    if (dragging) {
+      setDragging(false);
+      // Düzeni kaydet
+      saveLayout();
+    }
   };
 
   // Yazdırma fonksiyonu
@@ -881,13 +1036,12 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
     }
   };
 
-  // Modal açıldığında görev durumunu sıfırla
+  // Yönlendirme değiştiğinde düzeni güncelle ve kaydet
   useEffect(() => {
-    if (open) {
-      setShowQrCode(false);
-      // Debug bilgisi set etmeyi kaldırıyorum
+    if (open && task) {
+      saveLayout();
     }
-  }, [open, task]);
+  }, [orientation, pageColor, open, task]);
 
   if (!task) return null;
 
@@ -951,32 +1105,88 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
               onMouseUp={handleMouseUp}
               onMouseLeave={handleMouseUp}
             >
-              {/* QR Kod görünümü */}
-              {showQrCode && task && task.id && (
-                <Box 
-                  sx={{ 
-                    position: 'absolute',
-                    top: position.y,
-                    left: position.x,
-                    transform: 'translate(-50%, -50%)',
-                    cursor: dragging ? 'grabbing' : 'grab',
-                    backgroundColor: '#ffffff',
-                    padding: '10px',
-                    borderRadius: '4px',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-                  }}
-                  onMouseDown={handleMouseDown}
-                >
-                  <QRCodeCanvas 
-                    value={task.id}
-                    size={qrSize}
-                    level="H" // Yüksek hata düzeltme seviyesi
-                    includeMargin={true}
-                    bgColor="#ffffff"
-                    fgColor="#000000"
-                  />
-                </Box>
-              )}
+              {/* A5 sayfasına eklenen öğeler */}
+              {pageItems.map(item => {
+                if (item.type === 'qr' && task.id) {
+                  return (
+                    <Box 
+                      key={item.id}
+                      sx={{ 
+                        position: 'absolute',
+                        top: item.position.y,
+                        left: item.position.x,
+                        transform: 'translate(-50%, -50%)',
+                        cursor: dragging && item.selected ? 'grabbing' : 'grab',
+                        backgroundColor: '#ffffff',
+                        padding: '10px',
+                        borderRadius: '4px',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                        border: item.selected ? '2px solid #1976d2' : 'none',
+                        zIndex: item.selected ? 10 : 1
+                      }}
+                      onMouseDown={(e) => handleMouseDown(e, item.id)}
+                    >
+                      <QRCodeCanvas 
+                        value={task.id}
+                        size={item.size || qrSize}
+                        level="H" // Yüksek hata düzeltme seviyesi
+                        includeMargin={true}
+                        bgColor="#ffffff"
+                        fgColor="#000000"
+                      />
+                    </Box>
+                  );
+                } else if (item.type === 'text') {
+                  return (
+                    <Box
+                      key={item.id}
+                      sx={{ 
+                        position: 'absolute',
+                        top: item.position.y,
+                        left: item.position.x,
+                        transform: 'translate(-50%, -50%)',
+                        cursor: dragging && item.selected ? 'grabbing' : 'grab',
+                        padding: '10px',
+                        background: 'rgba(255,255,255,0.8)',
+                        borderRadius: '4px',
+                        border: item.selected ? '2px solid #1976d2' : '1px dashed #ccc',
+                        zIndex: item.selected ? 10 : 1
+                      }}
+                      onMouseDown={(e) => handleMouseDown(e, item.id)}
+                    >
+                      <Typography variant="body1">
+                        {item.content || 'Metin'}
+                      </Typography>
+                    </Box>
+                  );
+                } else if (item.type === 'logo') {
+                  return (
+                    <Box
+                      key={item.id}
+                      sx={{ 
+                        position: 'absolute',
+                        top: item.position.y,
+                        left: item.position.x,
+                        transform: 'translate(-50%, -50%)',
+                        cursor: dragging && item.selected ? 'grabbing' : 'grab',
+                        width: item.size || 80,
+                        height: item.size || 80,
+                        background: '#f0f0f0',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderRadius: '4px',
+                        border: item.selected ? '2px solid #1976d2' : '1px dashed #ccc',
+                        zIndex: item.selected ? 10 : 1
+                      }}
+                      onMouseDown={(e) => handleMouseDown(e, item.id)}
+                    >
+                      <ImageIcon sx={{ fontSize: 40, color: 'text.secondary' }} />
+                    </Box>
+                  );
+                }
+                return null;
+              })}
             </Paper>
           </Box>
 
@@ -1018,6 +1228,22 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
 
             <Divider />
 
+            {/* Seçili öğeyi silme butonu */}
+            {pageItems.some(item => item.selected) && (
+              <Box>
+                <Button
+                  variant="contained"
+                  color="error"
+                  fullWidth
+                  startIcon={<DeleteIcon />}
+                  sx={{ py: 1.5, mb: 2 }}
+                  onClick={handleDeleteSelected}
+                >
+                  Seçili Öğeyi Sil
+                </Button>
+              </Box>
+            )}
+
             {/* QR Ekle Butonu */}
             <Box>
               <Button
@@ -1027,12 +1253,12 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
                 startIcon={<QrCodeIcon />}
                 sx={{ py: 1.5, mb: 2 }}
                 onClick={handleAddQrCode}
-                disabled={showQrCode}
+                disabled={pageItems.some(item => item.type === 'qr')}
               >
                 QR Ekle
               </Button>
               
-              {showQrCode && (
+              {pageItems.some(item => item.type === 'qr') && (
                 <Box sx={{ mt: 2 }}>
                   <Typography variant="body2" gutterBottom>
                     QR Kod Boyutu:
@@ -1042,7 +1268,21 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
                     max={200}
                     step={10}
                     value={qrSize}
-                    onChange={(_, value) => setQrSize(value as number)}
+                    onChange={(_, value) => {
+                      setQrSize(value as number);
+                      // Seçili QR kodunun boyutunu güncelle
+                      setPageItems(prev => prev.map(item => {
+                        if (item.type === 'qr' && item.selected) {
+                          return {
+                            ...item,
+                            size: value as number
+                          };
+                        }
+                        return item;
+                      }));
+                      // Değişiklikleri kaydet
+                      setTimeout(saveLayout, 100);
+                    }}
                     valueLabelDisplay="auto"
                     sx={{ mt: 1 }}
                   />
@@ -1058,6 +1298,7 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
                 fullWidth
                 startIcon={<ImageIcon />}
                 sx={{ py: 1.5, mb: 2 }}
+                onClick={handleAddLogo}
               >
                 Logo Ekle
               </Button>
@@ -1071,6 +1312,7 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
                 fullWidth
                 startIcon={<TextFieldsIcon />}
                 sx={{ py: 1.5, mb: 2 }}
+                onClick={handleAddText}
               >
                 Metin Ekle
               </Button>
