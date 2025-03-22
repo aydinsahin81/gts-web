@@ -33,7 +33,10 @@ import {
   FormControlLabel,
   RadioGroup,
   Radio,
-  Switch
+  Switch,
+  List,
+  ToggleButtonGroup,
+  ToggleButton
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -44,7 +47,9 @@ import {
   PlayCircleFilled as StartedIcon,
   Assignment as AssignmentIcon,
   Close as CloseIcon,
-  Delete as DeleteIcon
+  Delete as DeleteIcon,
+  ViewModule as ViewModuleIcon,
+  ViewList as ViewListIcon
 } from '@mui/icons-material';
 import { ref, get, onValue, off, remove, update, push, set } from 'firebase/database';
 import { database, auth } from '../../firebase';
@@ -94,6 +99,18 @@ const HeaderContainer = styled(Box)(({ theme }) => ({
   justifyContent: 'space-between',
   alignItems: 'center',
   marginBottom: theme.spacing(3),
+}));
+
+// İnce görev kartı için styled component
+const SlimTaskCard = styled(Card)(({ theme }) => ({
+  borderRadius: 8,
+  boxShadow: '0 2px 6px rgba(0,0,0,0.05)',
+  margin: '4px 0',
+  transition: 'background-color 0.2s ease-in-out',
+  '&:hover': {
+    backgroundColor: theme.palette.grey[50],
+    cursor: 'pointer'
+  }
 }));
 
 // Durum filtresi için seçenekler
@@ -706,6 +723,26 @@ const Tasks: React.FC = () => {
   const [selectedTask, setSelectedTask] = useState<any | null>(null);
   const [taskDetailOpen, setTaskDetailOpen] = useState(false);
   const [addTaskModalOpen, setAddTaskModalOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
+
+  // Görünüm modunu localStorage'dan yükle
+  useEffect(() => {
+    const savedViewMode = localStorage.getItem('tasksViewMode');
+    if (savedViewMode === 'list' || savedViewMode === 'card') {
+      setViewMode(savedViewMode);
+    }
+  }, []);
+  
+  // Görünüm modu değiştiğinde localStorage'a kaydet
+  const handleViewModeChange = (
+    event: React.MouseEvent<HTMLElement>,
+    newViewMode: 'card' | 'list' | null
+  ) => {
+    if (newViewMode !== null) {
+      setViewMode(newViewMode);
+      localStorage.setItem('tasksViewMode', newViewMode);
+    }
+  };
 
   // Duruma göre renk döndüren yardımcı fonksiyon
   const getStatusColor = (status: string): string => {
@@ -1020,210 +1057,230 @@ const Tasks: React.FC = () => {
 
   return (
     <ScrollableContent>
-      {/* Başlık ve Ekleme Butonu */}
       <HeaderContainer>
         <Typography variant="h4" component="h1" fontWeight="bold" color="primary">
           Görevler
         </Typography>
-        <Button
-          variant="contained"
-          color="primary"
-          startIcon={<AddIcon />}
-          sx={{ borderRadius: 2 }}
-          onClick={() => setAddTaskModalOpen(true)}
-        >
-          Yeni Görev Ekle
-        </Button>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <ToggleButtonGroup
+            value={viewMode}
+            exclusive
+            onChange={handleViewModeChange}
+            aria-label="görünüm modu"
+            size="small"
+          >
+            <ToggleButton value="card" aria-label="kart görünümü">
+              <ViewModuleIcon />
+            </ToggleButton>
+            <ToggleButton value="list" aria-label="liste görünümü">
+              <ViewListIcon />
+            </ToggleButton>
+          </ToggleButtonGroup>
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<AddIcon />}
+            onClick={() => setAddTaskModalOpen(true)}
+            sx={{ borderRadius: 2 }}
+          >
+            Yeni Görev Ekle
+          </Button>
+        </Box>
       </HeaderContainer>
-      
-      {/* Filtre Alanı */}
+
       <FilterContainer>
-        <Grid container spacing={3}>
-          {/* Görev Durumu Filtresi */}
-          <Grid item xs={12} md={6}>
-            <Typography variant="subtitle1" gutterBottom fontWeight="medium">
-              Görev Durumuna Göre Filtrele
-            </Typography>
-            <FormControl fullWidth variant="outlined" size="small">
-              <InputLabel>Durum</InputLabel>
-              <Select
-                value={statusFilter}
-                onChange={handleStatusFilterChange}
-                label="Durum"
-              >
-                {statusOptions.map((option) => (
-                  <MenuItem key={option.value} value={option.value}>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      {option.value !== 'all' && (
-                        <Box 
-                          sx={{ 
-                            width: 12, 
-                            height: 12, 
-                            borderRadius: '50%', 
-                            backgroundColor: option.color, 
-                            mr: 1 
-                          }} 
-                        />
-                      )}
-                      {option.label}
-                    </Box>
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-          
-          {/* Personel Filtresi */}
-          <Grid item xs={12} md={6}>
-            <Typography variant="subtitle1" gutterBottom fontWeight="medium">
-              Personele Göre Filtrele
-            </Typography>
-            <FormControl fullWidth variant="outlined" size="small">
-              <InputLabel>Personel</InputLabel>
-              <Select
-                value={personnelFilter}
-                onChange={handlePersonnelFilterChange}
-                label="Personel"
-              >
-                <MenuItem value="all">Tüm Personeller</MenuItem>
-                {personnel.map((person) => (
-                  <MenuItem key={person.id} value={person.id}>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <PersonIcon fontSize="small" sx={{ mr: 1, color: '#1976D2' }} />
-                      {person.name}
-                    </Box>
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-        </Grid>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+          <FormControl sx={{ minWidth: 200, flex: 1 }}>
+            <InputLabel>Durum</InputLabel>
+            <Select
+              value={statusFilter}
+              label="Durum"
+              onChange={handleStatusFilterChange}
+              size="small"
+            >
+              {statusOptions.map((option) => (
+                <MenuItem key={option.value} value={option.value}>
+                  {option.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <FormControl sx={{ minWidth: 200, flex: 1 }}>
+            <InputLabel>Personel</InputLabel>
+            <Select
+              value={personnelFilter}
+              label="Personel"
+              onChange={handlePersonnelFilterChange}
+              size="small"
+            >
+              <MenuItem value="all">Tüm Personel</MenuItem>
+              <MenuItem value="none">Atanmamış Görevler</MenuItem>
+              {personnel.map((person) => (
+                <MenuItem key={person.id} value={person.id}>
+                  {person.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Box>
       </FilterContainer>
-      
-      {/* Görev Listesi */}
+
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
           <CircularProgress />
         </Box>
-      ) : filteredTasks.length === 0 ? (
-        <Box 
-          sx={{ 
-            display: 'flex', 
-            flexDirection: 'column', 
-            alignItems: 'center', 
-            justifyContent: 'center', 
-            mt: 4,
-            p: 4,
-            bgcolor: 'background.paper',
-            borderRadius: 2,
-            boxShadow: 1
-          }}
-        >
-          <AssignmentIcon sx={{ fontSize: 60, color: 'text.disabled', mb: 2 }} />
-          <Typography variant="h6" color="text.secondary">
-            {statusFilter === 'all' && personnelFilter === 'all'
-              ? 'Henüz görev bulunmuyor'
-              : 'Seçilen kriterlere uygun görev bulunamadı'}
+      ) : tasks.length === 0 ? (
+        <Box sx={{ textAlign: 'center', my: 8 }}>
+          <AssignmentIcon sx={{ fontSize: 60, color: 'primary.light', mb: 2 }} />
+          <Typography variant="h6" color="textSecondary">
+            {
+              statusFilter === 'all' && personnelFilter === 'all'
+                ? 'Henüz hiç görev eklenmemiş'
+                : 'Filtrelere uygun görev bulunamadı'
+            }
           </Typography>
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<AddIcon />}
+            onClick={() => setAddTaskModalOpen(true)}
+            sx={{ mt: 2 }}
+          >
+            Yeni Görev Ekle
+          </Button>
         </Box>
-      ) : (
-        <Grid container spacing={2}>
-          {filteredTasks.map((task) => (
-            <Grid item xs={12} sm={6} md={4} lg={3} key={task.id}>
+      ) : viewMode === 'card' ? (
+        <Grid container spacing={3}>
+          {tasks.map((task) => (
+            <Grid item xs={12} sm={6} md={3} key={task.id}>
               <TaskCard onClick={() => handleShowTaskDetail(task)}>
-                <CardContent sx={{ flexGrow: 1 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                    <Chip 
-                      label={getStatusLabel(task.status)} 
-                      size="small" 
-                      sx={{ 
-                        bgcolor: `${getStatusColor(task.status)}20`, 
+                <CardContent sx={{ display: 'flex', flexDirection: 'column', height: '100%', p: 2 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                    <Avatar
+                      sx={{
+                        bgcolor: `${getStatusColor(task.status)}20`,
                         color: getStatusColor(task.status),
-                        fontWeight: 'medium'
-                      }} 
-                    />
-                    {task.isRecurring && (
-                      <Chip 
-                        label="Tekrarlı" 
-                        size="small" 
-                        sx={{ 
-                          bgcolor: '#03A9F420', 
-                          color: '#03A9F4',
-                          fontWeight: 'medium'
-                        }} 
+                        mr: 1,
+                      }}
+                    >
+                      {getStatusIcon(task.status)}
+                    </Avatar>
+                    <Box>
+                      <Typography variant="subtitle1" fontWeight="bold" noWrap>
+                        {task.name}
+                      </Typography>
+                      <Chip
+                        label={getStatusLabel(task.status)}
+                        size="small"
+                        sx={{
+                          bgcolor: `${getStatusColor(task.status)}20`,
+                          color: getStatusColor(task.status),
+                          fontWeight: 'medium',
+                          height: 20,
+                          fontSize: 11,
+                        }}
                       />
-                    )}
+                    </Box>
                   </Box>
-                  
-                  <ListItem sx={{ p: 0 }}>
-                    <ListItemAvatar>
-                      <Avatar sx={{ bgcolor: `${getStatusColor(task.status)}20` }}>
-                        {getStatusIcon(task.status)}
-                      </Avatar>
-                    </ListItemAvatar>
-                    <ListItemText
-                      primary={
-                        <Typography variant="subtitle1" fontWeight="bold" noWrap>
-                          {task.name}
-                        </Typography>
-                      }
-                      secondary={
-                        <Box>
-                          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }} noWrap>
-                            {task.description || 'Açıklama yok'}
-                          </Typography>
-                          
-                          <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
-                            <PersonIcon fontSize="small" sx={{ mr: 0.5, color: 'text.secondary' }} />
-                            <Typography variant="body2" color="text.secondary" noWrap>
-                              {task.personnelName}
-                            </Typography>
-                          </Box>
-                          
-                          {task.isRecurring && task.repetitionTimes && task.repetitionTimes.length > 0 && (
-                            <Box sx={{ mt: 1 }}>
-                              <Divider sx={{ my: 1 }} />
-                              <Typography variant="caption" color="text.secondary">
-                                Tekrar saatleri:
-                              </Typography>
-                              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
-                                {task.repetitionTimes.slice(0, 3).map((time: string, index: number) => (
-                                  <Chip
-                                    key={index}
-                                    label={time}
-                                    size="small"
-                                    sx={{ 
-                                      bgcolor: '#f5f5f5', 
-                                      fontSize: '0.7rem',
-                                      height: 24
-                                    }}
-                                  />
-                                ))}
-                                {task.repetitionTimes.length > 3 && (
-                                  <Chip
-                                    label={`+${task.repetitionTimes.length - 3}`}
-                                    size="small"
-                                    sx={{ 
-                                      bgcolor: '#f5f5f5', 
-                                      fontSize: '0.7rem',
-                                      height: 24
-                                    }}
-                                  />
-                                )}
-                              </Box>
-                            </Box>
-                          )}
-                        </Box>
-                      }
-                    />
-                  </ListItem>
+
+                  <Divider sx={{ mb: 1.5 }} />
+
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{
+                      mb: 1.5,
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                      flexGrow: 1,
+                    }}
+                  >
+                    {task.description || 'Açıklama yok'}
+                  </Typography>
+
+                  {task.personnelName ? (
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <PersonIcon fontSize="small" sx={{ color: 'text.secondary', mr: 0.5 }} />
+                      <Typography variant="body2" color="text.secondary" noWrap>
+                        {task.personnelName}
+                      </Typography>
+                    </Box>
+                  ) : (
+                    <Typography variant="body2" color="error" fontStyle="italic">
+                      Personel atanmamış
+                    </Typography>
+                  )}
                 </CardContent>
               </TaskCard>
             </Grid>
           ))}
         </Grid>
+      ) : (
+        <List sx={{ bgcolor: 'background.paper', borderRadius: 2, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+          {tasks.map((task) => (
+            <React.Fragment key={task.id}>
+              <SlimTaskCard>
+                <ListItem 
+                  alignItems="center" 
+                  onClick={() => handleShowTaskDetail(task)}
+                  sx={{ p: 1, px: 2 }}
+                >
+                  <ListItemAvatar>
+                    <Avatar
+                      sx={{
+                        bgcolor: `${getStatusColor(task.status)}20`,
+                        color: getStatusColor(task.status),
+                      }}
+                    >
+                      {getStatusIcon(task.status)}
+                    </Avatar>
+                  </ListItemAvatar>
+                  <ListItemText
+                    primary={
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <Typography variant="subtitle1" fontWeight="medium">
+                          {task.name}
+                        </Typography>
+                        <Chip
+                          label={getStatusLabel(task.status)}
+                          size="small"
+                          sx={{
+                            ml: 1,
+                            bgcolor: `${getStatusColor(task.status)}20`,
+                            color: getStatusColor(task.status),
+                            fontWeight: 'medium',
+                            height: 20,
+                            fontSize: 11,
+                          }}
+                        />
+                      </Box>
+                    }
+                    secondary={
+                      task.personnelName ? (
+                        <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
+                          <PersonIcon fontSize="small" sx={{ color: 'text.secondary', mr: 0.5, fontSize: 16 }} />
+                          <Typography variant="body2" color="text.secondary">
+                            {task.personnelName}
+                          </Typography>
+                        </Box>
+                      ) : (
+                        <Typography variant="body2" color="error" fontStyle="italic" sx={{ mt: 0.5 }}>
+                          Personel atanmamış
+                        </Typography>
+                      )
+                    }
+                  />
+                </ListItem>
+              </SlimTaskCard>
+              <Divider component="li" />
+            </React.Fragment>
+          ))}
+        </List>
       )}
-      
+
       {/* Görev Detay Modalı */}
       <TaskDetailModal
         open={taskDetailOpen}
@@ -1234,7 +1291,7 @@ const Tasks: React.FC = () => {
         getStatusIcon={getStatusIcon}
         getStatusLabel={getStatusLabel}
       />
-      
+
       {/* Görev Ekleme Modalı */}
       <AddTaskModal
         open={addTaskModalOpen}
@@ -1242,7 +1299,6 @@ const Tasks: React.FC = () => {
         onAddTask={handleAddTask}
         personnel={personnel}
       />
-      
     </ScrollableContent>
   );
 };

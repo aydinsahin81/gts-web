@@ -14,9 +14,10 @@ import Dashboard from './components/dashboard/Dashboard';
 import Tasks from './components/tasks/Tasks';
 import Personnel from './components/personnel/Personnel';
 import Profile from './components/profile/Profile';
+import Reports from './components/reports/Reports';
 
 // Henüz oluşturulmamış diğer sayfalar için geçici bileşenler
-const Reports = () => <div>Raporlar Sayfası</div>;
+// const Reports = () => <div>Raporlar Sayfası</div>;
 
 // Tema oluşturma
 const theme = createTheme({
