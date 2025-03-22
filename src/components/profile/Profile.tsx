@@ -131,44 +131,9 @@ const Profile: React.FC = () => {
   return (
     <ScrollableContent>
       <Container maxWidth="md">
-        <ProfileHeader>
-          <Box sx={{ position: 'relative', mb: 2 }}>
-            <Box
-              sx={{
-                padding: '5px',
-                borderRadius: '50%',
-                border: '3px solid white',
-                display: 'inline-flex',
-              }}
-            >
-              <Avatar
-                sx={{
-                  width: 100,
-                  height: 100,
-                  bgcolor: 'white',
-                  color: 'primary.main',
-                  fontSize: 35,
-                  fontWeight: 'bold',
-                }}
-              >
-                {userInitials}
-              </Avatar>
-            </Box>
-          </Box>
-          
-          <Chip
-            label={userData.role === 'admin' ? 'Yönetici' : 'Personel'}
-            sx={{
-              bgcolor: 'rgba(255, 255, 255, 0.2)',
-              color: 'white',
-              py: 0.5,
-              px: 1.5,
-              borderRadius: 5,
-              fontSize: 16,
-              mb: 3
-            }}
-          />
-        </ProfileHeader>
+        <Typography variant="h4" component="h1" fontWeight="bold" color="primary" gutterBottom sx={{ mb: 4 }}>
+          Profil Bilgileri
+        </Typography>
 
         <Grid container spacing={3}>
           <Grid item xs={12}>

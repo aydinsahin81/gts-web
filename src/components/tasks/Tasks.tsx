@@ -53,6 +53,9 @@ import {
 } from '@mui/icons-material';
 import { ref, get, onValue, off, remove, update, push, set } from 'firebase/database';
 import { database, auth } from '../../firebase';
+import TimeService from '../../services/TimeService';
+import TaskTimeService, { TaskTimeStatus } from '../../services/TaskTimeService';
+import MissedTaskService from '../../services/MissedTaskService';
 
 // Kaydırılabilir ana içerik için styled component
 const ScrollableContent = styled(Box)(({ theme }) => ({
@@ -82,6 +85,14 @@ const TaskCard = styled(Card)(({ theme }) => ({
   boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
   display: 'flex',
   flexDirection: 'column',
+}));
+
+// Görev zamanı chip bileşeni
+const TaskTimeChip = styled(Chip)<{ status: string }>(({ theme, status }) => ({
+  backgroundColor: `${status}20`, // Renkli arkaplan
+  color: status,
+  fontSize: '0.7rem',
+  height: 20
 }));
 
 // Filtre alanı için styled component
@@ -312,19 +323,31 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                     Tekrar saatleri:
                   </Typography>
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
-                    {task.repetitionTimes.map((time: string, index: number) => (
+                    {task.repetitionTimes.slice(0, 3).map((time: string, index: number) => (
                       <Chip
                         key={index}
                         label={time}
                         size="small"
                         sx={{
-                          bgcolor: 'primary.light',
-                          color: 'white',
+                          bgcolor: '#03A9F420',
+                          color: '#03A9F4',
                           fontSize: '0.7rem',
-                          height: 24
+                          height: 20
                         }}
                       />
                     ))}
+                    {task.repetitionTimes.length > 3 && (
+                      <Chip
+                        label={`+${task.repetitionTimes.length - 3}`}
+                        size="small"
+                        sx={{
+                          bgcolor: '#03A9F420',
+                          color: '#03A9F4',
+                          fontSize: '0.7rem',
+                          height: 20
+                        }}
+                      />
+                    )}
                   </Box>
                 </Box>
               )}
@@ -724,6 +747,9 @@ const Tasks: React.FC = () => {
   const [taskDetailOpen, setTaskDetailOpen] = useState(false);
   const [addTaskModalOpen, setAddTaskModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
+  // Görev zamanı durumları
+  const [taskTimeStatuses, setTaskTimeStatuses] = useState<Record<string, any>>({});
+  const [isCheckingTasks, setIsCheckingTasks] = useState(false);
 
   // Görünüm modunu localStorage'dan yükle
   useEffect(() => {
@@ -1055,6 +1081,123 @@ const Tasks: React.FC = () => {
     }
   };
 
+  // Tekrarlı görevlerin durumlarını kontrol et ve güncelle
+  const checkRecurringTaskTimes = async () => {
+    if (isCheckingTasks) return;
+    
+    try {
+      setIsCheckingTasks(true);
+      console.log('Tekrarlı görevler kontrol ediliyor...');
+      
+      const statusMap: Record<string, any> = {};
+      
+      // Her görev için tekrarlanan zamanları kontrol et
+      for (const task of tasks) {
+        if (task.isRecurring && task.repetitionTimes && task.repetitionTimes.length > 0) {
+          // Kaçırılan ve tamamlanan görev zamanlarını al
+          const missedTimes = await MissedTaskService.getMissedTaskTimes(task.id, companyId as string);
+          const completedTimes = await MissedTaskService.getCompletedTaskTimes(task.id, companyId as string);
+          
+          // Başlatılmış ama tamamlanmamış görevlerin durumlarını al
+          const timeStatuses = await MissedTaskService.getCompletedTaskTimeStatuses(task.id, companyId as string);
+          
+          // Tekrarlanan her zaman için durumu kontrol et
+          for (const timeString of task.repetitionTimes) {
+            // Zaman tamamlanmış veya kaçırılmış ise özel durum ata
+            if (completedTimes.includes(timeString)) {
+              statusMap[`${task.id}_${timeString}`] = {
+                status: 'completed',
+                color: '#4CAF50', // Yeşil
+                activeTime: timeString
+              };
+              continue;
+            }
+            
+            if (missedTimes.includes(timeString)) {
+              statusMap[`${task.id}_${timeString}`] = {
+                status: 'missed',
+                color: '#F44336', // Kırmızı
+                activeTime: timeString
+              };
+              continue;
+            }
+            
+            // Zaman başlatılmış ama tamamlanmamış ise
+            if (timeStatuses[timeString] === 'started') {
+              statusMap[`${task.id}_${timeString}`] = {
+                status: 'started',
+                color: '#795548', // Kahverengi
+                activeTime: timeString
+              };
+              continue;
+            }
+            
+            // Durumu kontrol et (yaklaşan, aktif, geçmiş)
+            const result = await TaskTimeService.checkRecurringTaskTime(
+              task.repetitionTimes,
+              task.startTolerance || 15,
+              task.status
+            );
+            
+            // Renk belirle
+            const color = TaskTimeService.getTaskTimeColor(result.status, task.status);
+            
+            statusMap[`${task.id}_${timeString}`] = {
+              status: result.status,
+              color,
+              activeTime: result.activeTime
+            };
+          }
+        }
+      }
+      
+      setTaskTimeStatuses(statusMap);
+      console.log('Görev zamanları güncellendi:', statusMap);
+      
+      // Kaçırılan görevleri güncelle
+      if (companyId && tasks.length > 0) {
+        await MissedTaskService.checkAndRecordMissedTasks(tasks, companyId);
+      }
+      
+    } catch (error) {
+      console.error('Görev zamanları kontrol edilirken hata:', error);
+    } finally {
+      setIsCheckingTasks(false);
+    }
+  };
+
+  // Component mount olduğunda ve görev/şirket ID'si değiştiğinde kontrol yap
+  useEffect(() => {
+    if (companyId && tasks.length > 0 && !loading) {
+      checkRecurringTaskTimes();
+      
+      // Her dakika kontrol yap
+      const interval = setInterval(() => {
+        checkRecurringTaskTimes();
+      }, 60000); // 60 saniye
+      
+      return () => clearInterval(interval);
+    }
+  }, [companyId, tasks, loading]);
+
+  // Görev zamanı rengi belirle
+  const getTaskTimeColor = (task: any, timeString: string): string => {
+    const key = `${task.id}_${timeString}`;
+    if (taskTimeStatuses[key]) {
+      return taskTimeStatuses[key].color;
+    }
+    return '#9E9E9E'; // Varsayılan gri
+  };
+
+  // Görev zamanı durumu belirle
+  const getTaskTimeStatus = (task: any, timeString: string): string => {
+    const key = `${task.id}_${timeString}`;
+    if (taskTimeStatuses[key]) {
+      return taskTimeStatuses[key].status;
+    }
+    return TaskTimeStatus.notYetDue;
+  };
+
   return (
     <ScrollableContent>
       <HeaderContainer>
@@ -1152,7 +1295,7 @@ const Tasks: React.FC = () => {
         </Box>
       ) : viewMode === 'card' ? (
         <Grid container spacing={3}>
-          {tasks.map((task) => (
+          {filteredTasks.map((task) => (
             <Grid item xs={12} sm={6} md={3} key={task.id}>
               <TaskCard onClick={() => handleShowTaskDetail(task)}>
                 <CardContent sx={{ display: 'flex', flexDirection: 'column', height: '100%', p: 2 }}>
@@ -1201,6 +1344,37 @@ const Tasks: React.FC = () => {
                     {task.description || 'Açıklama yok'}
                   </Typography>
 
+                  {task.isRecurring && task.repetitionTimes && task.repetitionTimes.length > 0 && (
+                    <Box sx={{ mb: 1.5 }}>
+                      <Divider sx={{ my: 1 }} />
+                      <Typography variant="caption" color="text.secondary">
+                        Tekrar saatleri:
+                      </Typography>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                        {task.repetitionTimes.slice(0, 3).map((time: string, index: number) => (
+                          <TaskTimeChip
+                            key={index}
+                            label={time}
+                            size="small"
+                            status={getTaskTimeColor(task, time)}
+                          />
+                        ))}
+                        {task.repetitionTimes.length > 3 && (
+                          <Chip
+                            label={`+${task.repetitionTimes.length - 3}`}
+                            size="small"
+                            sx={{
+                              bgcolor: '#03A9F420',
+                              color: '#03A9F4',
+                              fontSize: '0.7rem',
+                              height: 20
+                            }}
+                          />
+                        )}
+                      </Box>
+                    </Box>
+                  )}
+
                   {task.personnelName ? (
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
                       <PersonIcon fontSize="small" sx={{ color: 'text.secondary', mr: 0.5 }} />
@@ -1220,7 +1394,7 @@ const Tasks: React.FC = () => {
         </Grid>
       ) : (
         <List sx={{ bgcolor: 'background.paper', borderRadius: 2, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
-          {tasks.map((task) => (
+          {filteredTasks.map((task) => (
             <React.Fragment key={task.id}>
               <SlimTaskCard>
                 <ListItem 
@@ -1259,18 +1433,50 @@ const Tasks: React.FC = () => {
                       </Box>
                     }
                     secondary={
-                      task.personnelName ? (
-                        <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
-                          <PersonIcon fontSize="small" sx={{ color: 'text.secondary', mr: 0.5, fontSize: 16 }} />
-                          <Typography variant="body2" color="text.secondary">
-                            {task.personnelName}
+                      <Box>
+                        {task.personnelName ? (
+                          <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
+                            <PersonIcon fontSize="small" sx={{ color: 'text.secondary', mr: 0.5, fontSize: 16 }} />
+                            <Typography variant="body2" color="text.secondary">
+                              {task.personnelName}
+                            </Typography>
+                          </Box>
+                        ) : (
+                          <Typography variant="body2" color="error" fontStyle="italic" sx={{ mt: 0.5 }}>
+                            Personel atanmamış
                           </Typography>
-                        </Box>
-                      ) : (
-                        <Typography variant="body2" color="error" fontStyle="italic" sx={{ mt: 0.5 }}>
-                          Personel atanmamış
-                        </Typography>
-                      )
+                        )}
+                        
+                        {task.isRecurring && task.repetitionTimes && task.repetitionTimes.length > 0 && (
+                          <Box sx={{ mt: 1 }}>
+                            <Typography variant="caption" color="text.secondary">
+                              Tekrar saatleri:
+                            </Typography>
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                              {task.repetitionTimes.slice(0, 3).map((time: string, index: number) => (
+                                <TaskTimeChip
+                                  key={index}
+                                  label={time}
+                                  size="small"
+                                  status={getTaskTimeColor(task, time)}
+                                />
+                              ))}
+                              {task.repetitionTimes.length > 3 && (
+                                <Chip
+                                  label={`+${task.repetitionTimes.length - 3}`}
+                                  size="small"
+                                  sx={{
+                                    bgcolor: '#03A9F420',
+                                    color: '#03A9F4',
+                                    fontSize: '0.7rem',
+                                    height: 20
+                                  }}
+                                />
+                              )}
+                            </Box>
+                          </Box>
+                        )}
+                      </Box>
                     }
                   />
                 </ListItem>
