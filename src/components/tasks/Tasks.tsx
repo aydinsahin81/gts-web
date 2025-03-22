@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -51,7 +51,9 @@ import {
   ViewModule as ViewModuleIcon,
   ViewList as ViewListIcon,
   QrCode as QrCodeIcon,
-  Print as PrintIcon
+  Print as PrintIcon,
+  Image as ImageIcon,
+  TextFields as TextFieldsIcon
 } from '@mui/icons-material';
 import { ref, get, onValue, off, remove, update, push, set } from 'firebase/database';
 import { database, auth } from '../../firebase';
@@ -745,18 +747,29 @@ interface QrPrintModalProps {
 }
 
 const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
+  const [orientation, setOrientation] = useState<'portrait' | 'landscape'>('portrait');
+  const [pageColor, setPageColor] = useState('#ffffff');
+  const printRef = useRef<HTMLDivElement>(null);
+
   if (!task) return null;
+
+  // A5 boyutları (piksel olarak)
+  const a5Dimensions = orientation === 'portrait' 
+    ? { width: 420, height: 595 } // Dikey A5
+    : { width: 595, height: 420 }; // Yatay A5
 
   return (
     <Dialog
       open={open}
       onClose={onClose}
-      maxWidth="sm"
+      maxWidth="lg"
       fullWidth
       PaperProps={{
         sx: {
           borderRadius: 2,
-          boxShadow: '0 8px 24px rgba(0,0,0,0.12)'
+          boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+          height: '90vh',
+          maxHeight: '90vh'
         }
       }}
     >
@@ -768,40 +781,158 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
         color: 'white',
         py: 2
       }}>
-        <Typography variant="h6" fontWeight="bold">QR Kod Yazdır</Typography>
+        <Typography variant="h6" fontWeight="bold">QR Kod Sayfası Tasarla</Typography>
         <IconButton onClick={onClose} size="small" sx={{ color: 'white' }}>
           <CloseIcon />
         </IconButton>
       </DialogTitle>
 
-      <DialogContent sx={{ px: 3, py: 4 }}>
-        <Box sx={{ textAlign: 'center', mb: 3 }}>
-          <Typography variant="h6" color="primary" gutterBottom>
-            {task.name}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Görev için QR Kodlar
-          </Typography>
-        </Box>
+      <DialogContent sx={{ p: 0, display: 'flex', overflow: 'hidden' }}>
+        <Box sx={{ display: 'flex', height: '100%', width: '100%' }}>
+          {/* Sol Bölüm - A5 Tasarım Alanı */}
+          <Box 
+            sx={{ 
+              flex: 2, 
+              p: 2, 
+              display: 'flex', 
+              flexDirection: 'column',
+              justifyContent: 'center',
+              alignItems: 'center',
+              bgcolor: 'grey.100',
+              overflow: 'auto'
+            }}
+          >
+            <Paper
+              ref={printRef}
+              elevation={3}
+              sx={{
+                width: a5Dimensions.width,
+                height: a5Dimensions.height,
+                backgroundColor: pageColor,
+                position: 'relative',
+                overflow: 'hidden',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+                transition: 'all 0.3s ease'
+              }}
+            >
+              {/* Boş A5 sayfa */}
+            </Paper>
+          </Box>
 
-        {/* QR Kod içeriği burada oluşturulacak */}
-        <Box sx={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
-          alignItems: 'center',
-          height: 200,
-          mb: 3,
-          border: '1px dashed',
-          borderColor: 'divider',
-          borderRadius: 2,
-          p: 2
-        }}>
-          <QrCodeIcon sx={{ fontSize: 100, color: 'text.secondary', opacity: 0.5 }} />
+          {/* Sağ Bölüm - Araçlar */}
+          <Box sx={{ 
+            flex: 1, 
+            borderLeft: '1px solid', 
+            borderColor: 'divider',
+            p: 2,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 3,
+            overflowY: 'auto'
+          }}>
+            {/* Sayfa Yönlendirmesi */}
+            <Box>
+              <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                Sayfa Yönlendirmesi
+              </Typography>
+              <FormControl component="fieldset">
+                <RadioGroup 
+                  row 
+                  value={orientation} 
+                  onChange={(e) => setOrientation(e.target.value as 'portrait' | 'landscape')}
+                >
+                  <FormControlLabel 
+                    value="portrait" 
+                    control={<Radio />} 
+                    label="Dikey" 
+                  />
+                  <FormControlLabel 
+                    value="landscape" 
+                    control={<Radio />} 
+                    label="Yatay" 
+                  />
+                </RadioGroup>
+              </FormControl>
+            </Box>
+
+            <Divider />
+
+            {/* QR Ekle Butonu */}
+            <Box>
+              <Button
+                variant="outlined"
+                color="primary"
+                fullWidth
+                startIcon={<QrCodeIcon />}
+                sx={{ py: 1.5, mb: 2 }}
+              >
+                QR Kod Ekle
+              </Button>
+            </Box>
+
+            {/* Logo Ekle Butonu */}
+            <Box>
+              <Button
+                variant="outlined"
+                color="primary"
+                fullWidth
+                startIcon={<ImageIcon />}
+                sx={{ py: 1.5, mb: 2 }}
+              >
+                Logo Ekle
+              </Button>
+            </Box>
+
+            {/* Metin Ekle Butonu */}
+            <Box>
+              <Button
+                variant="outlined"
+                color="primary"
+                fullWidth
+                startIcon={<TextFieldsIcon />}
+                sx={{ py: 1.5, mb: 2 }}
+              >
+                Metin Ekle
+              </Button>
+            </Box>
+
+            <Divider />
+
+            {/* Sayfa Rengi */}
+            <Box>
+              <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                A5 Sayfa Rengi
+              </Typography>
+              <Grid container spacing={1}>
+                {['#ffffff', '#f5f5f5', '#fafafa', '#eeeeee', '#e0e0e0', '#FFEBEE', '#E3F2FD', '#E8F5E9', '#FFF8E1'].map((color) => (
+                  <Grid item xs={4} key={color}>
+                    <Box 
+                      onClick={() => setPageColor(color)}
+                      sx={{
+                        width: '100%',
+                        height: 40,
+                        bgcolor: color,
+                        border: pageColor === color ? '2px solid #1976d2' : '1px solid #e0e0e0',
+                        borderRadius: 1,
+                        cursor: 'pointer',
+                        '&:hover': {
+                          opacity: 0.8
+                        }
+                      }}
+                    />
+                  </Grid>
+                ))}
+              </Grid>
+            </Box>
+          </Box>
         </Box>
       </DialogContent>
 
       <DialogActions sx={{ px: 3, pb: 3 }}>
-        <Button onClick={onClose}>
+        <Button
+          variant="outlined"
+          onClick={onClose}
+        >
           Kapat
         </Button>
         <Button
