@@ -49,7 +49,9 @@ import {
   Close as CloseIcon,
   Delete as DeleteIcon,
   ViewModule as ViewModuleIcon,
-  ViewList as ViewListIcon
+  ViewList as ViewListIcon,
+  QrCode as QrCodeIcon,
+  Print as PrintIcon
 } from '@mui/icons-material';
 import { ref, get, onValue, off, remove, update, push, set } from 'firebase/database';
 import { database, auth } from '../../firebase';
@@ -735,6 +737,85 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ open, onClose, onAddTask, p
   );
 };
 
+// QR Kod Yazdırma modalı bileşeni
+interface QrPrintModalProps {
+  open: boolean;
+  onClose: () => void;
+  task: any;
+}
+
+const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
+  if (!task) return null;
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="sm"
+      fullWidth
+      PaperProps={{
+        sx: {
+          borderRadius: 2,
+          boxShadow: '0 8px 24px rgba(0,0,0,0.12)'
+        }
+      }}
+    >
+      <DialogTitle sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center',
+        bgcolor: 'primary.main',
+        color: 'white',
+        py: 2
+      }}>
+        <Typography variant="h6" fontWeight="bold">QR Kod Yazdır</Typography>
+        <IconButton onClick={onClose} size="small" sx={{ color: 'white' }}>
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
+
+      <DialogContent sx={{ px: 3, py: 4 }}>
+        <Box sx={{ textAlign: 'center', mb: 3 }}>
+          <Typography variant="h6" color="primary" gutterBottom>
+            {task.name}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Görev için QR Kodlar
+          </Typography>
+        </Box>
+
+        {/* QR Kod içeriği burada oluşturulacak */}
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center',
+          height: 200,
+          mb: 3,
+          border: '1px dashed',
+          borderColor: 'divider',
+          borderRadius: 2,
+          p: 2
+        }}>
+          <QrCodeIcon sx={{ fontSize: 100, color: 'text.secondary', opacity: 0.5 }} />
+        </Box>
+      </DialogContent>
+
+      <DialogActions sx={{ px: 3, pb: 3 }}>
+        <Button onClick={onClose}>
+          Kapat
+        </Button>
+        <Button
+          variant="contained"
+          color="primary"
+          startIcon={<PrintIcon />}
+        >
+          Yazdır
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
 const Tasks: React.FC = () => {
   // State tanımlamaları
   const [loading, setLoading] = useState(true);
@@ -750,6 +831,8 @@ const Tasks: React.FC = () => {
   // Görev zamanı durumları
   const [taskTimeStatuses, setTaskTimeStatuses] = useState<Record<string, any>>({});
   const [isCheckingTasks, setIsCheckingTasks] = useState(false);
+  const [qrPrintModalOpen, setQrPrintModalOpen] = useState(false);
+  const [selectedTaskForQr, setSelectedTaskForQr] = useState<any | null>(null);
 
   // Görünüm modunu localStorage'dan yükle
   useEffect(() => {
@@ -1198,6 +1281,13 @@ const Tasks: React.FC = () => {
     return TaskTimeStatus.notYetDue;
   };
 
+  // QR Kod yazdırma modalını açma işlevi
+  const handleOpenQrPrintModal = (task: any, event: React.MouseEvent) => {
+    event.stopPropagation(); // Kart tıklama olayının tetiklenmesini engelle
+    setSelectedTaskForQr(task);
+    setQrPrintModalOpen(true);
+  };
+
   return (
     <ScrollableContent>
       <HeaderContainer>
@@ -1375,18 +1465,33 @@ const Tasks: React.FC = () => {
                     </Box>
                   )}
 
-                  {task.personnelName ? (
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <PersonIcon fontSize="small" sx={{ color: 'text.secondary', mr: 0.5 }} />
-                      <Typography variant="body2" color="text.secondary" noWrap>
-                        {task.personnelName}
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    {task.personnelName ? (
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <PersonIcon fontSize="small" sx={{ color: 'text.secondary', mr: 0.5 }} />
+                        <Typography variant="body2" color="text.secondary" noWrap>
+                          {task.personnelName}
+                        </Typography>
+                      </Box>
+                    ) : (
+                      <Typography variant="body2" color="error" fontStyle="italic">
+                        Personel atanmamış
                       </Typography>
-                    </Box>
-                  ) : (
-                    <Typography variant="body2" color="error" fontStyle="italic">
-                      Personel atanmamış
-                    </Typography>
-                  )}
+                    )}
+                    
+                    {task.isRecurring && task.completionType === 'qr' && (
+                      <Button
+                        size="small"
+                        startIcon={<QrCodeIcon />}
+                        variant="outlined"
+                        color="primary"
+                        onClick={(e) => handleOpenQrPrintModal(task, e)}
+                        sx={{ ml: 'auto', minWidth: 'auto', fontSize: '0.75rem', py: 0.5 }}
+                      >
+                        QR Yazdır
+                      </Button>
+                    )}
+                  </Box>
                 </CardContent>
               </TaskCard>
             </Grid>
@@ -1504,6 +1609,13 @@ const Tasks: React.FC = () => {
         onClose={() => setAddTaskModalOpen(false)}
         onAddTask={handleAddTask}
         personnel={personnel}
+      />
+
+      {/* QR Kod Yazdırma Modalı */}
+      <QrPrintModal
+        open={qrPrintModalOpen}
+        onClose={() => setQrPrintModalOpen(false)}
+        task={selectedTaskForQr}
       />
     </ScrollableContent>
   );
