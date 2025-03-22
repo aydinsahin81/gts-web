@@ -13,10 +13,10 @@ import MainLayout from './components/layout/MainLayout';
 import Dashboard from './components/dashboard/Dashboard';
 import Tasks from './components/tasks/Tasks';
 import Personnel from './components/personnel/Personnel';
+import Profile from './components/profile/Profile';
 
 // Henüz oluşturulmamış diğer sayfalar için geçici bileşenler
 const Reports = () => <div>Raporlar Sayfası</div>;
-const Profile = () => <div>Profil Sayfası</div>;
 
 // Tema oluşturma
 const theme = createTheme({
