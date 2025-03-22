@@ -65,6 +65,7 @@ import TimeService from '../../services/TimeService';
 import TaskTimeService, { TaskTimeStatus } from '../../services/TaskTimeService';
 import MissedTaskService from '../../services/MissedTaskService';
 import { QRCodeCanvas } from 'qrcode.react';
+import html2canvas from 'html2canvas';
 
 // Kaydırılabilir ana içerik için styled component
 const ScrollableContent = styled(Box)(({ theme }) => ({
@@ -1215,69 +1216,105 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
     if (!printRef.current) return;
     
     try {
-      const printWindow = window.open('', '_blank');
-      if (!printWindow) {
-        alert('Popup pencerelerine izin verdiğinizden emin olun.');
-        return;
-      }
+      // Yazdırma sırasında seçim sınırlarını kaldırmak için
+      const tempSelectedItems = pageItems.filter(item => item.selected);
       
-      // A5 sayfadaki içeriği kopyala
-      const printContent = printRef.current.innerHTML;
+      // Seçimleri geçici olarak kaldır
+      setPageItems(prev => prev.map(item => ({
+        ...item,
+        selected: false
+      })));
       
-      printWindow.document.open();
-      printWindow.document.write(`
-        <html>
-          <head>
-            <title>${task?.name || 'Görev'} QR Kodu</title>
-            <style>
-              body {
-                margin: 0;
-                padding: 0;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                height: 100vh;
-              }
-              .a5-container {
-                width: ${orientation === 'portrait' ? '148mm' : '210mm'};
-                height: ${orientation === 'portrait' ? '210mm' : '148mm'};
-                background-color: ${pageColor};
-                position: relative;
-                box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-              }
-              @media print {
-                body {
-                  -webkit-print-color-adjust: exact;
-                  print-color-adjust: exact;
-                }
-                .a5-container {
-                  box-shadow: none;
-                }
-              }
-            </style>
-          </head>
-          <body>
-            <div class="a5-container">
-              ${printContent}
-            </div>
-            <script>
-              window.onload = function() {
-                // Yazdırma işareti olan elemanları gizle
-                const hideElements = document.querySelectorAll('.no-print');
-                hideElements.forEach(function(el) {
-                  el.style.display = 'none';
-                });
-                
-                setTimeout(function() {
-                  window.print();
-                  window.close();
-                }, 500);
-              };
-            </script>
-          </body>
-        </html>
-      `);
-      printWindow.document.close();
+      // DOM'un güncellenmesi için kısa bir gecikme ekle
+      setTimeout(() => {
+        if (!printRef.current) return;
+        
+        // A5 kağıdının tam görüntüsünü al
+        html2canvas(printRef.current, {
+          scale: 2, // Daha yüksek kalite için
+          useCORS: true, // Dış kaynaklı görseller için
+          allowTaint: true,
+          backgroundColor: pageColor,
+          logging: false,
+          width: a5Dimensions.width,
+          height: a5Dimensions.height
+        }).then((canvas: HTMLCanvasElement) => {
+          const imgData = canvas.toDataURL('image/png');
+          
+          // Yeni pencere aç ve içeriği ekle
+          const printWindow = window.open('', '_blank');
+          if (!printWindow) {
+            alert('Popup pencerelerine izin verdiğinizden emin olun.');
+            
+            // Seçimleri geri yükle
+            setPageItems(prev => prev.map((item, i) => ({
+              ...item,
+              selected: tempSelectedItems.some(selItem => selItem.id === item.id)
+            })));
+            return;
+          }
+          
+          printWindow.document.open();
+          printWindow.document.write(`
+            <html>
+              <head>
+                <title>${task?.name || 'Görev'} QR Kodu</title>
+                <style>
+                  @page {
+                    size: ${orientation === 'portrait' ? 'A5 portrait' : 'A5 landscape'};
+                    margin: 0;
+                  }
+                  
+                  html, body {
+                    margin: 0;
+                    padding: 0;
+                    width: 100%;
+                    height: 100%;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    background-color: white;
+                  }
+                  
+                  img {
+                    width: ${orientation === 'portrait' ? '148mm' : '210mm'};
+                    height: ${orientation === 'portrait' ? '210mm' : '148mm'};
+                    display: block;
+                    page-break-after: avoid;
+                    page-break-before: avoid;
+                    page-break-inside: avoid;
+                  }
+                  
+                  @media print {
+                    body {
+                      -webkit-print-color-adjust: exact;
+                      print-color-adjust: exact;
+                    }
+                  }
+                </style>
+              </head>
+              <body>
+                <img src="${imgData}" alt="QR Code Page" />
+                <script>
+                  window.onload = function() {
+                    setTimeout(function() {
+                      window.print();
+                      window.close();
+                    }, 300);
+                  };
+                </script>
+              </body>
+            </html>
+          `);
+          printWindow.document.close();
+          
+          // Seçimleri geri yükle
+          setPageItems(prev => prev.map((item, i) => ({
+            ...item,
+            selected: tempSelectedItems.some(selItem => selItem.id === item.id)
+          })));
+        });
+      }, 100);
     } catch (error) {
       console.error('Yazdırma hatası:', error);
       alert('Yazdırma sırasında bir hata oluştu.');
