@@ -37,7 +37,8 @@ import {
   List,
   ToggleButtonGroup,
   ToggleButton,
-  Slider
+  Slider,
+  Menu
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -54,7 +55,9 @@ import {
   QrCode as QrCodeIcon,
   Print as PrintIcon,
   Image as ImageIcon,
-  TextFields as TextFieldsIcon
+  TextFields as TextFieldsIcon,
+  Save as SaveIcon,
+  FolderOpen as FolderOpenIcon
 } from '@mui/icons-material';
 import { ref, get, onValue, off, remove, update, push, set } from 'firebase/database';
 import { database, auth } from '../../firebase';
@@ -782,13 +785,36 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
     italic?: boolean;
   }>>([]);
   
+  // Tasarım kaydetme ve seçme için eklenen state'ler
+  const [saveLayoutDialogOpen, setSaveLayoutDialogOpen] = useState(false);
+  const [layoutName, setLayoutName] = useState('');
+  const [savedLayouts, setSavedLayouts] = useState<Array<{id: string, name: string}>>([]);
+  const [selectLayoutMenuAnchor, setSelectLayoutMenuAnchor] = useState<null | HTMLElement>(null);
+  
   // Modal açıldığında lokalden kaydedilmiş düzeni yükle
   useEffect(() => {
     if (open && task) {
       // Debug bilgisi set etmeyi kaldırıyorum
       loadSavedLayout();
+      loadSavedLayoutsList();
     }
   }, [open, task]);
+
+  // Kaydedilmiş tasarımların listesini yükle
+  const loadSavedLayoutsList = () => {
+    try {
+      const savedLayoutsStr = localStorage.getItem('savedQrLayouts');
+      if (savedLayoutsStr) {
+        const layouts = JSON.parse(savedLayoutsStr);
+        setSavedLayouts(layouts);
+      } else {
+        setSavedLayouts([]);
+      }
+    } catch (error) {
+      console.error('Kaydedilmiş tasarımlar yüklenirken hata:', error);
+      setSavedLayouts([]);
+    }
+  };
 
   // Düzeni localStorage'dan yükle
   const loadSavedLayout = () => {
@@ -1264,6 +1290,66 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
       saveLayout();
     }
   }, [orientation, pageColor, open, task]);
+
+  // Tasarımı kaydet dialogunu aç
+  const handleOpenSaveDialog = () => {
+    setLayoutName('');
+    setSaveLayoutDialogOpen(true);
+  };
+
+  // Tasarımı isimlendirerek kaydet
+  const handleSaveNamedLayout = () => {
+    if (!layoutName.trim()) return;
+    
+    try {
+      const newLayoutId = `layout_${Date.now()}`;
+      const layoutData = {
+        items: pageItems,
+        orientation,
+        pageColor
+      };
+      
+      // Yeni tasarımı kaydet
+      localStorage.setItem(`qrLayout_${newLayoutId}`, JSON.stringify(layoutData));
+      
+      // Tasarım listesini güncelle
+      const updatedLayouts = [...savedLayouts, { id: newLayoutId, name: layoutName }];
+      localStorage.setItem('savedQrLayouts', JSON.stringify(updatedLayouts));
+      setSavedLayouts(updatedLayouts);
+      
+      // Dialog'u kapat
+      setSaveLayoutDialogOpen(false);
+    } catch (error) {
+      console.error('Tasarım kaydetme hatası:', error);
+    }
+  };
+
+  // Tasarım seçme menüsünü aç
+  const handleOpenSelectMenu = (event: React.MouseEvent<HTMLButtonElement>) => {
+    setSelectLayoutMenuAnchor(event.currentTarget);
+  };
+
+  // Kaydedilmiş tasarımı yükle
+  const handleLoadLayout = (layoutId: string) => {
+    try {
+      const savedLayout = localStorage.getItem(`qrLayout_${layoutId}`);
+      if (savedLayout) {
+        const layoutData = JSON.parse(savedLayout);
+        setPageItems(layoutData.items || []);
+        setOrientation(layoutData.orientation || 'portrait');
+        setPageColor(layoutData.pageColor || '#ffffff');
+        
+        // QR kodu göster
+        const hasQrCode = layoutData.items.some((item: any) => item.type === 'qr');
+        setShowQrCode(hasQrCode);
+      }
+    } catch (error) {
+      console.error('Tasarım yükleme hatası:', error);
+    }
+    
+    // Menüyü kapat
+    setSelectLayoutMenuAnchor(null);
+  };
 
   if (!task) return null;
 
@@ -1756,22 +1842,93 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
         </Box>
       </DialogContent>
 
-      <DialogActions sx={{ px: 3, pb: 3 }}>
-        <Button
-          variant="outlined"
-          onClick={onClose}
-        >
-          Kapat
-        </Button>
-        <Button
-          variant="contained"
-          color="primary"
-          startIcon={<PrintIcon />}
-          onClick={handlePrint}
-        >
-          Yazdır
-        </Button>
+      <DialogActions sx={{ px: 3, pb: 3, display: 'flex', justifyContent: 'space-between' }}>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button
+            variant="outlined"
+            color="primary"
+            startIcon={<SaveIcon />}
+            onClick={handleOpenSaveDialog}
+          >
+            Tasarımı Kaydet
+          </Button>
+          
+          <Button
+            variant="outlined"
+            color="primary"
+            startIcon={<FolderOpenIcon />}
+            onClick={handleOpenSelectMenu}
+            disabled={savedLayouts.length === 0}
+          >
+            Tasarım Seç
+          </Button>
+        </Box>
+        
+        <Box>
+          <Button
+            variant="outlined"
+            onClick={onClose}
+          >
+            Kapat
+          </Button>
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<PrintIcon />}
+            onClick={handlePrint}
+            sx={{ ml: 1 }}
+          >
+            Yazdır
+          </Button>
+        </Box>
       </DialogActions>
+      
+      {/* Tasarım Kaydetme Dialog'u */}
+      <Dialog open={saveLayoutDialogOpen} onClose={() => setSaveLayoutDialogOpen(false)}>
+        <DialogTitle>Tasarımı Kaydet</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Tasarım Adı"
+            fullWidth
+            value={layoutName}
+            onChange={(e) => setLayoutName(e.target.value)}
+            variant="outlined"
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSaveLayoutDialogOpen(false)}>İptal</Button>
+          <Button 
+            onClick={handleSaveNamedLayout} 
+            color="primary" 
+            variant="contained"
+            disabled={!layoutName.trim()}
+          >
+            Kaydet
+          </Button>
+        </DialogActions>
+      </Dialog>
+      
+      {/* Tasarım Seçme Menüsü */}
+      <Menu
+        anchorEl={selectLayoutMenuAnchor}
+        open={Boolean(selectLayoutMenuAnchor)}
+        onClose={() => setSelectLayoutMenuAnchor(null)}
+      >
+        {savedLayouts.length > 0 ? (
+          savedLayouts.map((layout) => (
+            <MenuItem 
+              key={layout.id} 
+              onClick={() => handleLoadLayout(layout.id)}
+            >
+              {layout.name}
+            </MenuItem>
+          ))
+        ) : (
+          <MenuItem disabled>Kayıtlı tasarım bulunamadı</MenuItem>
+        )}
+      </Menu>
     </Dialog>
   );
 };
