@@ -66,6 +66,7 @@ import TaskTimeService, { TaskTimeStatus } from '../../services/TaskTimeService'
 import MissedTaskService from '../../services/MissedTaskService';
 import { QRCodeCanvas } from 'qrcode.react';
 import html2canvas from 'html2canvas';
+import domtoimage from 'dom-to-image';
 
 // Kaydırılabilir ana içerik için styled component
 const ScrollableContent = styled(Box)(({ theme }) => ({
@@ -1215,12 +1216,12 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
   const handlePrint = () => {
     if (!printRef.current) return;
     
+    // Geçici olarak seçili öğeleri sakla
+    const selectedItems = pageItems.filter(item => item.selected);
+    
     try {
-      // Yazdırma sırasında seçim sınırlarını kaldırmak için
-      const tempSelectedItems = pageItems.filter(item => item.selected);
-      
       // Seçimleri geçici olarak kaldır
-      setPageItems(prev => prev.map(item => ({
+      setPageItems(prevItems => prevItems.map(item => ({
         ...item,
         selected: false
       })));
@@ -1229,95 +1230,110 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
       setTimeout(() => {
         if (!printRef.current) return;
         
-        // A5 kağıdının tam görüntüsünü al
-        html2canvas(printRef.current, {
-          scale: 2, // Daha yüksek kalite için
-          useCORS: true, // Dış kaynaklı görseller için
-          allowTaint: true,
-          backgroundColor: pageColor,
-          logging: false,
-          width: a5Dimensions.width,
-          height: a5Dimensions.height
-        }).then((canvas: HTMLCanvasElement) => {
-          const imgData = canvas.toDataURL('image/png');
-          
-          // Yeni pencere aç ve içeriği ekle
+        // dom-to-image ile A5 sayfasını JPG olarak oluştur
+        domtoimage.toJpeg(printRef.current, { 
+          quality: 0.95,
+          bgcolor: pageColor,
+          style: {
+            transform: 'scale(1)',
+            transformOrigin: 'top left',
+            width: `${printRef.current.offsetWidth}px`,
+            height: `${printRef.current.offsetHeight}px`
+          }
+        })
+        .then(function (dataUrl) {
+          // JPG'yi yazdır
           const printWindow = window.open('', '_blank');
           if (!printWindow) {
-            alert('Popup pencerelerine izin verdiğinizden emin olun.');
+            alert('Lütfen popup pencerelerine izin verin.');
             
             // Seçimleri geri yükle
-            setPageItems(prev => prev.map((item, i) => ({
+            setPageItems(prevItems => prevItems.map(item => ({
               ...item,
-              selected: tempSelectedItems.some(selItem => selItem.id === item.id)
+              selected: selectedItems.some(selItem => selItem.id === item.id)
             })));
             return;
           }
           
-          printWindow.document.open();
+          const printCSS = `
+            @page {
+              size: ${orientation === 'portrait' ? 'A5 portrait' : 'A5 landscape'};
+              margin: 0;
+            }
+            html, body {
+              margin: 0;
+              padding: 0;
+              height: 100%;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              background-color: white;
+            }
+            img {
+              width: ${orientation === 'portrait' ? '148mm' : '210mm'};
+              height: ${orientation === 'portrait' ? '210mm' : '148mm'};
+              object-fit: contain;
+            }
+            @media print {
+              body {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+              }
+            }
+          `;
+          
+          // Yazdırma penceresi içeriğini oluştur
           printWindow.document.write(`
+            <!DOCTYPE html>
             <html>
               <head>
                 <title>${task?.name || 'Görev'} QR Kodu</title>
-                <style>
-                  @page {
-                    size: ${orientation === 'portrait' ? 'A5 portrait' : 'A5 landscape'};
-                    margin: 0;
-                  }
-                  
-                  html, body {
-                    margin: 0;
-                    padding: 0;
-                    width: 100%;
-                    height: 100%;
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    background-color: white;
-                  }
-                  
-                  img {
-                    width: ${orientation === 'portrait' ? '148mm' : '210mm'};
-                    height: ${orientation === 'portrait' ? '210mm' : '148mm'};
-                    display: block;
-                    page-break-after: avoid;
-                    page-break-before: avoid;
-                    page-break-inside: avoid;
-                  }
-                  
-                  @media print {
-                    body {
-                      -webkit-print-color-adjust: exact;
-                      print-color-adjust: exact;
-                    }
-                  }
-                </style>
+                <style>${printCSS}</style>
               </head>
               <body>
-                <img src="${imgData}" alt="QR Code Page" />
+                <img src="${dataUrl}" alt="QR Kod Sayfası" />
                 <script>
                   window.onload = function() {
                     setTimeout(function() {
                       window.print();
                       window.close();
-                    }, 300);
+                    }, 500);
                   };
                 </script>
               </body>
             </html>
           `);
+          
           printWindow.document.close();
           
           // Seçimleri geri yükle
-          setPageItems(prev => prev.map((item, i) => ({
+          setTimeout(() => {
+            setPageItems(prevItems => prevItems.map(item => ({
+              ...item,
+              selected: selectedItems.some(selItem => selItem.id === item.id)
+            })));
+          }, 1000);
+        })
+        .catch(function (error) {
+          console.error('Dom-to-image hatası:', error);
+          alert('Sayfa görüntüsü oluşturulurken bir hata oluştu.');
+          
+          // Seçimleri geri yükle
+          setPageItems(prevItems => prevItems.map(item => ({
             ...item,
-            selected: tempSelectedItems.some(selItem => selItem.id === item.id)
+            selected: selectedItems.some(selItem => selItem.id === item.id)
           })));
         });
-      }, 100);
+      }, 300); // Daha uzun gecikme ile DOM'un tamamen yüklenmesini bekle
     } catch (error) {
       console.error('Yazdırma hatası:', error);
       alert('Yazdırma sırasında bir hata oluştu.');
+      
+      // Hata durumunda seçimleri geri yükle
+      setPageItems(prevItems => prevItems.map(item => ({
+        ...item,
+        selected: selectedItems.some(selItem => selItem.id === item.id)
+      })));
     }
   };
 
