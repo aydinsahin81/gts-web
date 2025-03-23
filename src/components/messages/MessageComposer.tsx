@@ -1,166 +1,172 @@
 import React, { useState } from 'react';
-import { 
-  Box, 
-  TextField, 
-  Typography, 
-  Paper, 
+import {
+  TextField,
   Button,
-  FormControl,
-  FormLabel,
-  FormHelperText,
+  Box,
+  Typography,
+  Paper,
   Divider,
-  Grid,
-  Chip
+  CircularProgress,
+  styled
 } from '@mui/material';
-import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import SendIcon from '@mui/icons-material/Send';
+import NotificationsIcon from '@mui/icons-material/Notifications';
 
+// Özelleştirilmiş bileşenler
+const StyledPaper = styled(Paper)(({ theme }) => ({
+  height: '100%',
+  borderRadius: theme.spacing(1),
+  overflow: 'hidden',
+  display: 'flex',
+  flexDirection: 'column',
+}));
+
+const HeaderArea = styled(Box)(({ theme }) => ({
+  padding: theme.spacing(2),
+  borderBottom: `1px solid ${theme.palette.divider}`,
+}));
+
+const ContentArea = styled(Box)(({ theme }) => ({
+  padding: theme.spacing(2),
+  display: 'flex',
+  flexDirection: 'column',
+  flexGrow: 1,
+}));
+
+const MessagePreview = styled(Box)(({ theme }) => ({
+  marginTop: theme.spacing(2),
+  padding: theme.spacing(2),
+  backgroundColor: theme.palette.background.default,
+  borderRadius: theme.spacing(1),
+  border: `1px solid ${theme.palette.divider}`,
+  flexGrow: 1,
+  position: 'relative',
+  minHeight: '180px',
+}));
+
+// Props türü
 interface MessageComposerProps {
   onSend: (title: string, body: string) => void;
-  isLoading?: boolean;
-  recipientCount?: number;
+  isLoading: boolean;
+  recipientCount: number;
 }
 
-const MessageComposer: React.FC<MessageComposerProps> = ({ 
-  onSend, 
-  isLoading = false,
-  recipientCount = 0
+const MessageComposer: React.FC<MessageComposerProps> = ({
+  onSend,
+  isLoading,
+  recipientCount
 }) => {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
-  const [titleError, setTitleError] = useState('');
-  const [bodyError, setBodyError] = useState('');
-
-  // Karakter sayısını kontrol et
-  const MAX_TITLE_LENGTH = 50;
-  const MAX_BODY_LENGTH = 200;
-
-  // Form validasyonu
-  const validateForm = (): boolean => {
-    let isValid = true;
-
-    if (!title.trim()) {
-      setTitleError('Bildirim başlığı gereklidir');
-      isValid = false;
-    } else if (title.length > MAX_TITLE_LENGTH) {
-      setTitleError(`Başlık en fazla ${MAX_TITLE_LENGTH} karakter olabilir`);
-      isValid = false;
-    } else {
-      setTitleError('');
-    }
-
-    if (!body.trim()) {
-      setBodyError('Bildirim içeriği gereklidir');
-      isValid = false;
-    } else if (body.length > MAX_BODY_LENGTH) {
-      setBodyError(`İçerik en fazla ${MAX_BODY_LENGTH} karakter olabilir`);
-      isValid = false;
-    } else {
-      setBodyError('');
-    }
-
-    return isValid;
+  
+  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setTitle(e.target.value);
   };
-
-  const handleSubmit = () => {
-    if (validateForm()) {
-      onSend(title, body);
+  
+  const handleBodyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setBody(e.target.value);
+  };
+  
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (title.trim() && body.trim()) {
+      onSend(title.trim(), body.trim());
     }
   };
-
+  
   return (
-    <Paper elevation={0} sx={{ p: 3, borderRadius: 2, mt: 2 }}>
-      <Box sx={{ mb: 3 }}>
+    <StyledPaper elevation={0}>
+      <HeaderArea>
         <Typography variant="h6" gutterBottom>
-          Bildirim İçeriği
+          Mesaj İçeriği
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          Personellerinize gönderilecek bildirimin başlığını ve içeriğini düzenleyin.
+          Gönderilecek mesajın başlığını ve içeriğini yazın.
         </Typography>
-      </Box>
-
-      <Divider sx={{ mb: 3 }} />
-
-      <Grid container spacing={3}>
-        {/* Alıcı sayısı bilgisi */}
-        <Grid item xs={12}>
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-            <NotificationsActiveIcon color="primary" sx={{ mr: 1 }} />
-            <Typography variant="body2">
-              {recipientCount > 0 ? (
-                <>
-                  <Chip 
-                    label={`${recipientCount} Alıcı`} 
-                    size="small" 
-                    color="primary" 
-                    sx={{ mr: 1 }} 
-                  />
-                  {recipientCount === 1 
-                    ? 'personele bildirim gönderilecek.' 
-                    : 'personele bildirim gönderilecek.'
-                  }
-                </>
-              ) : (
-                'Henüz alıcı seçilmedi.'
-              )}
+      </HeaderArea>
+      
+      <ContentArea>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+          <TextField
+            fullWidth
+            label="Mesaj Başlığı"
+            value={title}
+            onChange={handleTitleChange}
+            variant="outlined"
+            margin="normal"
+            required
+            disabled={isLoading}
+            inputProps={{ maxLength: 50 }}
+            helperText={`${title.length}/50 karakter`}
+          />
+          
+          <TextField
+            fullWidth
+            label="Mesaj İçeriği"
+            value={body}
+            onChange={handleBodyChange}
+            variant="outlined"
+            margin="normal"
+            required
+            multiline
+            rows={4}
+            disabled={isLoading}
+            inputProps={{ maxLength: 300 }}
+            helperText={`${body.length}/300 karakter`}
+          />
+          
+          <MessagePreview>
+            <Typography variant="overline" color="text.secondary" gutterBottom>
+              Önizleme
             </Typography>
-          </Box>
-        </Grid>
-
-        {/* Bildirim Başlığı */}
-        <Grid item xs={12}>
-          <FormControl fullWidth error={!!titleError}>
-            <FormLabel sx={{ mb: 1, fontWeight: 500 }}>Bildirim Başlığı</FormLabel>
-            <TextField
-              placeholder="Bildirim başlığını girin"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              error={!!titleError}
-              helperText={titleError || `${title.length}/${MAX_TITLE_LENGTH}`}
-              fullWidth
-              variant="outlined"
-              size="small"
-              inputProps={{ maxLength: MAX_TITLE_LENGTH + 10 }}
-            />
-          </FormControl>
-        </Grid>
-
-        {/* Bildirim İçeriği */}
-        <Grid item xs={12}>
-          <FormControl fullWidth error={!!bodyError}>
-            <FormLabel sx={{ mb: 1, fontWeight: 500 }}>Bildirim İçeriği</FormLabel>
-            <TextField
-              placeholder="Bildirim içeriğini girin"
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              error={!!bodyError}
-              helperText={bodyError || `${body.length}/${MAX_BODY_LENGTH}`}
-              fullWidth
-              multiline
-              rows={4}
-              variant="outlined"
-              size="small"
-              inputProps={{ maxLength: MAX_BODY_LENGTH + 10 }}
-            />
-          </FormControl>
-        </Grid>
-
-        {/* Gönder Butonu */}
-        <Grid item xs={12}>
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+            
+            {title || body ? (
+              <>
+                <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                  {title || 'Mesaj Başlığı'}
+                </Typography>
+                <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                  {body || 'Mesaj içeriği burada görünecek...'}
+                </Typography>
+              </>
+            ) : (
+              <Box sx={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                height: '80%',
+                opacity: 0.5
+              }}>
+                <NotificationsIcon sx={{ fontSize: '3rem', mb: 1 }} />
+                <Typography>Mesaj içeriğini görmek için yazmaya başlayın</Typography>
+              </Box>
+            )}
+          </MessagePreview>
+          
+          <Divider sx={{ my: 2 }} />
+          
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="body2" color="text.secondary">
+              {recipientCount === 0 
+                ? 'Hiç alıcı seçilmedi' 
+                : `Seçilen ${recipientCount} alıcıya gönderilecek`}
+            </Typography>
+            
             <Button
+              type="submit"
               variant="contained"
               color="primary"
-              endIcon={<SendIcon />}
-              onClick={handleSubmit}
-              disabled={isLoading || recipientCount === 0}
+              endIcon={isLoading ? <CircularProgress size={20} color="inherit" /> : <SendIcon />}
+              disabled={isLoading || !title.trim() || !body.trim() || recipientCount === 0}
             >
-              {isLoading ? 'Gönderiliyor...' : 'Bildirimi Gönder'}
+              {isLoading ? 'Gönderiliyor...' : 'Gönder'}
             </Button>
           </Box>
-        </Grid>
-      </Grid>
-    </Paper>
+        </form>
+      </ContentArea>
+    </StyledPaper>
   );
 };
 

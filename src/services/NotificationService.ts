@@ -21,6 +21,11 @@ export interface Personnel {
   companyId?: string;
 }
 
+// İsim getirme yardımcı fonksiyonu
+export function getPersonFullName(person: Personnel): string {
+  return `${person.firstName} ${person.lastName}`;
+}
+
 // Bildirim servisi sınıfı
 class NotificationService {
   // Kullanıcının şirket ID'sini alma

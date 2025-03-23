@@ -16,6 +16,9 @@ import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import SentimentVeryDissatisfiedIcon from '@mui/icons-material/SentimentVeryDissatisfied';
 import AssignmentLateIcon from '@mui/icons-material/AssignmentLate';
 import BulkMessage from './BulkMessage';
+import SinglePersonMessage from './SinglePersonMessage';
+import PerformanceMessage from './PerformanceMessage';
+import UnacceptedTasksMessage from './UnacceptedTasksMessage';
 
 // Sayfa başlığı için styled component
 const PageTitle = styled(Typography)(({ theme }) => ({
@@ -151,55 +154,19 @@ const Messages: React.FC = () => {
         </TabPanel>
         
         <TabPanel value={tabValue} index={1}>
-          <Card elevation={0}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Tek Personele Mesaj Gönder
-              </Typography>
-              <Typography variant="body2">
-                Belirli bir personele özel bildirim gönderebilirsiniz.
-              </Typography>
-            </CardContent>
-          </Card>
+          <SinglePersonMessage />
         </TabPanel>
         
         <TabPanel value={tabValue} index={2}>
-          <Card elevation={0}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Performansı Kötü Olan Personele Mesaj Gönder
-              </Typography>
-              <Typography variant="body2">
-                Performansı belirlediğiniz kriterlerin altında olan personellere bildirim gönderebilirsiniz.
-              </Typography>
-            </CardContent>
-          </Card>
+          <PerformanceMessage isGoodPerformance={false} />
         </TabPanel>
         
         <TabPanel value={tabValue} index={3}>
-          <Card elevation={0}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Performansı İyi Olan Personele Mesaj Gönder
-              </Typography>
-              <Typography variant="body2">
-                Performansı belirlediğiniz kriterlerin üzerinde olan personellere bildirim gönderebilirsiniz.
-              </Typography>
-            </CardContent>
-          </Card>
+          <PerformanceMessage isGoodPerformance={true} />
         </TabPanel>
         
         <TabPanel value={tabValue} index={4}>
-          <Card elevation={0}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Görevini Kabul Etmeyen Personele Mesaj Gönder
-              </Typography>
-              <Typography variant="body2">
-                Son süreçte görevlerini kabul etmeyen personellere hatırlatma bildirimi gönderebilirsiniz.
-              </Typography>
-            </CardContent>
-          </Card>
+          <UnacceptedTasksMessage />
         </TabPanel>
       </Paper>
     </ScrollableContent>

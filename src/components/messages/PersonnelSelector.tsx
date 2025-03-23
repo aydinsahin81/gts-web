@@ -3,223 +3,288 @@ import {
   Box,
   Typography,
   Paper,
-  Checkbox,
   List,
   ListItem,
+  ListItemButton,
   ListItemText,
-  ListItemIcon,
   ListItemAvatar,
   Avatar,
+  Checkbox,
   TextField,
   InputAdornment,
-  Chip,
-  Button,
-  Divider,
   CircularProgress,
-  Alert
+  styled,
+  Chip
 } from '@mui/material';
+import { Personnel, getPersonFullName } from '../../services/NotificationService';
 import SearchIcon from '@mui/icons-material/Search';
-import PersonIcon from '@mui/icons-material/Person';
-import NotificationsIcon from '@mui/icons-material/Notifications';
-import { Personnel } from '../../services/NotificationService';
+import FaceIcon from '@mui/icons-material/Face';
+import FilterListIcon from '@mui/icons-material/FilterList';
 
+// Özelleştirilmiş bileşenler
+const StyledPaper = styled(Paper)(({ theme }) => ({
+  height: '100%',
+  borderRadius: theme.spacing(1),
+  overflow: 'hidden',
+  display: 'flex',
+  flexDirection: 'column',
+}));
+
+const ScrollableList = styled(List)(({ theme }) => ({
+  overflow: 'auto',
+  flexGrow: 1,
+  maxHeight: '450px',
+  padding: 0,
+  '&::-webkit-scrollbar': {
+    width: '8px',
+  },
+  '&::-webkit-scrollbar-track': {
+    background: '#f1f1f1',
+    borderRadius: '8px',
+  },
+  '&::-webkit-scrollbar-thumb': {
+    background: '#bbb',
+    borderRadius: '8px',
+  },
+  '&::-webkit-scrollbar-thumb:hover': {
+    background: '#888',
+  },
+}));
+
+const HeaderArea = styled(Box)(({ theme }) => ({
+  padding: theme.spacing(2),
+  borderBottom: `1px solid ${theme.palette.divider}`,
+}));
+
+const FilterArea = styled(Box)(({ theme }) => ({
+  padding: theme.spacing(2),
+  display: 'flex',
+  alignItems: 'center',
+  flexWrap: 'wrap',
+  gap: theme.spacing(1),
+}));
+
+// Props türü
 interface PersonnelSelectorProps {
   personnel: Personnel[];
   loading: boolean;
-  error?: string;
   onSelectionChange: (selectedIds: string[]) => void;
-  selectedIds?: string[];
+  selectedIds: string[];
 }
 
 const PersonnelSelector: React.FC<PersonnelSelectorProps> = ({
   personnel,
   loading,
-  error,
   onSelectionChange,
-  selectedIds = []
+  selectedIds
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [selected, setSelected] = useState<string[]>(selectedIds);
-
-  // Seçilen personel listesi değiştiğinde dışarıdan bildirme
+  const [selectedRole, setSelectedRole] = useState<string | null>(null);
+  const [filteredPersonnel, setFilteredPersonnel] = useState<Personnel[]>([]);
+  
+  // Mevcut roller listesini oluştur
+  const roles = Array.from(new Set(personnel.map(p => p.role).filter(Boolean) as string[]));
+  
+  // Personel listesini filtrele
   useEffect(() => {
-    onSelectionChange(selected);
-  }, [selected, onSelectionChange]);
-
-  // Dışarıdan gelen seçimler değiştiğinde state'i güncelleme
-  useEffect(() => {
-    setSelected(selectedIds);
-  }, [selectedIds]);
-
-  // Tüm personel seçme/kaldırma
+    let result = [...personnel];
+    
+    // Arama terimini uygula
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      result = result.filter(p => 
+        getPersonFullName(p).toLowerCase().includes(term) || 
+        (p.email && p.email.toLowerCase().includes(term))
+      );
+    }
+    
+    // Rol filtresini uygula
+    if (selectedRole) {
+      result = result.filter(p => p.role === selectedRole);
+    }
+    
+    setFilteredPersonnel(result);
+  }, [personnel, searchTerm, selectedRole]);
+  
+  // Tüm personel seçme/seçimi kaldırma
   const handleToggleAll = () => {
-    if (selected.length === filteredPersonnel.length) {
-      setSelected([]);
+    if (selectedIds.length === filteredPersonnel.length) {
+      // Tüm seçimleri kaldır
+      onSelectionChange([]);
     } else {
-      setSelected(filteredPersonnel.map(person => person.id));
+      // Tümünü seç
+      onSelectionChange(filteredPersonnel.map(p => p.id));
     }
   };
-
-  // Tek personel seçme/kaldırma
+  
+  // Tek personel seçme/seçimi kaldırma
   const handleToggle = (id: string) => {
-    const currentIndex = selected.indexOf(id);
-    const newSelected = [...selected];
-
-    if (currentIndex === -1) {
+    const selectedIndex = selectedIds.indexOf(id);
+    let newSelected = [...selectedIds];
+    
+    if (selectedIndex === -1) {
       newSelected.push(id);
     } else {
-      newSelected.splice(currentIndex, 1);
+      newSelected.splice(selectedIndex, 1);
     }
-
-    setSelected(newSelected);
+    
+    onSelectionChange(newSelected);
   };
-
-  // Arama terimlerine göre filtreleme
-  const filteredPersonnel = personnel.filter(person => {
-    const fullName = `${person.firstName} ${person.lastName}`.toLowerCase();
-    return fullName.includes(searchTerm.toLowerCase());
-  });
-
-  // Tüm personel seçili mi kontrolü
-  const allSelected = filteredPersonnel.length > 0 && 
-    filteredPersonnel.length === selected.filter(id => 
-      filteredPersonnel.some(person => person.id === id)
-    ).length;
-
+  
+  // Rol filtresini temizle
+  const clearRoleFilter = () => {
+    setSelectedRole(null);
+  };
+  
   return (
-    <Paper elevation={0} sx={{ borderRadius: 2, overflow: 'hidden' }}>
-      <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
+    <StyledPaper elevation={0}>
+      <HeaderArea>
         <Typography variant="h6" gutterBottom>
-          Personel Seçimi
+          Alıcı Personel
         </Typography>
-        <Typography variant="body2" color="text.secondary" gutterBottom>
-          Bildirim göndermek istediğiniz personelleri seçin.
+        <Typography variant="body2" color="text.secondary">
+          {selectedIds.length > 0 
+            ? `${selectedIds.length} personel seçildi` 
+            : 'Mesaj göndermek için personel seçin'}
         </Typography>
-
-        {/* Arama ve seçim araçları */}
-        <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
-          <TextField
-            placeholder="Personel ara..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            variant="outlined"
-            size="small"
-            fullWidth
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              ),
-            }}
-          />
-          <Button 
-            variant="outlined"
-            size="small"
-            onClick={handleToggleAll}
-            disabled={filteredPersonnel.length === 0}
-          >
-            {allSelected ? 'Tümünü Kaldır' : 'Tümünü Seç'}
-          </Button>
-        </Box>
-
-        {/* Seçili personel sayısı */}
-        {selected.length > 0 && (
-          <Box sx={{ mt: 2, display: 'flex', alignItems: 'center' }}>
-            <NotificationsIcon color="primary" fontSize="small" sx={{ mr: 1 }} />
-            <Chip 
-              label={`${selected.length} Personel Seçildi`} 
-              color="primary" 
-              size="small" 
-            />
-          </Box>
-        )}
+      </HeaderArea>
+      
+      <Box sx={{ px: 2, pt: 2 }}>
+        <TextField 
+          fullWidth
+          placeholder="İsim veya e-posta ile ara"
+          variant="outlined"
+          size="small"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon />
+              </InputAdornment>
+            ),
+          }}
+          sx={{ mb: 2 }}
+        />
       </Box>
-
-      {/* Hata mesajı */}
-      {error && (
-        <Alert severity="error" sx={{ m: 2 }}>
-          {error}
-        </Alert>
+      
+      {roles.length > 0 && (
+        <FilterArea>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <FilterListIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />
+            <Typography variant="body2" color="text.secondary">Filtrele:</Typography>
+          </Box>
+          
+          {roles.map(role => (
+            <Chip 
+              key={role}
+              label={role}
+              size="small"
+              onClick={() => setSelectedRole(role === selectedRole ? null : role)}
+              color={role === selectedRole ? "primary" : "default"}
+              variant={role === selectedRole ? "filled" : "outlined"}
+            />
+          ))}
+          
+          {selectedRole && (
+            <Chip 
+              label="Filtreyi Temizle"
+              size="small"
+              onDelete={clearRoleFilter}
+              color="default"
+            />
+          )}
+        </FilterArea>
       )}
-
-      {/* Personel listesi */}
-      <List 
-        sx={{ 
-          maxHeight: 400, 
-          overflow: 'auto',
-          '&::-webkit-scrollbar': {
-            width: '8px',
-          },
-          '&::-webkit-scrollbar-track': {
-            background: '#f1f1f1',
-          },
-          '&::-webkit-scrollbar-thumb': {
-            background: '#888',
-            borderRadius: '4px',
-          },
-        }}
-      >
-        {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-            <CircularProgress size={30} />
-          </Box>
-        ) : filteredPersonnel.length === 0 ? (
-          <Box sx={{ p: 4, textAlign: 'center' }}>
-            <Typography color="text.secondary">
-              {searchTerm 
-                ? 'Aramanızla eşleşen personel bulunamadı.' 
-                : 'Henüz personel bulunmamaktadır.'}
-            </Typography>
-          </Box>
-        ) : (
-          filteredPersonnel.map((person) => {
-            const isSelected = selected.indexOf(person.id) !== -1;
-            
-            return (
-              <ListItem 
-                key={person.id} 
-                dense 
-                onClick={() => handleToggle(person.id)}
-                sx={{
-                  borderBottom: '1px solid',
-                  borderColor: 'divider',
-                  bgcolor: isSelected ? 'action.selected' : 'inherit',
-                  cursor: 'pointer'
-                }}
-              >
-                <ListItemIcon>
-                  <Checkbox
-                    edge="start"
-                    checked={isSelected}
-                    tabIndex={-1}
-                    disableRipple
-                  />
-                </ListItemIcon>
-                <ListItemAvatar>
-                  <Avatar sx={{ bgcolor: isSelected ? 'primary.main' : 'grey.400' }}>
-                    {person.firstName[0]}
-                  </Avatar>
-                </ListItemAvatar>
-                <ListItemText
-                  primary={`${person.firstName} ${person.lastName}`}
-                  secondary={person.role || person.department || person.email || ''}
+      
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
+          <CircularProgress />
+        </Box>
+      ) : filteredPersonnel.length > 0 ? (
+        <>
+          <ListItem disablePadding>
+            <ListItemButton role={undefined} onClick={handleToggleAll} dense>
+              <ListItemAvatar>
+                <Checkbox
+                  edge="start"
+                  checked={selectedIds.length === filteredPersonnel.length && filteredPersonnel.length > 0}
+                  indeterminate={selectedIds.length > 0 && selectedIds.length < filteredPersonnel.length}
+                  tabIndex={-1}
+                  disableRipple
+                  inputProps={{ 'aria-labelledby': 'select-all-personnel' }}
                 />
-                {!person.fcmToken && (
-                  <Chip
-                    label="FCM yok"
-                    size="small"
-                    color="warning"
-                    variant="outlined"
-                    sx={{ ml: 1 }}
-                  />
-                )}
-              </ListItem>
-            );
-          })
-        )}
-      </List>
-    </Paper>
+              </ListItemAvatar>
+              <ListItemText 
+                id="select-all-personnel"
+                primary="Tümünü Seç"
+                primaryTypographyProps={{ fontWeight: 500 }}
+              />
+            </ListItemButton>
+          </ListItem>
+          
+          <ScrollableList>
+            {filteredPersonnel.map((person) => {
+              const isSelected = selectedIds.indexOf(person.id) !== -1;
+              const labelId = `personnel-list-item-${person.id}`;
+              const fullName = getPersonFullName(person);
+              
+              return (
+                <ListItem 
+                  key={person.id} 
+                  disablePadding
+                >
+                  <ListItemButton 
+                    role={undefined} 
+                    onClick={() => handleToggle(person.id)} 
+                    dense
+                  >
+                    <ListItemAvatar>
+                      <Checkbox
+                        edge="start"
+                        checked={isSelected}
+                        tabIndex={-1}
+                        disableRipple
+                        inputProps={{ 'aria-labelledby': labelId }}
+                      />
+                    </ListItemAvatar>
+                    <ListItemAvatar>
+                      <Avatar>
+                        {person.firstName[0]}
+                      </Avatar>
+                    </ListItemAvatar>
+                    <ListItemText 
+                      id={labelId}
+                      primary={fullName}
+                      secondary={
+                        <React.Fragment>
+                          <Typography
+                            component="span"
+                            variant="body2"
+                            color="text.primary"
+                          >
+                            {person.role || ''}
+                          </Typography>
+                          {person.email && ` — ${person.email}`}
+                        </React.Fragment>
+                      }
+                    />
+                  </ListItemButton>
+                </ListItem>
+              );
+            })}
+          </ScrollableList>
+        </>
+      ) : (
+        <Box sx={{ p: 3, textAlign: 'center' }}>
+          <Typography color="text.secondary">
+            {searchTerm || selectedRole 
+              ? 'Aramanızla eşleşen personel bulunamadı.' 
+              : 'Hiç personel bulunamadı.'}
+          </Typography>
+        </Box>
+      )}
+    </StyledPaper>
   );
 };
 
