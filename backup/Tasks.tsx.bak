@@ -74,9 +74,12 @@ import MissedTaskService from '../../services/MissedTaskService';
 import { QRCodeCanvas } from 'qrcode.react';
 import html2canvas from 'html2canvas';
 import domtoimage from 'dom-to-image';
-// Import uuid tipini ve v4 fonksiyonunu ayrı ayrı tanımlama
-import * as uuidModule from 'uuid';
-const uuidv4 = uuidModule.v4;
+import { v4 as uuidv4 } from 'uuid';
+
+// TypeScript için UUID modül tanımı
+declare module 'uuid' {
+  export const v4: () => string;
+}
 
 // Kaydırılabilir ana içerik için styled component
 const ScrollableContent = styled(Box)(({ theme }) => ({
