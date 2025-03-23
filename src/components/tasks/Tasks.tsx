@@ -57,7 +57,8 @@ import {
   Image as ImageIcon,
   TextFields as TextFieldsIcon,
   Save as SaveIcon,
-  FolderOpen as FolderOpenIcon
+  FolderOpen as FolderOpenIcon,
+  Download as DownloadIcon
 } from '@mui/icons-material';
 import { ref, get, onValue, off, remove, update, push, set } from 'firebase/database';
 import { database, auth } from '../../firebase';
@@ -1417,6 +1418,71 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
     onClose(); // Modalı kapat
   };
 
+  // handleSaveImage fonksiyonunu ekle (yaklaşık 1200. satır civarında handlePrint fonksiyonundan sonra olmalı)
+  const handleSaveImage = () => {
+    if (!printRef.current) return;
+    
+    // Geçici olarak seçili öğeleri sakla
+    const selectedItems = pageItems.filter(item => item.selected);
+    
+    try {
+      // Seçimleri geçici olarak kaldır
+      setPageItems(prevItems => prevItems.map(item => ({
+        ...item,
+        selected: false
+      })));
+      
+      // DOM'un güncellenmesi için kısa bir gecikme ekle
+      setTimeout(() => {
+        if (!printRef.current) return;
+        
+        // dom-to-image ile A5 sayfasını JPG olarak oluştur
+        domtoimage.toJpeg(printRef.current, { 
+          quality: 0.95,
+          bgcolor: pageColor,
+          style: {
+            transform: 'scale(1)',
+            transformOrigin: 'top left',
+            width: `${printRef.current.offsetWidth}px`,
+            height: `${printRef.current.offsetHeight}px`
+          }
+        })
+        .then(function (dataUrl) {
+          // İndirme bağlantısı oluştur
+          const link = document.createElement('a');
+          link.download = `${task?.name || 'Görev'}_QR_Kodu.jpg`;
+          link.href = dataUrl;
+          link.click();
+          
+          // Seçimleri geri yükle
+          setPageItems(prevItems => prevItems.map(item => ({
+            ...item,
+            selected: selectedItems.some(selItem => selItem.id === item.id)
+          })));
+        })
+        .catch(function (error) {
+          console.error('Dom-to-image hatası:', error);
+          alert('Görüntü oluşturulurken bir hata oluştu.');
+          
+          // Seçimleri geri yükle
+          setPageItems(prevItems => prevItems.map(item => ({
+            ...item,
+            selected: selectedItems.some(selItem => selItem.id === item.id)
+          })));
+        });
+      }, 300);
+    } catch (error) {
+      console.error('Kaydetme hatası:', error);
+      alert('Görüntü kaydedilirken bir hata oluştu.');
+      
+      // Hata durumunda seçimleri geri yükle
+      setPageItems(prevItems => prevItems.map(item => ({
+        ...item,
+        selected: selectedItems.some(selItem => selItem.id === item.id)
+      })));
+    }
+  };
+
   if (!task) return null;
 
   return (
@@ -1930,21 +1996,24 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
           </Button>
         </Box>
         
-        <Box>
-          <Button
-            variant="outlined"
-            onClick={handleCloseWithSave}
-          >
-            Kapat
-          </Button>
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<PrintIcon />}
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <Button 
+            variant="contained" 
+            color="primary" 
+            startIcon={<PrintIcon />} 
             onClick={handlePrint}
-            sx={{ ml: 1 }}
+            sx={{ minWidth: '150px' }}
           >
             Yazdır
+          </Button>
+          <Button 
+            variant="contained" 
+            color="secondary" 
+            startIcon={<DownloadIcon />} 
+            onClick={handleSaveImage}
+            sx={{ minWidth: '150px' }}
+          >
+            Bilgisayara Kaydet
           </Button>
         </Box>
       </DialogActions>
