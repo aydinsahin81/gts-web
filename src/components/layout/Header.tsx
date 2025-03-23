@@ -20,6 +20,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { useAuth } from '../../contexts/AuthContext';
 import { ref, get } from 'firebase/database';
 import { database } from '../../firebase';
+import { useNavigate } from 'react-router-dom';
 
 const StyledAppBar = styled(AppBar)(({ theme }) => ({
   backgroundColor: 'white',
@@ -71,6 +72,7 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
   const { currentUser, logout } = useAuth();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const navigate = useNavigate();
   
   useEffect(() => {
     const fetchUserData = async () => {
@@ -185,7 +187,7 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
           >
             <MenuItem onClick={() => {
               handleMenuClose();
-              window.location.href = '/profile';
+              navigate('/profile');
             }}>
               Profil
             </MenuItem>
