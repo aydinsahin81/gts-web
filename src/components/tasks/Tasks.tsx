@@ -38,7 +38,8 @@ import {
   ToggleButtonGroup,
   ToggleButton,
   Slider,
-  Menu
+  Menu,
+  ButtonGroup
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -58,7 +59,12 @@ import {
   TextFields as TextFieldsIcon,
   Save as SaveIcon,
   FolderOpen as FolderOpenIcon,
-  Download as DownloadIcon
+  Download as DownloadIcon,
+  FormatAlignLeftOutlined,
+  FormatAlignCenterOutlined,
+  FormatAlignRightOutlined,
+  FormatBoldOutlined,
+  FormatItalicOutlined
 } from '@mui/icons-material';
 import { ref, get, onValue, off, remove, update, push, set } from 'firebase/database';
 import { database, auth } from '../../firebase';
@@ -786,6 +792,7 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
     color?: string;
     bold?: boolean;
     italic?: boolean;
+    textAlign?: 'left' | 'center' | 'right'; // Hizalama özelliği ekledik
   }>>([]);
   
   // Tasarım kaydetme ve seçme için eklenen state'ler
@@ -900,25 +907,18 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
       color: '#000000',
       bold: false,
       italic: false,
-      selected: true // Yeni eklenen metni seç
+      selected: true,
+      textAlign: 'left' as 'left' | 'center' | 'right' // Doğru tip olarak belirt
     };
     
     // Önceki seçimleri kaldır ve yeni metni ekle
-    setPageItems(prev => prev.map(item => ({
+    setPageItems(prev => [...prev.map(item => ({
       ...item,
       selected: false
-    })).concat(newItem));
+    })), newItem]);
     
     // Düzeni kaydet
     setTimeout(saveLayout, 100);
-    
-    // Metin düzenleme alanını yeni metin için ayarla
-    setTextContent('Yeni Metin');
-    setTextFont('Roboto');
-    setTextSize(16);
-    setTextColor('#000000');
-    setTextBold(false);
-    setTextItalic(false);
   };
 
   // Metin içeriğini güncelleme
@@ -1051,6 +1051,7 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
       setTextColor(selectedItem.color || '#000000');
       setTextBold(selectedItem.bold || false);
       setTextItalic(selectedItem.italic || false);
+      // textAlign değerini de burada güncelle
     }
   }, [pageItems]);
 
@@ -1483,6 +1484,22 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
     }
   };
 
+  // Hizalama fonksiyonlarını ekle - handleToggleBold fonksiyonundan sonra
+  const handleTextAlign = (align: 'left' | 'center' | 'right') => {
+    setPageItems(prev => prev.map(item => {
+      if (item.selected && item.type === 'text') {
+        return {
+          ...item,
+          textAlign: align
+        };
+      }
+      return item;
+    }));
+    
+    // Düzeni kaydet
+    setTimeout(saveLayout, 100);
+  };
+
   if (!task) return null;
 
   return (
@@ -1621,7 +1638,8 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
                           fontWeight: item.bold ? 'bold' : 'normal',
                           fontStyle: item.italic ? 'italic' : 'normal',
                           whiteSpace: 'pre-wrap',
-                          pointerEvents: 'none' // İçeriğin fare etkileşimini engelle
+                          pointerEvents: 'none', // İçeriğin fare etkileşimini engelle
+                          textAlign: item.textAlign || 'left' // Metin hizalama özelliğini ekle
                         }}
                       >
                         {item.content || 'Metin'}
@@ -1894,48 +1912,117 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
                   </Box>
                   
                   {/* Metin Formatı ve Rengi */}
-                  <Box sx={{ display: 'flex', alignItems: 'center', mt: 2, justifyContent: 'space-between' }}>
-                    <Box>
-                      <IconButton 
-                        size="small" 
-                        onClick={handleToggleBold}
-                        color={textBold ? "primary" : "default"}
-                        sx={{ border: textBold ? '1px solid' : 'none' }}
+                  <Box sx={{ display: 'flex', flexDirection: 'column', mt: 2, gap: 1 }}>
+                    {/* Yazı Hizalama - YENİ */}
+                    <Typography variant="caption" gutterBottom>
+                      Yazı Hizalama
+                    </Typography>
+                    <ButtonGroup size="small" fullWidth>
+                      <Button 
+                        onClick={() => handleTextAlign('left')}
+                        variant={
+                          pageItems.find(item => item.selected && item.type === 'text')?.textAlign === 'left' 
+                            ? 'contained' 
+                            : 'outlined'
+                        }
                       >
-                        <Typography sx={{ fontWeight: 'bold' }}>B</Typography>
-                      </IconButton>
-                      <IconButton 
-                        size="small" 
-                        onClick={handleToggleItalic}
-                        color={textItalic ? "primary" : "default"}
-                        sx={{ border: textItalic ? '1px solid' : 'none', ml: 1 }}
+                        <FormatAlignLeftOutlined />
+                      </Button>
+                      <Button 
+                        onClick={() => handleTextAlign('center')}
+                        variant={
+                          pageItems.find(item => item.selected && item.type === 'text')?.textAlign === 'center' 
+                            ? 'contained' 
+                            : 'outlined'
+                        }
                       >
-                        <Typography sx={{ fontStyle: 'italic' }}>I</Typography>
-                      </IconButton>
+                        <FormatAlignCenterOutlined />
+                      </Button>
+                      <Button 
+                        onClick={() => handleTextAlign('right')}
+                        variant={
+                          pageItems.find(item => item.selected && item.type === 'text')?.textAlign === 'right' 
+                            ? 'contained' 
+                            : 'outlined'
+                        }
+                      >
+                        <FormatAlignRightOutlined />
+                      </Button>
+                    </ButtonGroup>
+
+                    {/* Kalın/İtalik butonları */}
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
+                      <Typography variant="caption" gutterBottom>
+                        Yazı Stili
+                      </Typography>
+                      <Box>
+                        <IconButton 
+                          size="small" 
+                          onClick={handleToggleBold}
+                          color={textBold ? "primary" : "default"}
+                          sx={{ border: textBold ? '1px solid' : 'none' }}
+                        >
+                          <Typography sx={{ fontWeight: 'bold' }}>B</Typography>
+                        </IconButton>
+                        <IconButton 
+                          size="small" 
+                          onClick={handleToggleItalic}
+                          color={textItalic ? "primary" : "default"}
+                          sx={{ border: textItalic ? '1px solid' : 'none', ml: 1 }}
+                        >
+                          <Typography sx={{ fontStyle: 'italic' }}>I</Typography>
+                        </IconButton>
+                      </Box>
                     </Box>
                     
-                    {/* Renk Seçici */}
-                    <Box>
-                      <Typography variant="caption" gutterBottom display="block">
-                        Yazı Rengi
-                      </Typography>
-                      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                        {['#000000', '#FF0000', '#0000FF', '#008000', '#FFA500', '#800080'].map(color => (
-                          <Box
-                            key={color}
-                            onClick={() => handleColorChange(color)}
-                            sx={{
-                              width: 24,
-                              height: 24,
-                              bgcolor: color,
-                              borderRadius: '50%',
-                              cursor: 'pointer',
-                              border: textColor === color ? '2px solid #1976d2' : '1px solid #e0e0e0',
-                              '&:hover': { opacity: 0.8 }
-                            }}
-                          />
-                        ))}
+                    {/* Genişletilmiş Renk Paleti - GENİŞLETİLDİ */}
+                    <Typography variant="caption" gutterBottom display="block" sx={{ mt: 1 }}>
+                      Yazı Rengi
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                      {[
+                        '#000000', '#333333', '#666666', '#999999', '#CCCCCC', '#FFFFFF',
+                        '#FF0000', '#FF6600', '#FFCC00', '#FFFF00', '#CCFF00', '#66FF00',
+                        '#00FF00', '#00FF66', '#00FFCC', '#00FFFF', '#00CCFF', '#0066FF',
+                        '#0000FF', '#6600FF', '#CC00FF', '#FF00FF', '#FF00CC', '#FF0066'
+                      ].map(color => (
+                        <Box
+                          key={color}
+                          onClick={() => handleColorChange(color)}
+                          sx={{
+                            width: 18,
+                            height: 18,
+                            bgcolor: color,
+                            borderRadius: '2px',
+                            cursor: 'pointer',
+                            border: textColor === color ? '2px solid #1976d2' : '1px solid #e0e0e0',
+                            '&:hover': { opacity: 0.8 }
+                          }}
+                        />
+                      ))}
+                      {/* Özel Renk Seçici */}
+                      <Box
+                        onClick={() => document.getElementById('custom-color-picker')?.click()}
+                        sx={{
+                          width: 18,
+                          height: 18,
+                          border: '1px dashed #aaa',
+                          borderRadius: '2px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <span style={{ fontSize: '10px' }}>+</span>
                       </Box>
+                      <input
+                        type="color"
+                        id="custom-color-picker"
+                        value={textColor}
+                        onChange={(e) => handleColorChange(e.target.value)}
+                        style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }}
+                      />
                     </Box>
                   </Box>
                 </Box>
