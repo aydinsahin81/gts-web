@@ -228,6 +228,7 @@ const PersonnelSelector: React.FC<PersonnelSelectorProps> = ({
               const isSelected = selectedIds.indexOf(person.id) !== -1;
               const labelId = `personnel-list-item-${person.id}`;
               const fullName = getPersonFullName(person);
+              const hasFcmToken = Boolean(person.fcmToken);
               
               return (
                 <ListItem 
@@ -238,6 +239,10 @@ const PersonnelSelector: React.FC<PersonnelSelectorProps> = ({
                     role={undefined} 
                     onClick={() => handleToggle(person.id)} 
                     dense
+                    sx={{
+                      borderLeft: '4px solid',
+                      borderLeftColor: hasFcmToken ? 'success.main' : 'error.main',
+                    }}
                   >
                     <ListItemAvatar>
                       <Checkbox
@@ -248,25 +253,22 @@ const PersonnelSelector: React.FC<PersonnelSelectorProps> = ({
                         inputProps={{ 'aria-labelledby': labelId }}
                       />
                     </ListItemAvatar>
-                    <ListItemAvatar>
-                      <Avatar>
-                        {person.firstName[0]}
-                      </Avatar>
-                    </ListItemAvatar>
+                    <Avatar sx={{ mx: 1 }}>
+                      {person.firstName?.[0] || <FaceIcon />}
+                    </Avatar>
                     <ListItemText 
-                      id={labelId}
+                      id={labelId} 
                       primary={fullName}
                       secondary={
-                        <React.Fragment>
-                          <Typography
-                            component="span"
-                            variant="body2"
-                            color="text.primary"
-                          >
-                            {person.role || ''}
-                          </Typography>
-                          {person.email && ` — ${person.email}`}
-                        </React.Fragment>
+                        <Box component="span" sx={{ 
+                          color: hasFcmToken ? 'success.main' : 'error.main',
+                          fontWeight: 'medium',
+                          fontSize: '0.8rem',
+                          display: 'block'
+                        }}>
+                          {hasFcmToken ? 'Bildirim Alabilir' : 'Bildirim Alamaz'}
+                          {person.role && <span style={{ color: 'text.secondary', marginLeft: '8px' }}>{person.role}</span>}
+                        </Box>
                       }
                     />
                   </ListItemButton>

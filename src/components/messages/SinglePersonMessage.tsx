@@ -225,6 +225,7 @@ const SinglePersonMessage: React.FC = () => {
                   {filteredPersonnel.map((person) => {
                     const fullName = getPersonFullName(person);
                     const isSelected = selectedPersonId === person.id;
+                    const hasFcmToken = Boolean(person.fcmToken);
                     
                     return (
                       <ListItem
@@ -234,6 +235,10 @@ const SinglePersonMessage: React.FC = () => {
                         <ListItemButton
                           selected={isSelected}
                           onClick={() => handlePersonChange(person.id)}
+                          sx={{
+                            borderLeft: '4px solid',
+                            borderLeftColor: hasFcmToken ? 'success.main' : 'error.main',
+                          }}
                         >
                           <Radio 
                             checked={isSelected}
@@ -248,7 +253,15 @@ const SinglePersonMessage: React.FC = () => {
                           </ListItemAvatar>
                           <ListItemText
                             primary={fullName}
-                            secondary={person.role || person.department || ''}
+                            secondary={
+                              <Box component="span" sx={{ 
+                                color: hasFcmToken ? 'success.main' : 'error.main',
+                                fontWeight: 'medium',
+                                fontSize: '0.8rem'
+                              }}>
+                                {hasFcmToken ? 'Bildirim Alabilir' : 'Bildirim Alamaz'}
+                              </Box>
+                            }
                           />
                         </ListItemButton>
                       </ListItem>
