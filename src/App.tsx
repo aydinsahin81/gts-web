@@ -15,15 +15,11 @@ import Tasks from './components/tasks/Tasks';
 import Personnel from './components/personnel/Personnel';
 import Profile from './components/profile/Profile';
 import Reports from './components/reports/Reports';
+import Messages from './components/messages/Messages';
 
 // Henüz oluşturulmamış diğer sayfalar için geçici bileşenler
 // const Reports = () => <div>Raporlar Sayfası</div>;
-const Messages = () => (
-  <Box sx={{ p: 3 }}>
-    <h1>Mesajlar</h1>
-    <p>Bu sayfa personellerinize bildirim göndermenizi sağlayacaktır.</p>
-  </Box>
-);
+// Geçici Messages bileşeni yerine gerçek bileşeni kullanıyoruz
 
 // Tema oluşturma
 const theme = createTheme({
