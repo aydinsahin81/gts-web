@@ -18,6 +18,12 @@ import Reports from './components/reports/Reports';
 
 // Henüz oluşturulmamış diğer sayfalar için geçici bileşenler
 // const Reports = () => <div>Raporlar Sayfası</div>;
+const Messages = () => (
+  <Box sx={{ p: 3 }}>
+    <h1>Mesajlar</h1>
+    <p>Bu sayfa personellerinize bildirim göndermenizi sağlayacaktır.</p>
+  </Box>
+);
 
 // Tema oluşturma
 const theme = createTheme({
@@ -91,6 +97,7 @@ const App: React.FC = () => {
               <Route path="/tasks" element={<MainLayout><Tasks /></MainLayout>} />
               <Route path="/personnel" element={<MainLayout><Personnel /></MainLayout>} />
               <Route path="/reports" element={<MainLayout><Reports /></MainLayout>} />
+              <Route path="/messages" element={<MainLayout><Messages /></MainLayout>} />
               <Route path="/profile" element={<MainLayout><Profile /></MainLayout>} />
             </Route>
             

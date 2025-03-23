@@ -19,6 +19,7 @@ import PeopleIcon from '@mui/icons-material/People';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import ExitToAppIcon from '@mui/icons-material/ExitToApp';
+import MessageIcon from '@mui/icons-material/Message';
 
 const SidebarContainer = styled(Box)(({ theme }) => ({
   width: 260,
@@ -152,6 +153,16 @@ const Sidebar: React.FC<SidebarProps> = ({ openMobile, onCloseMobile }) => {
             <AssessmentIcon />
           </ListItemIcon>
           <ListItemText primary="Raporlar" />
+        </MenuItem>
+        
+        <MenuItem 
+          active={isActive('/messages')} 
+          onClick={() => handleNavigation('/messages')}
+        >
+          <ListItemIcon sx={{ color: 'white', minWidth: 40 }}>
+            <MessageIcon />
+          </ListItemIcon>
+          <ListItemText primary="Mesajlar" />
         </MenuItem>
         
         <MenuItem 
