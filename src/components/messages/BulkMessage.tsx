@@ -1,13 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import { Grid, Alert, Snackbar, Box, CircularProgress } from '@mui/material';
-import PersonnelSelector from './PersonnelSelector';
+import { 
+  Grid, 
+  Alert, 
+  Snackbar, 
+  Box, 
+  CircularProgress, 
+  Typography, 
+  Paper,
+  styled
+} from '@mui/material';
 import MessageComposer from './MessageComposer';
 import NotificationService, { Personnel } from '../../services/NotificationService';
 import { useAuth } from '../../contexts/AuthContext';
+import PeopleAltIcon from '@mui/icons-material/PeopleAlt';
+
+// Özelleştirilmiş bileşenler
+const StyledPaper = styled(Paper)(({ theme }) => ({
+  borderRadius: theme.spacing(1),
+  overflow: 'hidden',
+  marginBottom: theme.spacing(3),
+}));
 
 const BulkMessage: React.FC = () => {
   const [personnel, setPersonnel] = useState<Personnel[]>([]);
-  const [selectedPersonnel, setSelectedPersonnel] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [sending, setSending] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,7 +43,6 @@ const BulkMessage: React.FC = () => {
         }
         
         // Kullanıcının şirket ID'sini al
-        // Not: Gerçek uygulamada bu veri farklı bir yoldan alınabilir
         const userRef = await NotificationService.getCurrentUserCompany(currentUser.uid);
         if (!userRef) {
           setError('Şirket bilgisi bulunamadı.');
@@ -50,13 +64,9 @@ const BulkMessage: React.FC = () => {
     loadPersonnel();
   }, [currentUser]);
   
-  const handleSelectionChange = (selectedIds: string[]) => {
-    setSelectedPersonnel(selectedIds);
-  };
-  
   const handleSendMessage = async (title: string, body: string) => {
-    if (selectedPersonnel.length === 0) {
-      setError('Lütfen en az bir personel seçin.');
+    if (personnel.length === 0) {
+      setError('Hiç personel bulunamadı.');
       return;
     }
     
@@ -76,18 +86,19 @@ const BulkMessage: React.FC = () => {
         return;
       }
       
+      // Tüm personelin ID'lerini al
+      const allPersonnelIds = personnel.map(person => person.id);
+      
       // Bildirimi gönder
       const result = await NotificationService.sendNotification(
         companyId,
-        selectedPersonnel,
+        allPersonnelIds,
         title,
         body
       );
       
       if (result.success) {
         setSuccessMessage(`Bildirim başarıyla ${result.sentCount} personele gönderildi.`);
-        // Başarılı gönderimden sonra seçimleri temizle - isteğe bağlı
-        // setSelectedPersonnel([]);
       } else {
         setError(result.message);
       }
@@ -113,6 +124,30 @@ const BulkMessage: React.FC = () => {
         </Alert>
       )}
       
+      {/* Personel Bilgisi */}
+      {!loading && personnel.length > 0 && (
+        <StyledPaper elevation={0}>
+          <Box sx={{ 
+            p: 2, 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 2,
+            bgcolor: 'primary.light',
+            color: 'primary.contrastText'
+          }}>
+            <PeopleAltIcon fontSize="large" />
+            <Box>
+              <Typography variant="h6">
+                Toplu Mesaj Gönderimi
+              </Typography>
+              <Typography variant="body2">
+                {`Şirketinizde toplam ${personnel.length} personel mevcut. Gönderilen bildirim tüm personele iletilecektir.`}
+              </Typography>
+            </Box>
+          </Box>
+        </StyledPaper>
+      )}
+      
       {/* Yükleniyor göstergesi */}
       {loading && (
         <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
@@ -120,24 +155,20 @@ const BulkMessage: React.FC = () => {
         </Box>
       )}
       
-      {!loading && (
-        <Grid container spacing={3}>
-          {/* Personel Seçici */}
-          <Grid item xs={12} md={6}>
-            <PersonnelSelector
-              personnel={personnel}
-              loading={loading}
-              onSelectionChange={handleSelectionChange}
-              selectedIds={selectedPersonnel}
-            />
-          </Grid>
-          
+      {!loading && personnel.length === 0 && !error && (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          Şirketinizde henüz kayıtlı personel bulunmamaktadır.
+        </Alert>
+      )}
+      
+      {!loading && personnel.length > 0 && (
+        <Grid container justifyContent="center">
           {/* Mesaj Oluşturucu */}
-          <Grid item xs={12} md={6}>
+          <Grid item xs={12} md={8}>
             <MessageComposer
               onSend={handleSendMessage}
               isLoading={sending}
-              recipientCount={selectedPersonnel.length}
+              recipientCount={personnel.length}
             />
           </Grid>
         </Grid>
