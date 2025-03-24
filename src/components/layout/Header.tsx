@@ -15,12 +15,12 @@ import {
   useTheme
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
-import NotificationsIcon from '@mui/icons-material/Notifications';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { useAuth } from '../../contexts/AuthContext';
 import { ref, get } from 'firebase/database';
 import { database } from '../../firebase';
 import { useNavigate } from 'react-router-dom';
+import NotificationMenu from '../notifications/NotificationMenu';
 
 const StyledAppBar = styled(AppBar)(({ theme }) => ({
   backgroundColor: 'white',
@@ -145,9 +145,7 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
         </Typography>
         
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          <IconButton color="inherit" sx={{ marginRight: 2 }}>
-            <NotificationsIcon />
-          </IconButton>
+          <NotificationMenu />
           
           <UserChip
             avatar={
