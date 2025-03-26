@@ -135,6 +135,7 @@ const Dashboard: React.FC = () => {
   const [allCompletedTasks, setAllCompletedTasks] = useState<any[]>([]);
   const [missedTasksModalOpen, setMissedTasksModalOpen] = useState(false);
   const [completedTasksModalOpen, setCompletedTasksModalOpen] = useState(false);
+  const [worstPerformers, setWorstPerformers] = useState<any[]>([]);
   const theme = useTheme();
   
   // Modal pencereleri için işlevler
@@ -192,6 +193,18 @@ const Dashboard: React.FC = () => {
     // Tamamlanmış görev listesi 
     const completedTasksList: any[] = [];
     
+    // Personel performans değerlendirmesi için
+    const personnelMissedCounts: { [key: string]: { id: string, name: string, missedCount: number } } = {};
+    
+    // Tüm personeli başlangıçta 0 gecikme ile ekle
+    personnelList.forEach(person => {
+      personnelMissedCounts[person.id] = {
+        id: person.id,
+        name: person.name,
+        missedCount: 0
+      };
+    });
+    
     // Eğer şirketin missedTasks verisi varsa say
     if (companyData && companyData.missedTasks) {
       console.log("missedTasks bulundu:", companyData.missedTasks);
@@ -209,10 +222,17 @@ const Dashboard: React.FC = () => {
             
             // Personel bilgisini bul
             let personnelName = "Atanmamış";
+            let personnelId = null;
             if (task && task.personnelId) {
+              personnelId = task.personnelId;
               const person = personnelList.find(p => p.id === task.personnelId);
               if (person) {
                 personnelName = person.name;
+                
+                // Personelin gecikme sayısını artır
+                if (personnelMissedCounts[person.id]) {
+                  personnelMissedCounts[person.id].missedCount += 1;
+                }
               }
             }
             
@@ -224,7 +244,7 @@ const Dashboard: React.FC = () => {
               date: date,
               time: time,
               missedAt: taskData.missedAt,
-              personnelId: task?.personnelId || null,
+              personnelId: personnelId,
               personnelName: personnelName
             });
           });
@@ -279,6 +299,14 @@ const Dashboard: React.FC = () => {
         });
       });
     }
+    
+    // En kötü performans gösteren personelleri hesapla (en çok görev geciktiren)
+    const worstPerformers = Object.values(personnelMissedCounts)
+      .filter(person => person.missedCount > 0) // Sadece görevi geciktirmiş personelleri al
+      .sort((a, b) => b.missedCount - a.missedCount) // Gecikme sayısına göre sırala (çoktan aza)
+      .slice(0, 10); // En kötü 10 personeli al
+    
+    setWorstPerformers(worstPerformers);
     
     setStats({
       totalPersonnel: personnelList.length,
@@ -788,6 +816,89 @@ const Dashboard: React.FC = () => {
         </Grid>
       </Grid>
       
+      {/* En Kötü Performanslı Personeller */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid item xs={12}>
+          <StyledCard>
+            <CardHeader 
+              title="En Çok Görev Geciktiren Personeller" 
+              titleTypographyProps={{ fontWeight: 'bold' }}
+            />
+            <Divider />
+            <CardContent sx={{ flexGrow: 1, overflow: 'auto', maxHeight: 320 }}>
+              {worstPerformers.length === 0 ? (
+                <Typography variant="body2" color="textSecondary" align="center" sx={{ py: 4 }}>
+                  Henüz gecikmiş görev kaydı bulunmuyor
+                </Typography>
+              ) : (
+                <Grid container spacing={2}>
+                  {worstPerformers.map((person, index) => (
+                    <Grid item xs={12} md={6} lg={4} key={person.id}>
+                      <Paper 
+                        elevation={0} 
+                        sx={{ 
+                          p: 2, 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          border: '1px solid',
+                          borderColor: theme.palette.divider,
+                          borderRadius: 2,
+                          position: 'relative',
+                          overflow: 'hidden',
+                          '&::before': {
+                            content: '""',
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            width: 5,
+                            height: '100%',
+                            bgcolor: '#F44336',
+                          }
+                        }}
+                      >
+                        <Box sx={{ mr: 2, position: 'relative' }}>
+                          <Avatar sx={{ bgcolor: index < 3 ? '#F44336' : theme.palette.grey[500] }}>
+                            <PersonIcon />
+                          </Avatar>
+                          <Typography 
+                            variant="caption" 
+                            sx={{ 
+                              position: 'absolute', 
+                              top: -10, 
+                              right: -10, 
+                              bgcolor: index < 3 ? '#F44336' : theme.palette.grey[500], 
+                              color: 'white', 
+                              width: 20, 
+                              height: 20, 
+                              borderRadius: '50%', 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              justifyContent: 'center',
+                              fontWeight: 'bold',
+                              fontSize: 11
+                            }}
+                          >
+                            {index + 1}
+                          </Typography>
+                        </Box>
+                        <Box>
+                          <Typography variant="subtitle1" fontWeight="medium" noWrap>
+                            {person.name}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            {person.missedCount} gecikmiş görev
+                          </Typography>
+                        </Box>
+                      </Paper>
+                    </Grid>
+                  ))}
+                </Grid>
+              )}
+            </CardContent>
+          </StyledCard>
+        </Grid>
+      </Grid>
+      
       {/* Alt Kartlar */}
       <Grid container spacing={3}>
         {/* Personel Listesi */}
@@ -796,15 +907,6 @@ const Dashboard: React.FC = () => {
             <CardHeader 
               title="Son Eklenen Personeller" 
               titleTypographyProps={{ fontWeight: 'bold' }}
-              action={
-                <Button 
-                  variant="text" 
-                  color="primary" 
-                  onClick={() => window.location.href = '/personnel'}
-                >
-                  Tümünü Gör
-                </Button>
-              }
             />
             <Divider />
             <CardContent sx={{ flexGrow: 1, overflow: 'auto', maxHeight: 320 }}>
@@ -839,15 +941,6 @@ const Dashboard: React.FC = () => {
             <CardHeader 
               title="Son Eklenen Görevler" 
               titleTypographyProps={{ fontWeight: 'bold' }}
-              action={
-                <Button 
-                  variant="text" 
-                  color="primary" 
-                  onClick={() => window.location.href = '/tasks'}
-                >
-                  Tümünü Gör
-                </Button>
-              }
             />
             <Divider />
             <CardContent sx={{ flexGrow: 1, overflow: 'auto', maxHeight: 320 }}>
