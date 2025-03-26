@@ -164,6 +164,7 @@ const Tasks: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [tasks, setTasks] = useState<any[]>([]);
   const [personnel, setPersonnel] = useState<any[]>([]);
+  const [taskGroups, setTaskGroups] = useState<any[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [personnelFilter, setPersonnelFilter] = useState<string>('all');
   const [companyId, setCompanyId] = useState<string | null>(null);
@@ -347,13 +348,28 @@ const Tasks: React.FC = () => {
         // Personel ve görevleri almak için referanslar oluştur
         const personnelRef = ref(database, `companies/${companyId}/personnel`);
         const tasksRef = ref(database, `companies/${companyId}/tasks`);
+        const taskGroupsRef = ref(database, `companies/${companyId}/taskGroups`);
         
         // Başlangıç verilerini al
         const personnelSnapshot = await get(personnelRef);
         const tasksSnapshot = await get(tasksRef);
+        const taskGroupsSnapshot = await get(taskGroupsRef);
         
         const personnelData = personnelSnapshot.exists() ? personnelSnapshot.val() : {};
         const tasksData = tasksSnapshot.exists() ? tasksSnapshot.val() : {};
+        
+        // Görev gruplarını işle
+        if (taskGroupsSnapshot.exists()) {
+          const groupsData = taskGroupsSnapshot.val();
+          const groupsList = Object.entries(groupsData).map(([id, data]: [string, any]) => ({
+            id,
+            name: data.name || 'İsimsiz Grup',
+            createdAt: data.createdAt || '',
+          }));
+          setTaskGroups(groupsList);
+        } else {
+          setTaskGroups([]);
+        }
         
         // Verileri işle
         processData(tasksData, personnelData);
@@ -380,6 +396,21 @@ const Tasks: React.FC = () => {
             processData(tasksData, personnelData);
           });
         });
+        
+        // Görev grupları değişiklikleri
+        onValue(taskGroupsRef, (snapshot) => {
+          if (snapshot.exists()) {
+            const groupsData = snapshot.val();
+            const groupsList = Object.entries(groupsData).map(([id, data]: [string, any]) => ({
+              id,
+              name: data.name || 'İsimsiz Grup',
+              createdAt: data.createdAt || '',
+            }));
+            setTaskGroups(groupsList);
+          } else {
+            setTaskGroups([]);
+          }
+        });
       } catch (error) {
         console.error('Görev verilerini yüklerken hata:', error);
       } finally {
@@ -395,6 +426,7 @@ const Tasks: React.FC = () => {
       if (companyId) {
         off(ref(database, `companies/${companyId}/personnel`));
         off(ref(database, `companies/${companyId}/tasks`));
+        off(ref(database, `companies/${companyId}/taskGroups`));
       }
     };
   }, []);
@@ -459,6 +491,7 @@ const Tasks: React.FC = () => {
     dailyRepetitions: number;
     startTolerance: number;
     repetitionTimes: string[];
+    groupId?: string;
   }) => {
     if (!companyId) {
       throw new Error('Şirket bilgisi bulunamadı');
@@ -476,7 +509,23 @@ const Tasks: React.FC = () => {
       }
       
       // Görev verilerini hazırla
-      const taskToSave = {
+      interface TaskData {
+        name: string;
+        description: string;
+        personnelId: string;
+        status: string;
+        completionType: string;
+        createdAt: number;
+        startedAt: null;
+        completedAt: null;
+        isRecurring: boolean;
+        dailyRepetitions: number;
+        startTolerance: number;
+        repetitionTimes: string[];
+        groupId?: string;
+      }
+      
+      const taskToSave: TaskData = {
         name: taskData.name,
         description: taskData.description,
         personnelId: taskData.personnelId,
@@ -490,6 +539,11 @@ const Tasks: React.FC = () => {
         startTolerance: taskData.startTolerance,
         repetitionTimes: taskData.repetitionTimes,
       };
+      
+      // Eğer görev grubu seçildiyse bunu da ekle
+      if (taskData.groupId) {
+        taskToSave.groupId = taskData.groupId;
+      }
       
       // Görevi kaydet
       await set(ref(database, `companies/${companyId}/tasks/${newTaskKey}`), taskToSave);
@@ -928,6 +982,8 @@ const Tasks: React.FC = () => {
         onClose={() => setAddTaskModalOpen(false)}
         onAddTask={handleAddTask}
         personnel={personnel}
+        taskGroups={taskGroups}
+        companyId={companyId || ''}
       />
 
       {/* QR Kod Yazdırma Modalı */}
