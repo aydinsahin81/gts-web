@@ -564,6 +564,73 @@ const Tasks: React.FC = () => {
     }
   };
 
+  // Görevdeki personeli değiştirme fonksiyonu
+  const handleUpdatePersonnel = async (taskId: string, newPersonnelId: string): Promise<void> => {
+    if (!companyId) {
+      throw new Error('Şirket bilgisi bulunamadı');
+    }
+
+    try {
+      console.log('Görevdeki personel değiştiriliyor. TaskId:', taskId, 'Yeni PersonnelId:', newPersonnelId);
+      
+      // Görevin mevcut verilerini al
+      const taskSnapshot = await get(ref(database, `companies/${companyId}/tasks/${taskId}`));
+      
+      if (!taskSnapshot.exists()) {
+        throw new Error('Görev bulunamadı');
+      }
+      
+      const taskData = taskSnapshot.val();
+      const oldPersonnelId = taskData.personnelId;
+      
+      if (oldPersonnelId === newPersonnelId) {
+        console.log('Personel değişmedi, işlem iptal edildi');
+        return;
+      }
+      
+      // Görevi güncelle
+      await update(ref(database, `companies/${companyId}/tasks/${taskId}`), {
+        personnelId: newPersonnelId
+      });
+      console.log('Görev güncellendi');
+      
+      // Yeni personelin görev durumunu güncelle
+      await update(ref(database, `companies/${companyId}/personnel/${newPersonnelId}`), {
+        hasTask: true
+      });
+      console.log('Yeni personelin görev durumu güncellendi');
+      
+      // Eski personelin diğer görevlerini kontrol et
+      const otherTasksSnapshot = await get(
+        ref(database, `companies/${companyId}/tasks`)
+      );
+      
+      let hasOtherTasks = false;
+      
+      if (otherTasksSnapshot.exists()) {
+        const tasksData = otherTasksSnapshot.val();
+        
+        // Personelin başka görevi var mı kontrol et (mevcut güncellenen görev hariç)
+        hasOtherTasks = Object.entries(tasksData).some(
+          ([id, data]: [string, any]) => id !== taskId && data.personnelId === oldPersonnelId
+        );
+      }
+      
+      // Eğer başka görev yoksa personelin görev durumunu false yap
+      if (!hasOtherTasks) {
+        console.log('Eski personelin başka görevi yok, hasTask false yapılıyor');
+        await update(ref(database, `companies/${companyId}/personnel/${oldPersonnelId}`), {
+          hasTask: false
+        });
+      }
+      
+      console.log('Personel değiştirme işlemi tamamlandı');
+    } catch (error) {
+      console.error('Personel güncellenirken hata:', error);
+      throw error;
+    }
+  };
+
   // Tekrarlı görevlerin durumlarını kontrol et ve güncelle
   const checkRecurringTaskTimes = async () => {
     if (isCheckingTasks) return;
@@ -1031,6 +1098,8 @@ const Tasks: React.FC = () => {
         onClose={() => setTaskDetailOpen(false)}
         task={selectedTask}
         onDelete={handleDeleteTask}
+        onUpdatePersonnel={handleUpdatePersonnel}
+        personnel={personnel}
         getStatusColor={getStatusColor}
         getStatusIcon={getStatusIcon}
         getStatusLabel={getStatusLabel}

@@ -14,12 +14,18 @@ import {
   Divider,
   Alert,
   AlertTitle,
-  Collapse
+  Collapse,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  SelectChangeEvent
 } from '@mui/material';
 import {
   Close as CloseIcon,
   Delete as DeleteIcon,
-  Person as PersonIcon
+  Person as PersonIcon,
+  SwapHoriz as SwapHorizIcon
 } from '@mui/icons-material';
 
 interface TaskDetailModalProps {
@@ -27,6 +33,8 @@ interface TaskDetailModalProps {
   onClose: () => void;
   task: any;
   onDelete: (taskId: string, personnelId: string) => Promise<void>;
+  onUpdatePersonnel?: (taskId: string, newPersonnelId: string) => Promise<void>;
+  personnel?: any[];
   getStatusColor: (status: string) => string;
   getStatusIcon: (status: string) => React.ReactNode;
   getStatusLabel: (status: string) => string;
@@ -37,6 +45,8 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   onClose, 
   task, 
   onDelete,
+  onUpdatePersonnel,
+  personnel = [],
   getStatusColor,
   getStatusIcon,
   getStatusLabel 
@@ -44,6 +54,9 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [personnelChangeOpen, setPersonnelChangeOpen] = useState(false);
+  const [selectedPersonnelId, setSelectedPersonnelId] = useState('');
+  const [isChangingPersonnel, setIsChangingPersonnel] = useState(false);
 
   const handleDelete = async () => {
     if (!task) return;
@@ -60,6 +73,27 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     } finally {
       setIsDeleting(false);
       setDeleteConfirmOpen(false);
+    }
+  };
+
+  const handlePersonnelChange = (event: SelectChangeEvent) => {
+    setSelectedPersonnelId(event.target.value);
+  };
+
+  const handlePersonnelChangeSubmit = async () => {
+    if (!task || !selectedPersonnelId || !onUpdatePersonnel) return;
+    
+    setIsChangingPersonnel(true);
+    setError(null);
+    
+    try {
+      await onUpdatePersonnel(task.id, selectedPersonnelId);
+      setPersonnelChangeOpen(false);
+    } catch (err) {
+      setError('Personel değiştirilirken bir hata oluştu. Lütfen tekrar deneyin.');
+      console.error('Personel değiştirme hatası:', err);
+    } finally {
+      setIsChangingPersonnel(false);
     }
   };
 
@@ -196,6 +230,24 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
             </Box>
           </Box>
 
+          {onUpdatePersonnel && personnel.length > 0 && (
+            <Box sx={{ mt: 1, mb: 2 }}>
+              <Button
+                fullWidth
+                variant="outlined"
+                color="primary"
+                startIcon={<SwapHorizIcon />}
+                onClick={() => {
+                  setSelectedPersonnelId(task.personnelId);
+                  setPersonnelChangeOpen(true);
+                }}
+                sx={{ borderRadius: 1 }}
+              >
+                Personel Değiştir
+              </Button>
+            </Box>
+          )}
+
           {task.isRecurring && (
             <>
               <Divider sx={{ my: 2 }} />
@@ -254,35 +306,54 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
         </Button>
       </DialogActions>
 
-      {/* Silme Onay Diyaloğu */}
-      <Dialog
-        open={deleteConfirmOpen}
-        onClose={() => setDeleteConfirmOpen(false)}
-        maxWidth="xs"
-        fullWidth
-      >
-        <DialogTitle sx={{ bgcolor: 'error.main', color: 'white' }}>
-          Dikkat: Görevi Sil
-        </DialogTitle>
-        <DialogContent sx={{ pt: 3 }}>
+      {/* Silme Onayı Diyaloğu */}
+      <Dialog open={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)}>
+        <DialogTitle>Görevi Sil</DialogTitle>
+        <DialogContent>
           <Typography>
-            <strong>{task.name}</strong> görevini silmek istediğinize emin misiniz? Bu işlem geri alınamaz.
+            "{task.name}" görevini silmek istediğinize emin misiniz? Bu işlem geri alınamaz.
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button 
-            onClick={() => setDeleteConfirmOpen(false)} 
-            disabled={isDeleting}
-          >
-            İptal
+          <Button onClick={() => setDeleteConfirmOpen(false)}>İptal</Button>
+          <Button onClick={handleDelete} color="error" disabled={isDeleting}>
+            {isDeleting ? 'Siliniyor...' : 'Evet, Sil'}
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Personel Değiştirme Diyaloğu */}
+      <Dialog open={personnelChangeOpen} onClose={() => setPersonnelChangeOpen(false)}>
+        <DialogTitle>Personel Değiştir</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ mb: 2 }}>
+            "{task.name}" görevi için yeni bir personel seçin.
+          </Typography>
+          <FormControl fullWidth>
+            <InputLabel>Personel</InputLabel>
+            <Select
+              value={selectedPersonnelId}
+              label="Personel"
+              onChange={handlePersonnelChange}
+              size="small"
+            >
+              {personnel.map((person) => (
+                <MenuItem key={person.id} value={person.id}>
+                  {person.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPersonnelChangeOpen(false)}>İptal</Button>
           <Button 
-            variant="contained" 
-            color="error" 
-            onClick={handleDelete}
-            disabled={isDeleting}
+            onClick={handlePersonnelChangeSubmit} 
+            color="primary" 
+            variant="contained"
+            disabled={isChangingPersonnel || !selectedPersonnelId || selectedPersonnelId === task.personnelId}
           >
-            {isDeleting ? 'Siliniyor...' : 'Sil'}
+            {isChangingPersonnel ? 'Değiştiriliyor...' : 'Personeli Değiştir'}
           </Button>
         </DialogActions>
       </Dialog>
