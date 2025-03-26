@@ -43,6 +43,9 @@ import {
 } from 'recharts';
 import MissedTasksModal from './MissedTasksModal';
 import CompletedTasksModal from './CompletedTasksModal';
+import PendingTasksModal from './PendingTasksModal';
+import AllCompletedTasksModal from './AllCompletedTasksModal';
+import { useNavigate } from 'react-router-dom';
 
 // Tema renkleri (mobile uyumlu)
 const THEME_COLORS = {
@@ -82,12 +85,20 @@ const StyledCard = styled(Card)(({ theme }) => ({
   overflow: 'hidden',
 }));
 
-const StatsCard = styled(Paper)(({ theme }) => ({
+// İstatistik kartı için styled component - tıklanabilir kart
+const StatsCard = styled(Paper)<{ bgcolor: string }>(({ theme, bgcolor }) => ({
   padding: theme.spacing(3),
   display: 'flex',
   alignItems: 'center',
   boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
   borderRadius: 12,
+  cursor: 'pointer',
+  transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
+  '&:hover': {
+    transform: 'translateY(-3px)',
+    boxShadow: '0 6px 16px rgba(0,0,0,0.1)',
+    background: `linear-gradient(to right, white, ${bgcolor}10)`,
+  },
 }));
 
 const IconBox = styled(Box)<{ bgcolor: string }>(({ theme, bgcolor }) => ({
@@ -126,6 +137,7 @@ const Dashboard: React.FC = () => {
   });
   const [personnel, setPersonnel] = useState<any[]>([]);
   const [recentTasks, setRecentTasks] = useState<any[]>([]);
+  const [tasks, setTasks] = useState<any[]>([]); // Tüm görevler için liste
   const [taskStatusData, setTaskStatusData] = useState<any[]>([]);
   const [personnelPerformanceData, setPersonnelPerformanceData] = useState<any[]>([]);
   const [companyId, setCompanyId] = useState<string | null>(null);
@@ -133,10 +145,14 @@ const Dashboard: React.FC = () => {
   const [recentCompletedTasks, setRecentCompletedTasks] = useState<any[]>([]);
   const [allMissedTasks, setAllMissedTasks] = useState<any[]>([]);
   const [allCompletedTasks, setAllCompletedTasks] = useState<any[]>([]);
+  const [allPendingTasks, setAllPendingTasks] = useState<any[]>([]);
   const [missedTasksModalOpen, setMissedTasksModalOpen] = useState(false);
   const [completedTasksModalOpen, setCompletedTasksModalOpen] = useState(false);
+  const [pendingTasksModalOpen, setPendingTasksModalOpen] = useState(false);
+  const [allCompletedTasksModalOpen, setAllCompletedTasksModalOpen] = useState(false);
   const [worstPerformers, setWorstPerformers] = useState<any[]>([]);
   const theme = useTheme();
+  const navigate = useNavigate();
   
   // Modal pencereleri için işlevler
   const handleOpenMissedTasksModal = () => {
@@ -153,6 +169,32 @@ const Dashboard: React.FC = () => {
 
   const handleCloseCompletedTasksModal = () => {
     setCompletedTasksModalOpen(false);
+  };
+  
+  // Yeni modallar için işlevler
+  const handleOpenPendingTasksModal = () => {
+    setPendingTasksModalOpen(true);
+  };
+
+  const handleClosePendingTasksModal = () => {
+    setPendingTasksModalOpen(false);
+  };
+
+  const handleOpenAllCompletedTasksModal = () => {
+    setAllCompletedTasksModalOpen(true);
+  };
+
+  const handleCloseAllCompletedTasksModal = () => {
+    setAllCompletedTasksModalOpen(false);
+  };
+  
+  // Sayfa yönlendirme fonksiyonları
+  const handleNavigateToPersonnel = () => {
+    navigate('/personnel');
+  };
+  
+  const handleNavigateToTasks = () => {
+    navigate('/tasks');
   };
   
   // Veri güncellemesini işler
@@ -173,9 +215,25 @@ const Dashboard: React.FC = () => {
         ...data,
       })) : [];
     
+    // Tüm görevleri sakla
+    setTasks(tasksList);
+    
     // Son eklenen görevler
     const sortedTasks = [...tasksList].sort((a, b) => b.createdAt - a.createdAt).slice(0, 2);
     setRecentTasks(sortedTasks);
+    
+    // Devam eden görevleri al (accepted ve assigned olanlar)
+    const pendingTasksList = tasksList
+      .filter(task => task.status === 'accepted' || task.status === 'assigned')
+      .map(task => ({
+        id: task.id,
+        name: task.name,
+        description: task.description || '',
+        status: task.status,
+        personnelId: task.personnelId,
+        personnelName: personnelData[task.personnelId]?.name || 'Atanmamış',
+      }));
+    setAllPendingTasks(pendingTasksList);
     
     // İstatistikleri hesapla
     const totalTasks = tasksList.length;
@@ -523,14 +581,13 @@ const Dashboard: React.FC = () => {
   
   return (
     <ScrollableContent>
-      <Typography variant="h4" component="h1" gutterBottom fontWeight="bold" color="primary">
-        Dashboard
-      </Typography>
-      
-      {/* İstatistik Kartları */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
+      {/* İstatistik Kartları - Dashboard başlığı silinmiş ve üste hizalanmış */}
+      <Grid container spacing={3} sx={{ mb: 5 }}>
         <Grid item xs={12} sm={6} md={3}>
-          <StatsCard>
+          <StatsCard 
+            bgcolor={THEME_COLORS.personnel} 
+            onClick={handleNavigateToPersonnel}
+          >
             <IconBox bgcolor={THEME_COLORS.personnel}>
               <PeopleIcon />
             </IconBox>
@@ -546,7 +603,10 @@ const Dashboard: React.FC = () => {
         </Grid>
         
         <Grid item xs={12} sm={6} md={3}>
-          <StatsCard>
+          <StatsCard 
+            bgcolor={THEME_COLORS.tasks} 
+            onClick={handleNavigateToTasks}
+          >
             <IconBox bgcolor={THEME_COLORS.tasks}>
               <TaskIcon />
             </IconBox>
@@ -562,7 +622,10 @@ const Dashboard: React.FC = () => {
         </Grid>
         
         <Grid item xs={12} sm={6} md={3}>
-          <StatsCard>
+          <StatsCard 
+            bgcolor={THEME_COLORS.pending} 
+            onClick={handleOpenPendingTasksModal}
+          >
             <IconBox bgcolor={THEME_COLORS.pending}>
               <PendingIcon />
             </IconBox>
@@ -578,7 +641,10 @@ const Dashboard: React.FC = () => {
         </Grid>
         
         <Grid item xs={12} sm={6} md={3}>
-          <StatsCard>
+          <StatsCard 
+            bgcolor={THEME_COLORS.completed}
+            onClick={handleOpenAllCompletedTasksModal}
+          >
             <IconBox bgcolor={THEME_COLORS.completed}>
               <CompletedIcon />
             </IconBox>
@@ -981,6 +1047,19 @@ const Dashboard: React.FC = () => {
         open={completedTasksModalOpen} 
         onClose={handleCloseCompletedTasksModal} 
         tasks={allCompletedTasks} 
+      />
+      
+      {/* Yeni modallar */}
+      <PendingTasksModal 
+        open={pendingTasksModalOpen} 
+        onClose={handleClosePendingTasksModal} 
+        tasks={allPendingTasks} 
+      />
+      
+      <AllCompletedTasksModal 
+        open={allCompletedTasksModalOpen} 
+        onClose={handleCloseAllCompletedTasksModal} 
+        tasks={tasks.filter(task => task.status === 'completed')} 
       />
     </ScrollableContent>
   );
