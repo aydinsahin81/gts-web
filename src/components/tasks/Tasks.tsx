@@ -71,7 +71,8 @@ import {
   FormatAlignRightOutlined,
   FormatBoldOutlined,
   FormatItalicOutlined,
-  Category as CategoryIcon
+  Category as CategoryIcon,
+  Info as InfoIcon
 } from '@mui/icons-material';
 import { ref, get, onValue, off, remove, update, push, set } from 'firebase/database';
 import { database, auth } from '../../firebase';
@@ -85,6 +86,7 @@ import AddTaskModal from './modals/AddTaskModal';
 import QrPrintModal from './modals/QrPrintModal';
 import TaskDetailModal from './modals/TaskDetailModal';
 import TaskGroupsModal from './modals/TaskGroupsModal';
+import TaskInfoModal from './modals/TaskInfoModal';
 // Import uuid tipini ve v4 fonksiyonunu ayrı ayrı tanımlama
 import * as uuidModule from 'uuid';
 const uuidv4 = uuidModule.v4;
@@ -340,6 +342,8 @@ const Tasks: React.FC = () => {
   const [isCheckingTasks, setIsCheckingTasks] = useState(false);
   const [qrPrintModalOpen, setQrPrintModalOpen] = useState(false);
   const [selectedTaskForQr, setSelectedTaskForQr] = useState<any | null>(null);
+  // Bilgi modalı state'i
+  const [infoModalOpen, setInfoModalOpen] = useState(false);
 
   // Görünüm modunu localStorage'dan yükle
   useEffect(() => {
@@ -956,6 +960,20 @@ const Tasks: React.FC = () => {
               <ViewListIcon />
             </ToggleButton>
           </ToggleButtonGroup>
+          <IconButton
+            color="warning"
+            onClick={() => setInfoModalOpen(true)}
+            sx={{ 
+              bgcolor: 'warning.light', 
+              color: 'white', 
+              '&:hover': { bgcolor: 'warning.main' },
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+              width: 36,
+              height: 36
+            }}
+          >
+            <InfoIcon fontSize="small" />
+          </IconButton>
           <Button
             variant="contained"
             color="success"
@@ -1202,6 +1220,12 @@ const Tasks: React.FC = () => {
         onClose={() => setTaskGroupsModalOpen(false)}
         companyId={companyId || ''}
         taskGroups={taskGroups}
+      />
+
+      {/* Bilgi Modalı */}
+      <TaskInfoModal
+        open={infoModalOpen}
+        onClose={() => setInfoModalOpen(false)}
       />
     </ScrollableContent>
   );

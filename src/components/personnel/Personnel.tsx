@@ -52,7 +52,8 @@ import {
   Search as SearchIcon,
   PhotoLibrary as PhotoLibraryIcon,
   ViewModule as ViewModuleIcon,
-  ViewList as ViewListIcon
+  ViewList as ViewListIcon,
+  Info as InfoIcon
 } from '@mui/icons-material';
 import { ref, get, onValue, off, remove, update, set, push } from 'firebase/database';
 import { database, auth } from '../../firebase';
@@ -319,6 +320,154 @@ const DeleteConfirmModal: React.FC<{
   );
 };
 
+// Personel Bilgi Modalı
+const PersonnelInfoModal: React.FC<{
+  open: boolean;
+  onClose: () => void;
+}> = ({ open, onClose }) => {
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="md"
+      PaperProps={{
+        sx: {
+          borderRadius: 2,
+          boxShadow: '0 4px 20px rgba(0,0,0,0.1)'
+        }
+      }}
+    >
+      <DialogTitle sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center',
+        borderBottom: '1px solid #eee',
+        pb: 2
+      }}>
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <InfoIcon sx={{ color: 'primary.main', mr: 1 }} />
+          <Typography variant="h6">Personel Sayfası Kullanımı</Typography>
+        </Box>
+        <IconButton edge="end" color="inherit" onClick={onClose} aria-label="close">
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
+      <DialogContent sx={{ p: 3, maxHeight: '70vh', overflowY: 'auto' }}>
+        <Typography variant="subtitle1" fontWeight="bold" gutterBottom color="primary">
+          Personel Sayfası Genel Bakış
+        </Typography>
+        <Typography paragraph>
+          Bu sayfada şirketinizin personellerini görüntüleyebilir, ekleyebilir, silebilir ve mesaj gönderebilirsiniz. 
+          Personel verilerini yönetmek için aşağıdaki özellikleri kullanabilirsiniz:
+        </Typography>
+        
+        <Box sx={{ mb: 3, p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
+          <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
+            Kart ve Liste Görünümü
+          </Typography>
+          <Typography variant="body2" paragraph>
+            Sağ üst köşedeki <ViewModuleIcon fontSize="small" sx={{ verticalAlign: 'middle' }}/> ve <ViewListIcon fontSize="small" sx={{ verticalAlign: 'middle' }}/> 
+            butonları ile personel listesini kart veya tablo şeklinde görüntüleyebilirsiniz.
+          </Typography>
+        </Box>
+        
+        <Box sx={{ mb: 3, p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
+          <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
+            Personel Ekleme
+          </Typography>
+          <Typography variant="body2" paragraph>
+            <strong>Yeni Personel Ekle</strong> butonu ile tek tek personel ekleyebilir veya QR kod ile personel 
+            kaydı yapabilirsiniz. Personel eklerken isim, telefon ve e-posta bilgilerini girebilirsiniz.
+          </Typography>
+          <Typography variant="body2">
+            <strong>QR Kod Basma</strong> butonu ile de şirketinize özel QR kod oluşturabilir ve 
+            personellerinizin kolayca kaydolması için kullanabilirsiniz.
+          </Typography>
+        </Box>
+        
+        <Box sx={{ mb: 3, p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
+          <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
+            Personel Yönetimi
+          </Typography>
+          <Typography variant="body2" paragraph>
+            Her personelin kartında veya tablo satırında:
+          </Typography>
+          <List dense disablePadding>
+            <ListItem disableGutters>
+              <ListItemAvatar sx={{ minWidth: 36 }}>
+                <PersonIcon fontSize="small" color="primary" />
+              </ListItemAvatar>
+              <ListItemText 
+                primary="Detaylar"
+                secondary="Personel detaylarını görüntülemek için personel kartına tıklayabilirsiniz." 
+              />
+            </ListItem>
+            <ListItem disableGutters>
+              <ListItemAvatar sx={{ minWidth: 36 }}>
+                <EmailIcon fontSize="small" color="secondary" />
+              </ListItemAvatar>
+              <ListItemText 
+                primary="Mesaj Gönderme" 
+                secondary="Mesaj ikonu ile personele özel mesaj gönderebilirsiniz." 
+              />
+            </ListItem>
+            <ListItem disableGutters>
+              <ListItemAvatar sx={{ minWidth: 36 }}>
+                <DeleteIcon fontSize="small" color="error" />
+              </ListItemAvatar>
+              <ListItemText 
+                primary="Silme" 
+                secondary="Silme ikonu ile personeli sistemden kaldırabilirsiniz." 
+              />
+            </ListItem>
+          </List>
+        </Box>
+        
+        <Box sx={{ mb: 3, p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
+          <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
+            Durum İşaretleri
+          </Typography>
+          <Typography variant="body2" paragraph>
+            Personellerin görev durumlarını takip edebilirsiniz:
+          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+            <Chip 
+              label="Müsait" 
+              color="success" 
+              size="small" 
+              sx={{ mr: 2, fontSize: '11px', height: 24 }} 
+            />
+            <Typography variant="body2">
+              Personele henüz görev atanmamış, yeni görev verebilirsiniz.
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Chip 
+              label="Görev Atanmış" 
+              color="primary" 
+              size="small" 
+              sx={{ mr: 2, fontSize: '11px', height: 24 }} 
+            />
+            <Typography variant="body2">
+              Personel bir veya daha fazla göreve atanmış durumda.
+            </Typography>
+          </Box>
+        </Box>
+      </DialogContent>
+      <DialogActions sx={{ p: 2, borderTop: '1px solid #eee' }}>
+        <Button 
+          onClick={onClose} 
+          variant="contained" 
+          color="primary"
+          sx={{ borderRadius: 2 }}
+        >
+          Anladım
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
 const Personnel: React.FC = () => {
   // State tanımlamaları
   const [loading, setLoading] = useState(true);
@@ -344,6 +493,7 @@ const Personnel: React.FC = () => {
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
   const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [infoModalOpen, setInfoModalOpen] = useState(false);
   const navigate = useNavigate();
 
   // Görünüm modunu localStorage'dan yükle
@@ -792,6 +942,20 @@ const Personnel: React.FC = () => {
               <ViewListIcon />
             </ToggleButton>
           </ToggleButtonGroup>
+          <IconButton
+            color="warning"
+            onClick={() => setInfoModalOpen(true)}
+            sx={{ 
+              bgcolor: 'warning.light', 
+              color: 'white', 
+              '&:hover': { bgcolor: 'warning.main' },
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+              width: 36,
+              height: 36
+            }}
+          >
+            <InfoIcon fontSize="small" />
+          </IconButton>
           <Button
             variant="contained"
             color="success"
@@ -1245,6 +1409,12 @@ const Personnel: React.FC = () => {
         onConfirm={handleDeletePersonnel}
         loading={loading}
         personName={selectedPersonnel?.name || ''}
+      />
+
+      {/* Personel Bilgi Modalı */}
+      <PersonnelInfoModal 
+        open={infoModalOpen}
+        onClose={() => setInfoModalOpen(false)}
       />
 
       {/* Snackbar bileşeni */}
