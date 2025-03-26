@@ -161,8 +161,6 @@ const statusOptions = [
   { value: 'all', label: 'Tüm Görevler' },
   { value: 'completed', label: 'Tamamlanan', color: '#4CAF50' },
   { value: 'accepted', label: 'Kabul Edilmiş', color: '#9C27B0' },
-  { value: 'assigned', label: 'Atanmış', color: '#1976D2' },
-  { value: 'waiting', label: 'Bekleyen', color: '#2196F3' },
   { value: 'pending', label: 'Beklemede', color: '#FF9800' },
   { value: 'missed', label: 'Tamamlanmamış', color: '#F44336' },
 ];
@@ -1006,7 +1004,6 @@ const Tasks: React.FC = () => {
               size="small"
             >
               <MenuItem value="all">Tüm Personel</MenuItem>
-              <MenuItem value="none">Atanmamış Görevler</MenuItem>
               {personnel.map((person) => (
                 <MenuItem key={person.id} value={person.id}>
                   {person.name}
