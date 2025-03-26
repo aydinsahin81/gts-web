@@ -60,7 +60,11 @@ const HeaderArea = styled(Box)(({ theme }) => ({
   borderBottom: `1px solid ${theme.palette.divider}`,
 }));
 
-const SinglePersonMessage: React.FC = () => {
+interface SinglePersonMessageProps {
+  personnelId?: string | null;
+}
+
+const SinglePersonMessage: React.FC<SinglePersonMessageProps> = ({ personnelId }) => {
   const [personnel, setPersonnel] = useState<Personnel[]>([]);
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -105,6 +109,17 @@ const SinglePersonMessage: React.FC = () => {
     
     loadPersonnel();
   }, [currentUser]);
+  
+  // personnelId propundan gelen değeri izle
+  useEffect(() => {
+    if (personnelId && personnel.length > 0) {
+      // Eğer böyle bir personel varsa, otomatik olarak seç
+      const exists = personnel.some(person => person.id === personnelId);
+      if (exists) {
+        setSelectedPersonId(personnelId);
+      }
+    }
+  }, [personnelId, personnel]);
   
   // Personel seçimi
   const handlePersonChange = (id: string) => {

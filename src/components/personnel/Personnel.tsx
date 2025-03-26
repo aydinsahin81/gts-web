@@ -24,7 +24,19 @@ import {
   ListItemAvatar,
   ListItemText,
   ToggleButtonGroup,
-  ToggleButton
+  ToggleButton,
+  TableContainer,
+  Table,
+  TableHead,
+  TableBody,
+  TableRow,
+  TableCell,
+  Tooltip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Snackbar
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -47,6 +59,8 @@ import { database, auth } from '../../firebase';
 import { Html5Qrcode } from 'html5-qrcode';
 import CompanyQRModal from './CompanyQRModal';
 import QrCode2Icon from '@mui/icons-material/QrCode2';
+import MuiAlert, { AlertProps } from '@mui/material/Alert';
+import { useNavigate } from 'react-router-dom';
 
 // Kaydırılabilir ana içerik için styled component
 const ScrollableContent = styled(Box)(({ theme }) => ({
@@ -156,6 +170,155 @@ const SlimPersonnelCard = styled(Card)(({ theme }) => ({
   }
 }));
 
+// Liste görünümü için tablo bileşeni
+const PersonnelTable: React.FC<{ 
+  personnel: any[],
+  onViewDetails: (id: string) => void,
+  onDelete: (id: string) => void,
+  onSendMessage: (id: string) => void 
+}> = ({ 
+  personnel, 
+  onViewDetails, 
+  onDelete, 
+  onSendMessage 
+}) => {
+  return (
+    <TableContainer component={Paper} sx={{ 
+      mt: 2, 
+      boxShadow: '0 2px 10px rgba(0, 0, 0, 0.05)',
+      borderRadius: 2,
+      maxHeight: 'calc(100vh - 240px)',  // Tablonun maksimum yüksekliği
+      overflowY: 'auto'
+    }}>
+      <Table size="small" stickyHeader>
+        <TableHead>
+          <TableRow>
+            <TableCell width="30%">Ad Soyad</TableCell>
+            <TableCell width="20%">Telefon</TableCell>
+            <TableCell width="25%">E-posta</TableCell>
+            <TableCell width="10%">Durum</TableCell>
+            <TableCell width="15%" align="right">İşlemler</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {personnel.map((person) => (
+            <TableRow key={person.id} hover>
+              <TableCell>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Avatar 
+                    sx={{ 
+                      width: 32, 
+                      height: 32, 
+                      bgcolor: person.fcmToken ? '#4caf50' : '#f44336',
+                      mr: 1.5
+                    }}
+                  >
+                    {person.name?.charAt(0) || 'P'}
+                  </Avatar>
+                  <Typography variant="body2" fontWeight="medium">
+                    {person.name}
+                  </Typography>
+                </Box>
+              </TableCell>
+              <TableCell>
+                <Typography variant="body2">
+                  {person.phone || '-'}
+                </Typography>
+              </TableCell>
+              <TableCell>
+                <Typography variant="body2" sx={{ 
+                  maxWidth: '180px', 
+                  overflow: 'hidden', 
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap'
+                }}>
+                  {person.email || '-'}
+                </Typography>
+              </TableCell>
+              <TableCell>
+                <Chip 
+                  size="small"
+                  label={person.hasTask ? "Görev Atanmış" : "Müsait"} 
+                  color={person.hasTask ? "primary" : "success"}
+                  sx={{ fontSize: '11px', height: 24 }}
+                />
+              </TableCell>
+              <TableCell align="right">
+                <Tooltip title="Detaylar">
+                  <IconButton 
+                    size="small" 
+                    onClick={() => onViewDetails(person.id)}
+                    sx={{ color: 'primary.main', p: 0.5 }}
+                  >
+                    <PersonIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Mesaj Gönder">
+                  <IconButton 
+                    size="small" 
+                    onClick={() => onSendMessage(person.id)}
+                    sx={{ color: 'success.main', p: 0.5, ml: 0.5 }}
+                  >
+                    <EmailIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </TableCell>
+            </TableRow>
+          ))}
+          {personnel.length === 0 && (
+            <TableRow>
+              <TableCell colSpan={5} align="center" sx={{ py: 3 }}>
+                <Typography color="text.secondary">
+                  Personel bulunamadı
+                </Typography>
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </TableContainer>
+  );
+};
+
+// Silme onay modalı
+const DeleteConfirmModal: React.FC<{
+  open: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  loading: boolean;
+  personName: string;
+}> = ({ open, onClose, onConfirm, loading, personName }) => {
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
+      <DialogTitle>
+        Personel Silme Onayı
+      </DialogTitle>
+      <DialogContent>
+        <Typography variant="body1">
+          <b>{personName}</b> adlı personeli silmek istediğinizden emin misiniz?
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+          Bu işlem geri alınamaz ve personele ait tüm veriler silinecektir.
+        </Typography>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} disabled={loading}>
+          İptal
+        </Button>
+        <Button 
+          onClick={onConfirm} 
+          color="error" 
+          variant="contained" 
+          disabled={loading}
+          startIcon={loading ? <CircularProgress size={16} /> : <DeleteIcon />}
+        >
+          {loading ? 'Siliniyor...' : 'Evet, Sil'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
 const Personnel: React.FC = () => {
   // State tanımlamaları
   const [loading, setLoading] = useState(true);
@@ -177,6 +340,11 @@ const Personnel: React.FC = () => {
   const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [companyQRModalOpen, setCompanyQRModalOpen] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const navigate = useNavigate();
 
   // Görünüm modunu localStorage'dan yükle
   useEffect(() => {
@@ -318,25 +486,42 @@ const Personnel: React.FC = () => {
     setConfirmDelete(true);
   };
 
-  // Personeli silme işlemi
+  // Personel silme işlemi
   const handleDeletePersonnel = async () => {
-    if (!companyId || !selectedPersonnel) return;
+    if (!selectedPersonnel || !auth.currentUser) return;
     
     try {
+      setLoading(true);
+      
+      // Şirket ID'sini al
+      const userRef = ref(database, `users/${auth.currentUser.uid}`);
+      const userSnapshot = await get(userRef);
+      const userData = userSnapshot.val();
+      const companyId = userData.companyId;
+      
+      if (!companyId) {
+        throw new Error('Şirket ID bulunamadı');
+      }
+      
       // Personeli veritabanından sil
-      await remove(ref(database, `companies/${companyId}/personnel/${selectedPersonnel.id}`));
+      const personnelRef = ref(database, `companies/${companyId}/personnel/${selectedPersonnel.id}`);
+      await remove(personnelRef);
       
-      // Kullanıcının companyId değerini sil (null olarak güncelle)
-      await update(ref(database, `users/${selectedPersonnel.id}`), {
-        companyId: null,
-      });
+      // Başarı mesajı
+      setSnackbarMessage('Personel başarıyla silindi');
+      setSnackbarSeverity('success');
+      setSnackbarOpen(true);
       
-      setModalOpen(false);
-      setConfirmDelete(false);
-      setSelectedPersonnel(null);
+      // Modalı kapat ve listeden kaldır
+      setDeleteModalOpen(false);
+      setPersonnel(prev => prev.filter(p => p.id !== selectedPersonnel.id));
     } catch (error) {
       console.error('Personel silinirken hata:', error);
-      alert('Personel silinirken bir hata oluştu.');
+      setSnackbarMessage('Personel silinirken bir hata oluştu');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -579,6 +764,12 @@ const Personnel: React.FC = () => {
     setCompanyQRModalOpen(false);
   };
 
+  // Mesaj sayfasına yönlendirme
+  const handleSendMessage = (personnelId: string) => {
+    // Personelin adını ve ID'sini mesaj sayfasına parametre olarak gönder
+    navigate(`/messages?personnelId=${personnelId}`);
+  };
+
   return (
     <ScrollableContent>
       {/* Başlık, Görünüm Seçici ve Ekleme Butonu */}
@@ -711,40 +902,24 @@ const Personnel: React.FC = () => {
           ))}
         </Grid>
       ) : (
-        <List sx={{ bgcolor: 'background.paper', borderRadius: 2, boxShadow: 1 }}>
-          {personnel.map((person) => (
-            <ListItem key={person.id} alignItems="center">
-              <SlimPersonnelCard onClick={() => handleOpenModal(person)} sx={{ width: '100%' }}>
-                <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <Avatar 
-                        sx={{ 
-                          width: 40, 
-                          height: 40, 
-                          bgcolor: 'primary.main',
-                          fontSize: 18,
-                          mr: 2
-                        }}
-                      >
-                        {person.name.substring(0, 1).toUpperCase()}
-                      </Avatar>
-                      <Typography variant="body1" fontWeight="medium">
-                        {person.name}
-                      </Typography>
-                    </Box>
-                    <Chip
-                      label={person.hasTask ? 'Görev Atanmış' : 'Müsait'}
-                      size="small"
-                      color={person.hasTask ? 'primary' : 'success'}
-                      sx={{ fontWeight: 'medium' }}
-                    />
-                  </Box>
-                </CardContent>
-              </SlimPersonnelCard>
-            </ListItem>
-          ))}
-        </List>
+        <PersonnelTable 
+          personnel={personnel}
+          onViewDetails={(id) => {
+            const selectedPerson = personnel.find(p => p.id === id);
+            if (selectedPerson) {
+              setSelectedPersonnel(selectedPerson);
+              setModalOpen(true);
+            }
+          }}
+          onDelete={(id) => {
+            const selectedPerson = personnel.find(p => p.id === id);
+            if (selectedPerson) {
+              setSelectedPersonnel(selectedPerson);
+              setDeleteModalOpen(true);
+            }
+          }}
+          onSendMessage={handleSendMessage}
+        />
       )}
       
       {/* Personel Detay Modalı */}
@@ -1062,6 +1237,31 @@ const Personnel: React.FC = () => {
         open={companyQRModalOpen} 
         onClose={handleCloseCompanyQRModal} 
       />
+
+      {/* Silme Onay Modalı */}
+      <DeleteConfirmModal
+        open={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        onConfirm={handleDeletePersonnel}
+        loading={loading}
+        personName={selectedPersonnel?.name || ''}
+      />
+
+      {/* Snackbar bileşeni */}
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={6000}
+        onClose={() => setSnackbarOpen(false)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert 
+          onClose={() => setSnackbarOpen(false)} 
+          severity={snackbarSeverity}
+          variant="filled"
+        >
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
     </ScrollableContent>
   );
 };

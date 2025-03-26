@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Box,
   Typography,
@@ -19,6 +19,7 @@ import BulkMessage from './BulkMessage';
 import SinglePersonMessage from './SinglePersonMessage';
 import PerformanceMessage from './PerformanceMessage';
 import UnacceptedTasksMessage from './UnacceptedTasksMessage';
+import { useLocation } from 'react-router-dom';
 
 // Sayfa başlığı için styled component
 const PageTitle = styled(Typography)(({ theme }) => ({
@@ -84,10 +85,31 @@ function a11yProps(index: number) {
 
 const Messages: React.FC = () => {
   const [tabValue, setTabValue] = useState(0);
+  const location = useLocation();
+  const [selectedPersonnelId, setSelectedPersonnelId] = useState<string | null>(null);
+
+  // URL'den personnelId parametresini kontrol et
+  useEffect(() => {
+    // URL'den parametreleri al
+    const searchParams = new URLSearchParams(location.search);
+    const personnelId = searchParams.get('personnelId');
+    
+    // Eğer personnelId parametresi varsa ve değeri boş değilse
+    if (personnelId) {
+      // Tek Personel sekmesini seç (index 1)
+      setTabValue(1);
+      // Personel ID'sini belirle
+      setSelectedPersonnelId(personnelId);
+    }
+  }, [location.search]);
 
   // Tab değişimi
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
+    // Eğer başka sekmeye geçilirse, seçili personeli sıfırla
+    if (newValue !== 1) {
+      setSelectedPersonnelId(null);
+    }
   };
 
   return (
@@ -154,7 +176,7 @@ const Messages: React.FC = () => {
         </TabPanel>
         
         <TabPanel value={tabValue} index={1}>
-          <SinglePersonMessage />
+          <SinglePersonMessage personnelId={selectedPersonnelId} />
         </TabPanel>
         
         <TabPanel value={tabValue} index={2}>
