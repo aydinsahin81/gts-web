@@ -127,6 +127,8 @@ const Dashboard: React.FC = () => {
   const [taskStatusData, setTaskStatusData] = useState<any[]>([]);
   const [personnelPerformanceData, setPersonnelPerformanceData] = useState<any[]>([]);
   const [companyId, setCompanyId] = useState<string | null>(null);
+  const [recentMissedTasks, setRecentMissedTasks] = useState<any[]>([]);
+  const [recentCompletedTasks, setRecentCompletedTasks] = useState<any[]>([]);
   const theme = useTheme();
   
   // Veri güncellemesini işler
@@ -153,7 +155,7 @@ const Dashboard: React.FC = () => {
     
     // İstatistikleri hesapla
     const totalTasks = tasksList.length;
-    const completedTasks = tasksList.filter(task => task.status === 'completed').length;
+    const completedTasksCount = tasksList.filter(task => task.status === 'completed').length;
     const activeTasksCount = tasksList.filter(task => task.status === 'accepted' || task.status === 'assigned').length;
     const waitingTasksCount = tasksList.filter(task => task.status === 'waiting').length;
     const pendingTasksCount = tasksList.filter(task => task.status === 'pending').length;
@@ -161,35 +163,71 @@ const Dashboard: React.FC = () => {
     // Tamamlanmamış (missed) görevleri hesapla
     let missedTasksCount = 0;
     
+    // Missed task listesi
+    const missedTasksList: any[] = [];
+    
+    // Tamamlanmış görev listesi 
+    const completedTasksList: any[] = [];
+    
     // Eğer şirketin missedTasks verisi varsa say
     if (companyData && companyData.missedTasks) {
       console.log("missedTasks bulundu:", companyData.missedTasks);
       
       // missedTasks yapısını incele ve say
-      Object.keys(companyData.missedTasks).forEach(taskId => {
-        const taskDates = companyData.missedTasks[taskId];
-        
+      Object.entries(companyData.missedTasks).forEach(([taskId, taskDates]: [string, any]) => {
         // Her tarih için
-        Object.keys(taskDates).forEach(date => {
+        Object.entries(taskDates).forEach(([date, timeSlots]: [string, any]) => {
           // Her saat için
-          const timeSlots = taskDates[date];
-          missedTasksCount += Object.keys(timeSlots).length;
+          Object.entries(timeSlots).forEach(([time, taskData]: [string, any]) => {
+            missedTasksCount++;
+            
+            // Geciken görevleri listeye ekle
+            missedTasksList.push({
+              id: `${taskId}-${date}-${time}`,
+              name: taskData.taskName,
+              description: taskData.taskDescription || '',
+              date: date,
+              time: time,
+              missedAt: taskData.missedAt
+            });
+          });
         });
       });
       
       console.log("Toplam missed görev sayısı:", missedTasksCount);
     }
     
+    // Tamamlanan görevleri al
+    if (companyData && companyData.completedTasks) {
+      Object.entries(companyData.completedTasks).forEach(([taskId, taskDates]: [string, any]) => {
+        // Her tarih için
+        Object.entries(taskDates).forEach(([date, timeSlots]: [string, any]) => {
+          // Her saat için
+          Object.entries(timeSlots).forEach(([time, taskData]: [string, any]) => {
+            // Tamamlanan görevleri listeye ekle
+            completedTasksList.push({
+              id: `${taskId}-${date}-${time}`,
+              name: taskData.taskName,
+              description: taskData.taskDescription || '',
+              date: date,
+              time: time,
+              completedAt: taskData.completedAt
+            });
+          });
+        });
+      });
+    }
+    
     setStats({
       totalPersonnel: personnelList.length,
       totalTasks, // Sadece tasks altındaki görevleri göster, missedTasks'ı dahil etme
-      completedTasks,
+      completedTasks: completedTasksCount,
       pendingTasks: activeTasksCount,
     });
     
     // Görev durumu verilerini hazırla
     setTaskStatusData([
-      { name: 'Tamamlanan', value: completedTasks, color: THEME_COLORS.completed },
+      { name: 'Tamamlanan', value: completedTasksCount, color: THEME_COLORS.completed },
       { name: 'Devam Eden', value: activeTasksCount, color: '#1976D2' }, // Mavi
       { name: 'Bekleyen', value: waitingTasksCount, color: '#2196F3' }, // Açık Mavi
       { name: 'Pending', value: pendingTasksCount, color: THEME_COLORS.pending }, // Turuncu
@@ -225,6 +263,19 @@ const Dashboard: React.FC = () => {
       .slice(0, 5); // İlk 5 personeli al
     
     setPersonnelPerformanceData(performanceData);
+
+    // Son 10 geciken görevi tarih ve saate göre sırala
+    const sortedMissedTasks = [...missedTasksList]
+      .sort((a, b) => b.missedAt - a.missedAt)
+      .slice(0, 10);
+      
+    // Son 10 tamamlanan görevi tarih ve saate göre sırala
+    const sortedCompletedTasks = [...completedTasksList]
+      .sort((a, b) => b.completedAt - a.completedAt)
+      .slice(0, 10);
+    
+    setRecentMissedTasks(sortedMissedTasks);
+    setRecentCompletedTasks(sortedCompletedTasks);
   };
   
   useEffect(() => {
@@ -539,6 +590,77 @@ const Dashboard: React.FC = () => {
               </ResponsiveContainer>
             )}
           </ChartContainer>
+        </Grid>
+      </Grid>
+      
+      {/* Geciken ve Tamamlanan Son Görevler */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        {/* Geciken Son 10 Görev */}
+        <Grid item xs={12} md={6}>
+          <StyledCard>
+            <CardHeader 
+              title="Geciken Son 10 Görev" 
+              titleTypographyProps={{ fontWeight: 'bold' }}
+            />
+            <Divider />
+            <CardContent sx={{ flexGrow: 1, overflow: 'auto', maxHeight: 320 }}>
+              <List>
+                {recentMissedTasks.length === 0 ? (
+                  <Typography variant="body2" color="textSecondary" align="center" sx={{ py: 4 }}>
+                    Henüz geciken görev bulunmuyor
+                  </Typography>
+                ) : (
+                  recentMissedTasks.map((task) => (
+                    <ListItem key={task.id} divider>
+                      <ListItemAvatar>
+                        <Avatar sx={{ bgcolor: '#F44336' }}>
+                          <TaskIcon />
+                        </Avatar>
+                      </ListItemAvatar>
+                      <ListItemText 
+                        primary={task.name} 
+                        secondary={`${task.time} - ${task.date}`}
+                      />
+                    </ListItem>
+                  ))
+                )}
+              </List>
+            </CardContent>
+          </StyledCard>
+        </Grid>
+        
+        {/* Tamamlanan Son 10 Görev */}
+        <Grid item xs={12} md={6}>
+          <StyledCard>
+            <CardHeader 
+              title="Tamamlanan Son 10 Görev" 
+              titleTypographyProps={{ fontWeight: 'bold' }}
+            />
+            <Divider />
+            <CardContent sx={{ flexGrow: 1, overflow: 'auto', maxHeight: 320 }}>
+              <List>
+                {recentCompletedTasks.length === 0 ? (
+                  <Typography variant="body2" color="textSecondary" align="center" sx={{ py: 4 }}>
+                    Henüz tamamlanan görev bulunmuyor
+                  </Typography>
+                ) : (
+                  recentCompletedTasks.map((task) => (
+                    <ListItem key={task.id} divider>
+                      <ListItemAvatar>
+                        <Avatar sx={{ bgcolor: THEME_COLORS.completed }}>
+                          <TaskIcon />
+                        </Avatar>
+                      </ListItemAvatar>
+                      <ListItemText 
+                        primary={task.name} 
+                        secondary={`${task.time} - ${task.date}`}
+                      />
+                    </ListItem>
+                  ))
+                )}
+              </List>
+            </CardContent>
+          </StyledCard>
         </Grid>
       </Grid>
       
