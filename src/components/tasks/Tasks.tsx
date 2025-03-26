@@ -64,7 +64,8 @@ import {
   FormatAlignCenterOutlined,
   FormatAlignRightOutlined,
   FormatBoldOutlined,
-  FormatItalicOutlined
+  FormatItalicOutlined,
+  Category as CategoryIcon
 } from '@mui/icons-material';
 import { ref, get, onValue, off, remove, update, push, set } from 'firebase/database';
 import { database, auth } from '../../firebase';
@@ -77,6 +78,7 @@ import domtoimage from 'dom-to-image';
 import AddTaskModal from './modals/AddTaskModal';
 import QrPrintModal from './modals/QrPrintModal';
 import TaskDetailModal from './modals/TaskDetailModal';
+import TaskGroupsModal from './modals/TaskGroupsModal';
 // Import uuid tipini ve v4 fonksiyonunu ayrı ayrı tanımlama
 import * as uuidModule from 'uuid';
 const uuidv4 = uuidModule.v4;
@@ -171,6 +173,7 @@ const Tasks: React.FC = () => {
   const [selectedTask, setSelectedTask] = useState<any | null>(null);
   const [taskDetailOpen, setTaskDetailOpen] = useState(false);
   const [addTaskModalOpen, setAddTaskModalOpen] = useState(false);
+  const [taskGroupsModalOpen, setTaskGroupsModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
   // Görev zamanı durumları
   const [taskTimeStatuses, setTaskTimeStatuses] = useState<Record<string, any>>({});
@@ -708,6 +711,15 @@ const Tasks: React.FC = () => {
           </ToggleButtonGroup>
           <Button
             variant="contained"
+            color="success"
+            startIcon={<CategoryIcon />}
+            onClick={() => setTaskGroupsModalOpen(true)}
+            sx={{ borderRadius: 2 }}
+          >
+            Grup Ekle
+          </Button>
+          <Button
+            variant="contained"
             color="primary"
             startIcon={<AddIcon />}
             onClick={() => setAddTaskModalOpen(true)}
@@ -991,6 +1003,14 @@ const Tasks: React.FC = () => {
         open={qrPrintModalOpen}
         onClose={() => setQrPrintModalOpen(false)}
         task={selectedTaskForQr}
+      />
+
+      {/* Görev Grupları Modalı */}
+      <TaskGroupsModal
+        open={taskGroupsModalOpen}
+        onClose={() => setTaskGroupsModalOpen(false)}
+        companyId={companyId || ''}
+        taskGroups={taskGroups}
       />
     </ScrollableContent>
   );

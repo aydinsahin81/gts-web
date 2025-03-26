@@ -17,13 +17,16 @@ import {
   CircularProgress,
   Alert,
   AlertTitle,
-  Collapse
+  Collapse,
+  Stack
 } from '@mui/material';
 import {
   Close as CloseIcon,
   Delete as DeleteIcon,
   Add as AddIcon,
-  Category as CategoryIcon
+  Category as CategoryIcon,
+  NavigateNext as NextIcon,
+  NavigateBefore as PrevIcon
 } from '@mui/icons-material';
 import { ref, push, set, remove } from 'firebase/database';
 import { database } from '../../../firebase';
@@ -48,6 +51,8 @@ const TaskGroupsModal: React.FC<TaskGroupsModalProps> = ({
   const [groupName, setGroupName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const groupsPerPage = 5;
 
   // Form sıfırlama
   const resetForm = () => {
@@ -61,6 +66,11 @@ const TaskGroupsModal: React.FC<TaskGroupsModalProps> = ({
       resetForm();
     }
   }, [open]);
+
+  // Yeni grup eklendiğinde ilk sayfaya dön
+  useEffect(() => {
+    setPage(1);
+  }, [taskGroups.length]);
 
   // Grup ekleme işlemi
   const handleAddGroup = async () => {
@@ -112,6 +122,23 @@ const TaskGroupsModal: React.FC<TaskGroupsModalProps> = ({
       setIsSubmitting(false);
     }
   };
+
+  // Sayfa değiştirme işlemi
+  const handlePageChange = (event: React.ChangeEvent<unknown>, value: number) => {
+    setPage(value);
+  };
+
+  // Grupları tarihe göre sırala (en son eklenen başta)
+  const sortedGroups = [...taskGroups].sort((a, b) => 
+    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+
+  // Mevcut sayfadaki grupları hesapla
+  const totalPages = Math.ceil(sortedGroups.length / groupsPerPage);
+  const currentGroups = sortedGroups.slice(
+    (page - 1) * groupsPerPage,
+    page * groupsPerPage
+  );
 
   return (
     <Dialog
@@ -197,9 +224,14 @@ const TaskGroupsModal: React.FC<TaskGroupsModalProps> = ({
         <Divider sx={{ my: 3 }} />
 
         {/* Grup listesi */}
-        <Typography variant="h6" color="primary" fontWeight="medium" gutterBottom>
-          Mevcut Gruplar
-        </Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h6" color="primary" fontWeight="medium">
+            Mevcut Gruplar
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Toplam: {taskGroups.length} grup
+          </Typography>
+        </Box>
         
         {taskGroups.length === 0 ? (
           <Box sx={{ textAlign: 'center', py: 3, color: 'text.secondary' }}>
@@ -207,37 +239,71 @@ const TaskGroupsModal: React.FC<TaskGroupsModalProps> = ({
             <Typography>Henüz hiç grup eklenmemiş</Typography>
           </Box>
         ) : (
-          <List sx={{ 
-            maxHeight: 300, 
-            overflow: 'auto',
-            bgcolor: 'background.paper',
-            borderRadius: 1,
-            border: '1px solid',
-            borderColor: 'divider'
-          }}>
-            {taskGroups.map((group) => (
-              <React.Fragment key={group.id}>
-                <ListItem>
-                  <ListItemText
-                    primary={group.name}
-                    secondary={`Oluşturulma: ${new Date(group.createdAt).toLocaleString()}`}
-                  />
-                  <ListItemSecondaryAction>
-                    <IconButton 
-                      edge="end" 
-                      aria-label="delete"
-                      onClick={() => handleDeleteGroup(group.id)}
-                      disabled={isSubmitting}
-                      color="error"
-                    >
-                      <DeleteIcon />
-                    </IconButton>
-                  </ListItemSecondaryAction>
-                </ListItem>
-                <Divider component="li" />
-              </React.Fragment>
-            ))}
-          </List>
+          <>
+            <Box 
+              sx={{ 
+                bgcolor: 'background.paper',
+                borderRadius: 1,
+                border: '1px solid',
+                borderColor: 'divider'
+              }}
+            >
+              <List disablePadding>
+                {currentGroups.map((group) => (
+                  <React.Fragment key={group.id}>
+                    <ListItem>
+                      <ListItemText
+                        primary={group.name}
+                        secondary={`Oluşturulma: ${new Date(group.createdAt).toLocaleString()}`}
+                      />
+                      <ListItemSecondaryAction>
+                        <IconButton 
+                          edge="end" 
+                          aria-label="delete"
+                          onClick={() => handleDeleteGroup(group.id)}
+                          disabled={isSubmitting}
+                          color="error"
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      </ListItemSecondaryAction>
+                    </ListItem>
+                    {/* Son öğe değilse ayırıcı göster */}
+                    {group !== currentGroups[currentGroups.length - 1] && (
+                      <Divider component="li" />
+                    )}
+                  </React.Fragment>
+                ))}
+              </List>
+            </Box>
+            
+            {/* Sayfalama kontrolleri */}
+            {totalPages > 1 && (
+              <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+                <Stack direction="row" spacing={2} alignItems="center">
+                  <IconButton 
+                    color="primary" 
+                    disabled={page === 1}
+                    onClick={() => setPage(prev => Math.max(prev - 1, 1))}
+                  >
+                    <PrevIcon />
+                  </IconButton>
+                  
+                  <Typography variant="body2">
+                    Sayfa {page} / {totalPages}
+                  </Typography>
+                  
+                  <IconButton 
+                    color="primary" 
+                    disabled={page === totalPages}
+                    onClick={() => setPage(prev => Math.min(prev + 1, totalPages))}
+                  >
+                    <NextIcon />
+                  </IconButton>
+                </Stack>
+              </Box>
+            )}
+          </>
         )}
       </DialogContent>
 
