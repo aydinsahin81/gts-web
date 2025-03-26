@@ -41,6 +41,8 @@ import {
   CartesianGrid,
   LabelList
 } from 'recharts';
+import MissedTasksModal from './MissedTasksModal';
+import CompletedTasksModal from './CompletedTasksModal';
 
 // Tema renkleri (mobile uyumlu)
 const THEME_COLORS = {
@@ -129,7 +131,28 @@ const Dashboard: React.FC = () => {
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [recentMissedTasks, setRecentMissedTasks] = useState<any[]>([]);
   const [recentCompletedTasks, setRecentCompletedTasks] = useState<any[]>([]);
+  const [allMissedTasks, setAllMissedTasks] = useState<any[]>([]);
+  const [allCompletedTasks, setAllCompletedTasks] = useState<any[]>([]);
+  const [missedTasksModalOpen, setMissedTasksModalOpen] = useState(false);
+  const [completedTasksModalOpen, setCompletedTasksModalOpen] = useState(false);
   const theme = useTheme();
+  
+  // Modal pencereleri için işlevler
+  const handleOpenMissedTasksModal = () => {
+    setMissedTasksModalOpen(true);
+  };
+
+  const handleCloseMissedTasksModal = () => {
+    setMissedTasksModalOpen(false);
+  };
+
+  const handleOpenCompletedTasksModal = () => {
+    setCompletedTasksModalOpen(true);
+  };
+
+  const handleCloseCompletedTasksModal = () => {
+    setCompletedTasksModalOpen(false);
+  };
   
   // Veri güncellemesini işler
   const processData = (personnelData: any, tasksData: any, companyData: any = {}) => {
@@ -181,6 +204,18 @@ const Dashboard: React.FC = () => {
           Object.entries(timeSlots).forEach(([time, taskData]: [string, any]) => {
             missedTasksCount++;
             
+            // İlgili görevi tasks listesinden bul (atanan personeli almak için)
+            const task = tasksList.find(t => t.id === taskId);
+            
+            // Personel bilgisini bul
+            let personnelName = "Atanmamış";
+            if (task && task.personnelId) {
+              const person = personnelList.find(p => p.id === task.personnelId);
+              if (person) {
+                personnelName = person.name;
+              }
+            }
+            
             // Geciken görevleri listeye ekle
             missedTasksList.push({
               id: `${taskId}-${date}-${time}`,
@@ -188,7 +223,9 @@ const Dashboard: React.FC = () => {
               description: taskData.taskDescription || '',
               date: date,
               time: time,
-              missedAt: taskData.missedAt
+              missedAt: taskData.missedAt,
+              personnelId: task?.personnelId || null,
+              personnelName: personnelName
             });
           });
         });
@@ -204,6 +241,29 @@ const Dashboard: React.FC = () => {
         Object.entries(taskDates).forEach(([date, timeSlots]: [string, any]) => {
           // Her saat için
           Object.entries(timeSlots).forEach(([time, taskData]: [string, any]) => {
+            // İlgili görevi tasks listesinden bul (atanan personeli almak için)
+            const task = tasksList.find(t => t.id === taskId);
+            
+            // Personel bilgisini bul
+            let personnelName = "Atanmamış";
+            // Öncelikle startedBy veya completedBy bilgisini kullan
+            if (taskData.completedBy) {
+              const person = personnelList.find(p => p.id === taskData.completedBy);
+              if (person) {
+                personnelName = person.name;
+              }
+            } else if (taskData.startedBy) {
+              const person = personnelList.find(p => p.id === taskData.startedBy);
+              if (person) {
+                personnelName = person.name;
+              }
+            } else if (task && task.personnelId) {
+              const person = personnelList.find(p => p.id === task.personnelId);
+              if (person) {
+                personnelName = person.name;
+              }
+            }
+            
             // Tamamlanan görevleri listeye ekle
             completedTasksList.push({
               id: `${taskId}-${date}-${time}`,
@@ -211,7 +271,9 @@ const Dashboard: React.FC = () => {
               description: taskData.taskDescription || '',
               date: date,
               time: time,
-              completedAt: taskData.completedAt
+              completedAt: taskData.completedAt,
+              personnelId: taskData.completedBy || task?.personnelId || null,
+              personnelName: personnelName
             });
           });
         });
@@ -276,6 +338,10 @@ const Dashboard: React.FC = () => {
     
     setRecentMissedTasks(sortedMissedTasks);
     setRecentCompletedTasks(sortedCompletedTasks);
+
+    // Tüm geciken ve tamamlanan görevleri de sakla (en yeniden eskiye doğru sıralı)
+    setAllMissedTasks([...missedTasksList].sort((a, b) => b.missedAt - a.missedAt));
+    setAllCompletedTasks([...completedTasksList].sort((a, b) => b.completedAt - a.completedAt));
   };
   
   useEffect(() => {
@@ -601,6 +667,15 @@ const Dashboard: React.FC = () => {
             <CardHeader 
               title="Geciken Son 10 Görev" 
               titleTypographyProps={{ fontWeight: 'bold' }}
+              action={
+                <Button 
+                  variant="text" 
+                  color="primary" 
+                  onClick={handleOpenMissedTasksModal}
+                >
+                  Tümünü Gör
+                </Button>
+              }
             />
             <Divider />
             <CardContent sx={{ flexGrow: 1, overflow: 'auto', maxHeight: 320 }}>
@@ -618,7 +693,27 @@ const Dashboard: React.FC = () => {
                         </Avatar>
                       </ListItemAvatar>
                       <ListItemText 
-                        primary={task.name} 
+                        primary={
+                          <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+                            {task.name}
+                            {task.personnelName && (
+                              <Typography variant="caption" 
+                                sx={{ 
+                                  bgcolor: theme.palette.grey[100], 
+                                  px: 1, 
+                                  py: 0.5, 
+                                  borderRadius: 1,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 0.5
+                                }}
+                              >
+                                <PersonIcon fontSize="inherit" color="primary" />
+                                {task.personnelName}
+                              </Typography>
+                            )}
+                          </Box>
+                        }
                         secondary={`${task.time} - ${task.date}`}
                       />
                     </ListItem>
@@ -635,6 +730,15 @@ const Dashboard: React.FC = () => {
             <CardHeader 
               title="Tamamlanan Son 10 Görev" 
               titleTypographyProps={{ fontWeight: 'bold' }}
+              action={
+                <Button 
+                  variant="text" 
+                  color="primary" 
+                  onClick={handleOpenCompletedTasksModal}
+                >
+                  Tümünü Gör
+                </Button>
+              }
             />
             <Divider />
             <CardContent sx={{ flexGrow: 1, overflow: 'auto', maxHeight: 320 }}>
@@ -652,7 +756,27 @@ const Dashboard: React.FC = () => {
                         </Avatar>
                       </ListItemAvatar>
                       <ListItemText 
-                        primary={task.name} 
+                        primary={
+                          <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+                            {task.name}
+                            {task.personnelName && (
+                              <Typography variant="caption" 
+                                sx={{ 
+                                  bgcolor: theme.palette.grey[100], 
+                                  px: 1, 
+                                  py: 0.5, 
+                                  borderRadius: 1,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 0.5
+                                }}
+                              >
+                                <PersonIcon fontSize="inherit" color="success" />
+                                {task.personnelName}
+                              </Typography>
+                            )}
+                          </Box>
+                        }
                         secondary={`${task.time} - ${task.date}`}
                       />
                     </ListItem>
@@ -752,6 +876,19 @@ const Dashboard: React.FC = () => {
           </StyledCard>
         </Grid>
       </Grid>
+      
+      {/* Modal Pencereler */}
+      <MissedTasksModal 
+        open={missedTasksModalOpen} 
+        onClose={handleCloseMissedTasksModal} 
+        tasks={allMissedTasks} 
+      />
+      
+      <CompletedTasksModal 
+        open={completedTasksModalOpen} 
+        onClose={handleCloseCompletedTasksModal} 
+        tasks={allCompletedTasks} 
+      />
     </ScrollableContent>
   );
 };
