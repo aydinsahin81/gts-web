@@ -39,7 +39,13 @@ import {
   ToggleButton,
   Slider,
   Menu,
-  ButtonGroup
+  ButtonGroup,
+  TableContainer,
+  Table,
+  TableHead,
+  TableBody,
+  TableRow,
+  TableCell
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -160,6 +166,162 @@ const statusOptions = [
   { value: 'pending', label: 'Beklemede', color: '#FF9800' },
   { value: 'missed', label: 'Tamamlanmamış', color: '#F44336' },
 ];
+
+// Liste görünümü için tablo bileşeni
+const TasksTable: React.FC<{ 
+  tasks: any[],
+  onShowTaskDetail: (task: any) => void,
+  onOpenQrPrintModal: (task: any, event: React.MouseEvent) => void,
+  getStatusColor: (status: string) => string,
+  getStatusIcon: (status: string) => React.ReactNode,
+  getStatusLabel: (status: string) => string,
+  getTaskTimeColor: (task: any, timeString: string) => string,
+}> = ({ 
+  tasks, 
+  onShowTaskDetail, 
+  onOpenQrPrintModal,
+  getStatusColor,
+  getStatusIcon,
+  getStatusLabel,
+  getTaskTimeColor
+}) => {
+  return (
+    <TableContainer component={Paper} sx={{ 
+      mt: 2, 
+      boxShadow: '0 2px 10px rgba(0, 0, 0, 0.05)',
+      borderRadius: 2,
+      maxHeight: 'calc(100vh - 240px)',  // Tablonun maksimum yüksekliği
+      overflowY: 'auto'
+    }}>
+      <Table size="small" stickyHeader>
+        <TableHead>
+          <TableRow>
+            <TableCell width="5%">Durum</TableCell>
+            <TableCell width="20%">Görev Adı</TableCell>
+            <TableCell width="35%">Görev Saatleri</TableCell>
+            <TableCell width="10%">Tolerans</TableCell>
+            <TableCell width="10%">Personel</TableCell>
+            <TableCell width="10%">Durum</TableCell>
+            <TableCell width="10%" align="right">İşlemler</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {tasks.map((task) => (
+            <TableRow key={task.id} hover onClick={() => onShowTaskDetail(task)}>
+              <TableCell>
+                <Avatar
+                  sx={{
+                    width: 32, 
+                    height: 32, 
+                    bgcolor: `${getStatusColor(task.status)}20`,
+                    color: getStatusColor(task.status)
+                  }}
+                >
+                  {getStatusIcon(task.status)}
+                </Avatar>
+              </TableCell>
+              <TableCell>
+                <Typography variant="body2" fontWeight="medium">
+                  {task.name}
+                </Typography>
+              </TableCell>
+              <TableCell>
+                {task.isRecurring && task.repetitionTimes && task.repetitionTimes.length > 0 ? (
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    {task.repetitionTimes.map((time: string, index: number) => (
+                      <TaskTimeChip
+                        key={index}
+                        label={time}
+                        size="small"
+                        status={getTaskTimeColor(task, time)}
+                      />
+                    ))}
+                  </Box>
+                ) : (
+                  <Typography variant="body2" color="text.secondary">-</Typography>
+                )}
+              </TableCell>
+              <TableCell>
+                {task.isRecurring ? (
+                  <Chip 
+                    label={`${task.startTolerance || 15} dk`}
+                    size="small"
+                    sx={{ 
+                      height: 20, 
+                      fontSize: '0.7rem', 
+                      bgcolor: 'primary.50', 
+                      color: 'primary.main'
+                    }}
+                  />
+                ) : (
+                  <Typography variant="body2" color="text.secondary">-</Typography>
+                )}
+              </TableCell>
+              <TableCell>
+                <Typography variant="body2" color={task.personnelName ? 'text.secondary' : 'error'} sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center',
+                  fontSize: '0.8rem'
+                }}>
+                  <PersonIcon fontSize="small" sx={{ mr: 0.5, fontSize: 16 }} />
+                  {task.personnelName || 'Atanmamış'}
+                </Typography>
+              </TableCell>
+              <TableCell>
+                <Chip
+                  label={getStatusLabel(task.status)}
+                  size="small"
+                  sx={{
+                    bgcolor: `${getStatusColor(task.status)}20`,
+                    color: getStatusColor(task.status),
+                    fontWeight: 'medium',
+                    height: 20,
+                    fontSize: 11,
+                  }}
+                />
+              </TableCell>
+              <TableCell align="right">
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  {task.isRecurring && task.completionType === 'qr' && (
+                    <IconButton
+                      size="small"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onOpenQrPrintModal(task, e);
+                      }}
+                      sx={{ color: 'primary.main', p: 0.5 }}
+                    >
+                      <QrCodeIcon fontSize="small" />
+                    </IconButton>
+                  )}
+                  <IconButton
+                    size="small"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onShowTaskDetail(task);
+                    }}
+                    sx={{ color: 'info.main', p: 0.5, ml: 0.5 }}
+                  >
+                    <AssignmentIcon fontSize="small" />
+                  </IconButton>
+                </Box>
+              </TableCell>
+            </TableRow>
+          ))}
+          {tasks.length === 0 && (
+            <TableRow>
+              <TableCell colSpan={7} align="center" sx={{ py: 3 }}>
+                <Typography color="text.secondary">
+                  Görev bulunamadı
+                </Typography>
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </TableContainer>
+  );
+};
 
 const Tasks: React.FC = () => {
   // State tanımlamaları
@@ -996,100 +1158,15 @@ const Tasks: React.FC = () => {
           ))}
         </Grid>
       ) : (
-        <List sx={{ bgcolor: 'background.paper', borderRadius: 2, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
-          {filteredTasks.map((task) => (
-            <React.Fragment key={task.id}>
-              <SlimTaskCard>
-                <ListItem 
-                  alignItems="center" 
-                  onClick={() => handleShowTaskDetail(task)}
-                  sx={{ p: 1, px: 2 }}
-                >
-                  <ListItemAvatar>
-                    <Avatar
-                      sx={{
-                        bgcolor: `${getStatusColor(task.status)}20`,
-                        color: getStatusColor(task.status),
-                      }}
-                    >
-                      {getStatusIcon(task.status)}
-                    </Avatar>
-                  </ListItemAvatar>
-                  <ListItemText
-                    primary={
-                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        <Typography variant="subtitle1" fontWeight="medium">
-                          {task.name}
-                        </Typography>
-                        <Chip
-                          label={getStatusLabel(task.status)}
-                          size="small"
-                          sx={{
-                            ml: 1,
-                            bgcolor: `${getStatusColor(task.status)}20`,
-                            color: getStatusColor(task.status),
-                            fontWeight: 'medium',
-                            height: 20,
-                            fontSize: 11,
-                          }}
-                        />
-                      </Box>
-                    }
-                    secondary={
-                      <Box>
-                        {task.personnelName ? (
-                          <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
-                            <PersonIcon fontSize="small" sx={{ color: 'text.secondary', mr: 0.5, fontSize: 16 }} />
-                            <Typography variant="body2" color="text.secondary">
-                              {task.personnelName}
-                            </Typography>
-                          </Box>
-                        ) : (
-                          <Typography variant="body2" color="error" fontStyle="italic" sx={{ mt: 0.5 }}>
-                            Personel atanmamış
-                          </Typography>
-                        )}
-                        
-                        {task.isRecurring && task.repetitionTimes && task.repetitionTimes.length > 0 && (
-                          <Box sx={{ mt: 1 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
-                              <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center' }}>
-                                <Chip 
-                                  label={`${task.startTolerance || 15} dk tolerans`}
-                                  size="small"
-                                  sx={{ 
-                                    mr: 1,
-                                    height: 18, 
-                                    fontSize: '0.65rem', 
-                                    bgcolor: 'primary.50', 
-                                    color: 'primary.main',
-                                    '& .MuiChip-label': { px: 1 }
-                                  }}
-                                />
-                                Tekrar saatleri:
-                              </Typography>
-                            </Box>
-                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
-                              {task.repetitionTimes.map((time: string, index: number) => (
-                                <TaskTimeChip
-                                  key={index}
-                                  label={time}
-                                  size="small"
-                                  status={getTaskTimeColor(task, time)}
-                                />
-                              ))}
-                            </Box>
-                          </Box>
-                        )}
-                      </Box>
-                    }
-                  />
-                </ListItem>
-              </SlimTaskCard>
-              <Divider component="li" />
-            </React.Fragment>
-          ))}
-        </List>
+        <TasksTable 
+          tasks={filteredTasks}
+          onShowTaskDetail={handleShowTaskDetail}
+          onOpenQrPrintModal={handleOpenQrPrintModal}
+          getStatusColor={getStatusColor}
+          getStatusIcon={getStatusIcon}
+          getStatusLabel={getStatusLabel}
+          getTaskTimeColor={getTaskTimeColor}
+        />
       )}
 
       {/* Görev Detay Modalı */}
