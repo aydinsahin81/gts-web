@@ -784,7 +784,7 @@ const Tasks: React.FC = () => {
                         Tekrar saatleri:
                       </Typography>
                       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
-                        {task.repetitionTimes.slice(0, 3).map((time: string, index: number) => (
+                        {task.repetitionTimes.map((time: string, index: number) => (
                           <TaskTimeChip
                             key={index}
                             label={time}
@@ -792,18 +792,6 @@ const Tasks: React.FC = () => {
                             status={getTaskTimeColor(task, time)}
                           />
                         ))}
-                        {task.repetitionTimes.length > 3 && (
-                          <Chip
-                            label={`+${task.repetitionTimes.length - 3}`}
-                            size="small"
-                            sx={{
-                              bgcolor: '#03A9F420',
-                              color: '#03A9F4',
-                              fontSize: '0.7rem',
-                              height: 20
-                            }}
-                          />
-                        )}
                       </Box>
                     </Box>
                   )}
@@ -901,7 +889,7 @@ const Tasks: React.FC = () => {
                               Tekrar saatleri:
                             </Typography>
                             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
-                              {task.repetitionTimes.slice(0, 3).map((time: string, index: number) => (
+                              {task.repetitionTimes.map((time: string, index: number) => (
                                 <TaskTimeChip
                                   key={index}
                                   label={time}
@@ -909,18 +897,6 @@ const Tasks: React.FC = () => {
                                   status={getTaskTimeColor(task, time)}
                                 />
                               ))}
-                              {task.repetitionTimes.length > 3 && (
-                                <Chip
-                                  label={`+${task.repetitionTimes.length - 3}`}
-                                  size="small"
-                                  sx={{
-                                    bgcolor: '#03A9F420',
-                                    color: '#03A9F4',
-                                    fontSize: '0.7rem',
-                                    height: 20
-                                  }}
-                                />
-                              )}
                             </Box>
                           </Box>
                         )}
