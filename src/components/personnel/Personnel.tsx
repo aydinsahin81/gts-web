@@ -38,7 +38,6 @@ import {
   PersonAdd as PersonAddIcon,
   Group as GroupIcon,
   Search as SearchIcon,
-  QrCode as QrCodeIcon,
   PhotoLibrary as PhotoLibraryIcon,
   ViewModule as ViewModuleIcon,
   ViewList as ViewListIcon
@@ -46,6 +45,8 @@ import {
 import { ref, get, onValue, off, remove, update, set, push } from 'firebase/database';
 import { database, auth } from '../../firebase';
 import { Html5Qrcode } from 'html5-qrcode';
+import CompanyQRModal from './CompanyQRModal';
+import QrCode2Icon from '@mui/icons-material/QrCode2';
 
 // Kaydırılabilir ana içerik için styled component
 const ScrollableContent = styled(Box)(({ theme }) => ({
@@ -175,6 +176,7 @@ const Personnel: React.FC = () => {
   const [isScanning, setIsScanning] = useState(false);
   const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [companyQRModalOpen, setCompanyQRModalOpen] = useState(false);
 
   // Görünüm modunu localStorage'dan yükle
   useEffect(() => {
@@ -568,6 +570,15 @@ const Personnel: React.FC = () => {
     fileInputRef.current?.click();
   };
 
+  // QR kodunu görüntülemek için modal açma/kapama işlevleri
+  const handleOpenCompanyQRModal = () => {
+    setCompanyQRModalOpen(true);
+  };
+
+  const handleCloseCompanyQRModal = () => {
+    setCompanyQRModalOpen(false);
+  };
+
   return (
     <ScrollableContent>
       {/* Başlık, Görünüm Seçici ve Ekleme Butonu */}
@@ -590,6 +601,14 @@ const Personnel: React.FC = () => {
               <ViewListIcon />
             </ToggleButton>
           </ToggleButtonGroup>
+          <Button
+            variant="contained"
+            color="success"
+            startIcon={<QrCode2Icon />}
+            onClick={handleOpenCompanyQRModal}
+          >
+            Şirket QR
+          </Button>
           <Button
             variant="contained"
             color="primary"
@@ -1037,6 +1056,12 @@ const Personnel: React.FC = () => {
           </TabPanel>
         </AddPersonnelModalContent>
       </StyledModal>
+
+      {/* Şirket QR Modal */}
+      <CompanyQRModal 
+        open={companyQRModalOpen} 
+        onClose={handleCloseCompanyQRModal} 
+      />
     </ScrollableContent>
   );
 };
