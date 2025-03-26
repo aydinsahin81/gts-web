@@ -66,28 +66,16 @@ class TaskTimeService {
     const now = await TimeService.getCurrentTime();
     console.log('TaskTimeService: Şu anki zaman -', now.getHours() + ':' + now.getMinutes());
     
-    // Zamanları şu anki zamana göre sırala (en yakın ilk)
-    const sortedTimes = [...repetitionTimes].sort((a, b) => {
-      const timeA = TimeService.timeStringToDateTime(a);
-      const timeB = TimeService.timeStringToDateTime(b);
-      
-      // Şu anki zamana olan mutlak fark
-      const diffA = Math.abs(timeA.getTime() - now.getTime());
-      const diffB = Math.abs(timeB.getTime() - now.getTime());
-      
-      return diffA - diffB;
-    });
-    
-    console.log('TaskTimeService: Sıralanmış zamanlar -', sortedTimes);
-    
-    // Zamanları sıralı şekilde al (erken saatler önce)
+    // Zamanları kronolojik olarak sırala (erken saatler önce)
     const orderedTimes = [...repetitionTimes].sort();
+    console.log('TaskTimeService: Kronolojik sıralanmış zamanlar -', orderedTimes);
     
-    // Önce yaklaşan veya aktif bir zaman var mı kontrol et
-    for (const timeString of sortedTimes) {
-      console.log('TaskTimeService: Zaman kontrolü -', timeString);
+    // 1. Yaklaşan ya da aktif bir zaman var mı kontrol et
+    // Önce yaklaşan (approaching) zaman kontrolü
+    for (const timeString of orderedTimes) {
+      console.log('TaskTimeService: Yaklaşan zaman kontrolü -', timeString);
       
-      // 1. Zamanın yaklaşıp yaklaşmadığını kontrol et (görev zamanından önce ama tolerans içinde)
+      // Zamanın yaklaşıp yaklaşmadığını kontrol et (görev zamanından önce ama tolerans içinde)
       const isApproaching = await TimeService.isTimeApproaching(timeString, startTolerance);
       if (isApproaching) {
         console.log('TaskTimeService: Görev zamanı yaklaşıyor -', timeString, '(MAVİ)');
@@ -96,72 +84,70 @@ class TaskTimeService {
           activeTime: timeString,
         };
       }
-      
-      // 2. Zamanın geçip geçmediğini kontrol et
+    }
+    
+    // 2. Aktif görev var mı kontrol et
+    // Şu anki zamandan önceki son görevi ve sonraki ilk görevi bul
+    let lastPassedTimeIndex = -1;
+    let nextTimeIndex = -1;
+    
+    for (let i = 0; i < orderedTimes.length; i++) {
+      const timeString = orderedTimes[i];
       const isPassed = await TimeService.isTimePassed(timeString);
-      if (!isPassed) {
-        // Zaman henüz gelmemiş, bir sonraki zamana bak
-        console.log('TaskTimeService: Görev zamanı henüz gelmemiş -', timeString);
-        continue;
-      }
       
-      // 3. Zamanın aktif olup olmadığını kontrol et
-      // isActive artık sadece görev zamanı geçmiş mi diye kontrol eder
       if (isPassed) {
-        // 4. Şimdi bu zaman, "kaçırılmış" olarak işaretlenecek mi kontrol et
-        let isMissed = false;
+        lastPassedTimeIndex = i;
+      } else {
+        nextTimeIndex = i;
+        break;
+      }
+    }
+    
+    // Son geçen zaman varsa (bugün en az bir görev zamanı geçmişse)
+    if (lastPassedTimeIndex !== -1) {
+      const lastPassedTime = orderedTimes[lastPassedTimeIndex];
+      // Bu zamanın hala aktif olup olmadığını kontrol et
+      
+      // Bir sonraki görev olup olmadığına göre kontrol stratejisi değişir
+      if (nextTimeIndex !== -1) {
+        // Bir sonraki görev var
+        const nextTime = orderedTimes[nextTimeIndex];
+        const nextTimeObj = TimeService.timeStringToDateTime(nextTime);
         
-        // Zamanın sırasını bul
-        const timeIndex = orderedTimes.indexOf(timeString);
-        if (timeIndex !== -1) {
-          // Bir sonraki görevin zamanını ve toleransını kontrol et
-          if (timeIndex < orderedTimes.length - 1) {
-            // Bir sonraki görev var
-            const nextTimeString = orderedTimes[timeIndex + 1];
-            
-            // Bir sonraki görevin zamanını DateTime olarak al
-            const nextTaskTime = TimeService.timeStringToDateTime(nextTimeString);
-            
-            // Bir sonraki görevin tolerans başlangıcı (standart tolerans)
-            const nextTaskToleranceStart = new Date(nextTaskTime.getTime());
-            nextTaskToleranceStart.setMinutes(nextTaskToleranceStart.getMinutes() - startTolerance);
-            
-            // Şu anki zaman, bir sonraki görevin tolerans başlangıcını geçti mi?
-            if (now > nextTaskToleranceStart) {
-              // Zaman geçmiş ve bir sonraki görevin tolerans zamanı başlamış, kaçırılmış
-              isMissed = true;
-            }
-          } else {
-            // Son görev için özel kontrol - 1 saatlik (60 dk) tolerans uygula
-            const taskTime = TimeService.timeStringToDateTime(timeString);
-            
-            // Son görev için tolerans bitişi (1 saat sonra)
-            const lastTaskToleranceEnd = new Date(taskTime.getTime());
-            lastTaskToleranceEnd.setMinutes(lastTaskToleranceEnd.getMinutes() + 60);
-            
-            // Şu anki zaman, son görevin tolerans bitişini geçti mi?
-            if (now > lastTaskToleranceEnd) {
-              // Zaman geçmiş ve son görevin tolerans süresi sona ermiş (1 saat), kaçırılmış
-              isMissed = true;
-            }
-          }
-        }
+        // Bir sonraki görevin tolerans başlangıcı
+        const nextTimeToleranceStart = new Date(nextTimeObj.getTime());
+        nextTimeToleranceStart.setMinutes(nextTimeToleranceStart.getMinutes() - startTolerance);
         
-        if (isMissed) {
-          // Kaçırılmış durumunu bir sonraki döngüde ele alacağız
-          continue;
-        } else {
-          // Görev zamanı geçmiş, aktif ve henüz kaçırılmamış (mavi)
-          console.log('TaskTimeService: Görev zamanı aktif -', timeString, '(MAVİ) - Henüz kaçırılmamış');
+        // Şu anki zaman, bir sonraki görevin tolerans başlangıcından önce mi?
+        if (now < nextTimeToleranceStart) {
+          // Bir sonraki görevin tolerans başlangıcına daha var, bu yüzden şu anki görev aktif
+          console.log('TaskTimeService: Görev zamanı aktif -', lastPassedTime, '(MAVİ) - Henüz kaçırılmamış');
           return {
             status: TaskTimeStatus.active,
-            activeTime: timeString,
+            activeTime: lastPassedTime,
+          };
+        }
+      } else {
+        // Son görev için özel kontrol - 1 saatlik (60 dk) tolerans uygula
+        const lastPassedTimeObj = TimeService.timeStringToDateTime(lastPassedTime);
+        
+        // Son görev için tolerans bitişi (1 saat sonra)
+        const lastTaskToleranceEnd = new Date(lastPassedTimeObj.getTime());
+        lastTaskToleranceEnd.setMinutes(lastTaskToleranceEnd.getMinutes() + 60);
+        
+        // Şu anki zaman, son görevin tolerans bitişini geçmedi mi?
+        if (now < lastTaskToleranceEnd) {
+          // Son görevin tolerans süresi henüz dolmamış, görev aktif
+          console.log('TaskTimeService: Son görev zamanı aktif -', lastPassedTime, '(MAVİ) - 60 dakika tolerans süresi içinde');
+          return {
+            status: TaskTimeStatus.active,
+            activeTime: lastPassedTime,
           };
         }
       }
     }
     
-    // Eğer yaklaşan veya aktif görev yoksa, kaçırılmış mı kontrol et
+    // 3. Kaçırılmış görev var mı kontrol et
     let missedTime: string | null = null;
     let foundMissed = false;
     
@@ -224,7 +210,7 @@ class TaskTimeService {
       };
     }
     
-    // 5. Hiçbir zaman için özel durum yoksa, bir sonraki zamanı bul
+    // 4. Hiçbir zaman için özel durum yoksa, bir sonraki zamanı bul
     const nextTime = this._findNextTime(repetitionTimes);
     console.log('TaskTimeService: Bir sonraki görev zamanı -', nextTime, '(GRİ)');
     

@@ -577,15 +577,31 @@ const Tasks: React.FC = () => {
       // Her görev için tekrarlanan zamanları kontrol et
       for (const task of tasks) {
         if (task.isRecurring && task.repetitionTimes && task.repetitionTimes.length > 0) {
+          console.log(`Görev kontrol ediliyor: ${task.name}, ID: ${task.id}`);
+          
           // Kaçırılan ve tamamlanan görev zamanlarını al
           const missedTimes = await MissedTaskService.getMissedTaskTimes(task.id, companyId as string);
           const completedTimes = await MissedTaskService.getCompletedTaskTimes(task.id, companyId as string);
           
+          console.log(`Görev: ${task.name} - Kaçırılan zamanlar:`, missedTimes);
+          console.log(`Görev: ${task.name} - Tamamlanan zamanlar:`, completedTimes);
+          
           // Başlatılmış ama tamamlanmamış görevlerin durumlarını al
           const timeStatuses = await MissedTaskService.getCompletedTaskTimeStatuses(task.id, companyId as string);
+          console.log(`Görev: ${task.name} - Zaman durumları:`, timeStatuses);
+          
+          // Her görev için task.repetitionTimes'ı kullanarak bir defa checkRecurringTaskTime çağır
+          const result = await TaskTimeService.checkRecurringTaskTime(
+            task.repetitionTimes,
+            task.startTolerance || 15,
+            task.status
+          );
+          console.log(`Görev: ${task.name} - Genel durum kontrolü sonucu:`, result);
           
           // Tekrarlanan her zaman için durumu kontrol et
           for (const timeString of task.repetitionTimes) {
+            console.log(`Zaman kontrolü: ${timeString} için`);
+            
             // Zaman tamamlanmış veya kaçırılmış ise özel durum ata
             if (completedTimes.includes(timeString)) {
               statusMap[`${task.id}_${timeString}`] = {
@@ -593,6 +609,7 @@ const Tasks: React.FC = () => {
                 color: '#4CAF50', // Yeşil
                 activeTime: timeString
               };
+              console.log(`${timeString}: Tamamlanmış (YEŞİL)`);
               continue;
             }
             
@@ -602,6 +619,7 @@ const Tasks: React.FC = () => {
                 color: '#F44336', // Kırmızı
                 activeTime: timeString
               };
+              console.log(`${timeString}: Kaçırılmış (KIRMIZI)`);
               continue;
             }
             
@@ -612,24 +630,26 @@ const Tasks: React.FC = () => {
                 color: '#795548', // Kahverengi
                 activeTime: timeString
               };
+              console.log(`${timeString}: Başlatılmış (KAHVERENGİ)`);
               continue;
             }
             
-            // Durumu kontrol et (yaklaşan, aktif, geçmiş)
-            const result = await TaskTimeService.checkRecurringTaskTime(
-              task.repetitionTimes,
+            // Özel durum olmayan zamanlar için, her zaman için ayrı bir kontrol yap
+            const singleTimeResult = await TaskTimeService.checkRecurringTaskTime(
+              [timeString], // Sadece bu zamanı kontrol et
               task.startTolerance || 15,
               task.status
             );
             
             // Renk belirle
-            const color = TaskTimeService.getTaskTimeColor(result.status, task.status);
+            const color = TaskTimeService.getTaskTimeColor(singleTimeResult.status, task.status);
             
             statusMap[`${task.id}_${timeString}`] = {
-              status: result.status,
+              status: singleTimeResult.status,
               color,
-              activeTime: result.activeTime
+              activeTime: timeString
             };
+            console.log(`${timeString}: ${singleTimeResult.status} (${color})`);
           }
         }
       }
@@ -846,9 +866,23 @@ const Tasks: React.FC = () => {
                   {task.isRecurring && task.repetitionTimes && task.repetitionTimes.length > 0 && (
                     <Box sx={{ mb: 1.5 }}>
                       <Divider sx={{ my: 1 }} />
-                      <Typography variant="caption" color="text.secondary">
-                        Tekrar saatleri:
-                      </Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center' }}>
+                          <Chip 
+                            label={`${task.startTolerance || 15} dk tolerans`}
+                            size="small"
+                            sx={{ 
+                              mr: 1,
+                              height: 18, 
+                              fontSize: '0.65rem', 
+                              bgcolor: 'primary.50', 
+                              color: 'primary.main',
+                              '& .MuiChip-label': { px: 1 }
+                            }}
+                          />
+                          Tekrar saatleri:
+                        </Typography>
+                      </Box>
                       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
                         {task.repetitionTimes.map((time: string, index: number) => (
                           <TaskTimeChip
@@ -951,9 +985,23 @@ const Tasks: React.FC = () => {
                         
                         {task.isRecurring && task.repetitionTimes && task.repetitionTimes.length > 0 && (
                           <Box sx={{ mt: 1 }}>
-                            <Typography variant="caption" color="text.secondary">
-                              Tekrar saatleri:
-                            </Typography>
+                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+                              <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center' }}>
+                                <Chip 
+                                  label={`${task.startTolerance || 15} dk tolerans`}
+                                  size="small"
+                                  sx={{ 
+                                    mr: 1,
+                                    height: 18, 
+                                    fontSize: '0.65rem', 
+                                    bgcolor: 'primary.50', 
+                                    color: 'primary.main',
+                                    '& .MuiChip-label': { px: 1 }
+                                  }}
+                                />
+                                Tekrar saatleri:
+                              </Typography>
+                            </Box>
                             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
                               {task.repetitionTimes.map((time: string, index: number) => (
                                 <TaskTimeChip
