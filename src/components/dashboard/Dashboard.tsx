@@ -137,8 +137,18 @@ const StyledCard = styled(Card)(({ theme }) => ({
   display: 'flex',
   flexDirection: 'column',
   boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-  borderRadius: 12,
+  borderRadius: 8,
   overflow: 'hidden',
+  '& .MuiCardHeader-root': {
+    padding: theme.spacing(1),
+    '& .MuiTypography-h6': {
+      fontSize: '1rem',
+      fontWeight: 'bold',
+    },
+  },
+  '& .MuiCardContent-root': {
+    padding: theme.spacing(1),
+  },
 }));
 
 // İstatistik kartı için styled component - tıklanabilir kart
@@ -158,29 +168,40 @@ const StatsCard = styled(Paper)<{ bgcolor: string }>(({ theme, bgcolor }) => ({
 }));
 
 const IconBox = styled(Box)<{ bgcolor: string }>(({ theme, bgcolor }) => ({
-  width: 60,
-  height: 60,
-  borderRadius: 12,
+  width: 40,
+  height: 40,
+  borderRadius: 8,
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
   backgroundColor: bgcolor,
-  marginRight: theme.spacing(2),
+  marginRight: theme.spacing(1),
   '& .MuiSvgIcon-root': {
     color: 'white',
-    fontSize: 30,
+    fontSize: 24,
   },
 }));
 
 const StatsText = styled(Box)({
   flexGrow: 1,
+  '& .MuiTypography-h4': {
+    fontSize: '1.5rem',
+    fontWeight: 'bold',
+  },
+  '& .MuiTypography-body2': {
+    fontSize: '0.75rem',
+  },
 });
 
 const ChartContainer = styled(Card)(({ theme }) => ({
-  padding: theme.spacing(3),
+  padding: theme.spacing(2),
   height: '100%',
   boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-  borderRadius: 12,
+  borderRadius: 8,
+  '& .MuiTypography-h6': {
+    fontSize: '1rem',
+    fontWeight: 'bold',
+  },
 }));
 
 // Location Map Card
@@ -868,8 +889,8 @@ const Dashboard: React.FC = () => {
   
   return (
     <ScrollableContent>
-      {/* İstatistik Kartları - Dashboard başlığı silinmiş ve üste hizalanmış */}
-      <Grid container spacing={3} sx={{ mb: 5 }}>
+      <Grid container spacing={1} sx={{ mb: 2 }}>
+        {/* İstatistik Kartları */}
         <Grid item xs={12} sm={6} md={3}>
           <StatsCard 
             bgcolor={THEME_COLORS.personnel} 
@@ -879,7 +900,7 @@ const Dashboard: React.FC = () => {
               <PeopleIcon />
             </IconBox>
             <StatsText>
-              <Typography variant="h4" fontWeight="bold">
+              <Typography variant="h6" fontWeight="bold">
                 {stats.totalPersonnel}
               </Typography>
               <Typography variant="body2" color="textSecondary">
@@ -898,7 +919,7 @@ const Dashboard: React.FC = () => {
               <TaskIcon />
             </IconBox>
             <StatsText>
-              <Typography variant="h4" fontWeight="bold">
+              <Typography variant="h6" fontWeight="bold">
                 {stats.totalTasks}
               </Typography>
               <Typography variant="body2" color="textSecondary">
@@ -917,7 +938,7 @@ const Dashboard: React.FC = () => {
               <PendingIcon />
             </IconBox>
             <StatsText>
-              <Typography variant="h4" fontWeight="bold">
+              <Typography variant="h6" fontWeight="bold">
                 {stats.pendingTasks}
               </Typography>
               <Typography variant="body2" color="textSecondary">
@@ -936,7 +957,7 @@ const Dashboard: React.FC = () => {
               <CompletedIcon />
             </IconBox>
             <StatsText>
-              <Typography variant="h4" fontWeight="bold">
+              <Typography variant="h6" fontWeight="bold">
                 {stats.completedTasks}
               </Typography>
               <Typography variant="body2" color="textSecondary">
@@ -948,8 +969,7 @@ const Dashboard: React.FC = () => {
       </Grid>
       
       {/* Grafikler */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        {/* Görev Durumu Dağılım Grafiği */}
+      <Grid container spacing={1} sx={{ mb: 2 }}>
         <Grid item xs={12} md={6}>
           <ChartContainer>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
@@ -957,23 +977,23 @@ const Dashboard: React.FC = () => {
                 Görev Durumu Dağılımı
               </Typography>
               <IconButton onClick={handleTaskStatusInfoOpen} size="small">
-                <InfoIcon />
+                <InfoIcon fontSize="small" />
               </IconButton>
             </Box>
-            <Divider sx={{ mb: 2 }} />
+            <Divider sx={{ mb: 1 }} />
             
             {taskStatusData.length === 0 ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300 }}>
-                <Typography color="textSecondary">Henüz görev bulunmuyor</Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 200 }}>
+                <Typography variant="body2" color="textSecondary">Henüz görev bulunmuyor</Typography>
               </Box>
             ) : (
-              <ResponsiveContainer width="100%" height={300}>
+              <ResponsiveContainer width="100%" height={200}>
                 <PieChart>
                   <Pie
                     data={taskStatusData}
                     cx="50%"
                     cy="50%"
-                    outerRadius={100}
+                    outerRadius={80}
                     fill="#8884d8"
                     dataKey="value"
                     labelLine={false}
@@ -986,15 +1006,10 @@ const Dashboard: React.FC = () => {
                   <RechartsTooltip content={<CustomTooltip />} />
                   <Legend 
                     verticalAlign="bottom" 
-                    height={36} 
+                    height={24} 
                     formatter={(value, entry, index) => {
-                      // Toplam değeri hesapla
                       const total = taskStatusData.reduce((sum, item) => sum + item.value, 0);
-                      
-                      // İlgili öğenin yüzdesini hesapla
                       const percent = total > 0 ? ((taskStatusData[index].value / total) * 100).toFixed(0) : 0;
-                      
-                      // Adı ve yüzdeyi birlikte göster
                       return `${value} (%${percent})`;
                     }}
                   />
@@ -1004,7 +1019,6 @@ const Dashboard: React.FC = () => {
           </ChartContainer>
         </Grid>
         
-        {/* Personel Performans Grafiği */}
         <Grid item xs={12} md={6}>
           <ChartContainer>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
@@ -1012,17 +1026,17 @@ const Dashboard: React.FC = () => {
                 Personel Performansı
               </Typography>
               <IconButton onClick={handlePersonnelPerformanceInfoOpen} size="small">
-                <InfoIcon />
+                <InfoIcon fontSize="small" />
               </IconButton>
             </Box>
-            <Divider sx={{ mb: 2 }} />
+            <Divider sx={{ mb: 1 }} />
             
             {personnelPerformanceData.length === 0 ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300 }}>
-                <Typography color="textSecondary">Henüz personel performans verisi bulunmuyor</Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 200 }}>
+                <Typography variant="body2" color="textSecondary">Henüz personel performans verisi bulunmuyor</Typography>
               </Box>
             ) : (
-              <ResponsiveContainer width="100%" height={300}>
+              <ResponsiveContainer width="100%" height={200}>
                 <BarChart
                   data={personnelPerformanceData}
                   margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
@@ -1037,7 +1051,7 @@ const Dashboard: React.FC = () => {
                     width={100}
                   />
                   <RechartsTooltip content={<CustomTooltip performanceChart={true} />} />
-                  <Legend verticalAlign="bottom" height={36} />
+                  <Legend verticalAlign="bottom" height={24} />
                   <Bar 
                     dataKey="completed" 
                     stackId="a" 
@@ -1072,9 +1086,8 @@ const Dashboard: React.FC = () => {
         </Grid>
       </Grid>
       
-      {/* Geciken ve Tamamlanan Son Görevler */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        {/* Geciken Son 10 Görev */}
+      {/* Liste Kartları */}
+      <Grid container spacing={1} sx={{ mb: 2 }}>
         <Grid item xs={12} md={6}>
           <StyledCard>
             <CardHeader 
@@ -1085,40 +1098,41 @@ const Dashboard: React.FC = () => {
                   variant="text" 
                   color="primary" 
                   onClick={handleOpenMissedTasksModal}
+                  size="small"
                 >
                   Tümünü Gör
                 </Button>
               }
             />
             <Divider />
-            <CardContent sx={{ flexGrow: 1, overflow: 'auto', maxHeight: 320 }}>
-              <List>
+            <CardContent sx={{ flexGrow: 1, overflow: 'auto', maxHeight: 250 }}>
+              <List dense>
                 {recentMissedTasks.length === 0 ? (
-                  <Typography variant="body2" color="textSecondary" align="center" sx={{ py: 4 }}>
+                  <Typography variant="body2" color="textSecondary" align="center" sx={{ py: 2 }}>
                     Henüz geciken görev bulunmuyor
                   </Typography>
                 ) : (
                   recentMissedTasks.map((task) => (
                     <ListItem key={task.id} divider>
                       <ListItemAvatar>
-                        <Avatar sx={{ bgcolor: '#F44336' }}>
-                          <TaskIcon />
+                        <Avatar sx={{ width: 32, height: 32, bgcolor: '#F44336' }}>
+                          <TaskIcon fontSize="small" />
                         </Avatar>
                       </ListItemAvatar>
                       <ListItemText 
                         primary={
-                          <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
-                            {task.name}
+                          <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.5 }}>
+                            <Typography variant="body2">{task.name}</Typography>
                             {task.personnelName && (
                               <Typography variant="caption" 
                                 sx={{ 
                                   bgcolor: theme.palette.grey[100], 
-                                  px: 1, 
-                                  py: 0.5, 
-                                  borderRadius: 1,
+                                  px: 0.5, 
+                                  py: 0.25, 
+                                  borderRadius: 0.5,
                                   display: 'inline-flex',
                                   alignItems: 'center',
-                                  gap: 0.5
+                                  gap: 0.25
                                 }}
                               >
                                 <PersonIcon fontSize="inherit" color="primary" />
@@ -1127,7 +1141,11 @@ const Dashboard: React.FC = () => {
                             )}
                           </Box>
                         }
-                        secondary={`${task.time} - ${task.date}`}
+                        secondary={
+                          <Typography variant="caption">
+                            {`${task.time} - ${task.date}`}
+                          </Typography>
+                        }
                       />
                     </ListItem>
                   ))
@@ -1137,7 +1155,6 @@ const Dashboard: React.FC = () => {
           </StyledCard>
         </Grid>
         
-        {/* Tamamlanan Son 10 Görev */}
         <Grid item xs={12} md={6}>
           <StyledCard>
             <CardHeader 
@@ -1148,40 +1165,41 @@ const Dashboard: React.FC = () => {
                   variant="text" 
                   color="primary" 
                   onClick={handleOpenCompletedTasksModal}
+                  size="small"
                 >
                   Tümünü Gör
                 </Button>
               }
             />
             <Divider />
-            <CardContent sx={{ flexGrow: 1, overflow: 'auto', maxHeight: 320 }}>
-              <List>
+            <CardContent sx={{ flexGrow: 1, overflow: 'auto', maxHeight: 250 }}>
+              <List dense>
                 {recentCompletedTasks.length === 0 ? (
-                  <Typography variant="body2" color="textSecondary" align="center" sx={{ py: 4 }}>
+                  <Typography variant="body2" color="textSecondary" align="center" sx={{ py: 2 }}>
                     Henüz tamamlanan görev bulunmuyor
                   </Typography>
                 ) : (
                   recentCompletedTasks.map((task) => (
                     <ListItem key={task.id} divider>
                       <ListItemAvatar>
-                        <Avatar sx={{ bgcolor: THEME_COLORS.completed }}>
-                          <TaskIcon />
+                        <Avatar sx={{ width: 32, height: 32, bgcolor: THEME_COLORS.completed }}>
+                          <TaskIcon fontSize="small" />
                         </Avatar>
                       </ListItemAvatar>
                       <ListItemText 
                         primary={
-                          <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
-                            {task.name}
+                          <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.5 }}>
+                            <Typography variant="body2">{task.name}</Typography>
                             {task.personnelName && (
                               <Typography variant="caption" 
                                 sx={{ 
                                   bgcolor: theme.palette.grey[100], 
-                                  px: 1, 
-                                  py: 0.5, 
-                                  borderRadius: 1,
+                                  px: 0.5, 
+                                  py: 0.25, 
+                                  borderRadius: 0.5,
                                   display: 'inline-flex',
                                   alignItems: 'center',
-                                  gap: 0.5
+                                  gap: 0.25
                                 }}
                               >
                                 <PersonIcon fontSize="inherit" color="success" />
@@ -1190,7 +1208,11 @@ const Dashboard: React.FC = () => {
                             )}
                           </Box>
                         }
-                        secondary={`${task.time} - ${task.date}`}
+                        secondary={
+                          <Typography variant="caption">
+                            {`${task.time} - ${task.date}`}
+                          </Typography>
+                        }
                       />
                     </ListItem>
                   ))
@@ -1202,7 +1224,7 @@ const Dashboard: React.FC = () => {
       </Grid>
       
       {/* En Kötü Performanslı Personeller */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
+      <Grid container spacing={1} sx={{ mb: 2 }}>
         <Grid item xs={12}>
           <StyledCard>
             <CardHeader 
@@ -1210,24 +1232,24 @@ const Dashboard: React.FC = () => {
               titleTypographyProps={{ fontWeight: 'bold' }}
             />
             <Divider />
-            <CardContent sx={{ flexGrow: 1, overflow: 'auto', maxHeight: 320 }}>
+            <CardContent sx={{ flexGrow: 1, overflow: 'auto', maxHeight: 250 }}>
               {worstPerformers.length === 0 ? (
-                <Typography variant="body2" color="textSecondary" align="center" sx={{ py: 4 }}>
+                <Typography variant="body2" color="textSecondary" align="center" sx={{ py: 2 }}>
                   Henüz gecikmiş görev kaydı bulunmuyor
                 </Typography>
               ) : (
-                <Grid container spacing={2}>
+                <Grid container spacing={1}>
                   {worstPerformers.map((person, index) => (
                     <Grid item xs={12} md={6} lg={4} key={person.id}>
                       <Paper 
                         elevation={0} 
                         sx={{ 
-                          p: 2, 
+                          p: 1, 
                           display: 'flex', 
                           alignItems: 'center', 
                           border: '1px solid',
                           borderColor: theme.palette.divider,
-                          borderRadius: 2,
+                          borderRadius: 1,
                           position: 'relative',
                           overflow: 'hidden',
                           '&::before': {
@@ -1235,42 +1257,42 @@ const Dashboard: React.FC = () => {
                             position: 'absolute',
                             top: 0,
                             left: 0,
-                            width: 5,
+                            width: 3,
                             height: '100%',
                             bgcolor: '#F44336',
                           }
                         }}
                       >
-                        <Box sx={{ mr: 2, position: 'relative' }}>
-                          <Avatar sx={{ bgcolor: index < 3 ? '#F44336' : theme.palette.grey[500] }}>
-                            <PersonIcon />
+                        <Box sx={{ mr: 1, position: 'relative' }}>
+                          <Avatar sx={{ width: 32, height: 32, bgcolor: index < 3 ? '#F44336' : theme.palette.grey[500] }}>
+                            <PersonIcon fontSize="small" />
                           </Avatar>
                           <Typography 
                             variant="caption" 
                             sx={{ 
                               position: 'absolute', 
-                              top: -10, 
-                              right: -10, 
+                              top: -8, 
+                              right: -8, 
                               bgcolor: index < 3 ? '#F44336' : theme.palette.grey[500], 
                               color: 'white', 
-                              width: 20, 
-                              height: 20, 
+                              width: 16, 
+                              height: 16, 
                               borderRadius: '50%', 
                               display: 'flex', 
                               alignItems: 'center', 
                               justifyContent: 'center',
                               fontWeight: 'bold',
-                              fontSize: 11
+                              fontSize: 9
                             }}
                           >
                             {index + 1}
                           </Typography>
                         </Box>
                         <Box>
-                          <Typography variant="subtitle1" fontWeight="medium" noWrap>
+                          <Typography variant="body2" fontWeight="medium" noWrap>
                             {person.name}
                           </Typography>
-                          <Typography variant="body2" color="text.secondary">
+                          <Typography variant="caption" color="text.secondary">
                             {person.missedCount} gecikmiş görev
                           </Typography>
                         </Box>
@@ -1284,78 +1306,7 @@ const Dashboard: React.FC = () => {
         </Grid>
       </Grid>
       
-      {/* Alt Kartlar */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        {/* Personel Listesi */}
-        <Grid item xs={12} md={6}>
-          <StyledCard>
-            <CardHeader 
-              title="Son Eklenen Personeller" 
-              titleTypographyProps={{ fontWeight: 'bold' }}
-            />
-            <Divider />
-            <CardContent sx={{ flexGrow: 1, overflow: 'auto', maxHeight: 320 }}>
-              <List>
-                {personnel.length === 0 ? (
-                  <Typography variant="body2" color="textSecondary" align="center" sx={{ py: 4 }}>
-                    Henüz personel eklenmemiş
-                  </Typography>
-                ) : (
-                  personnel.slice(0, 2).map((person) => (
-                    <ListItem key={person.id} divider>
-                      <ListItemAvatar>
-                        <Avatar sx={{ bgcolor: THEME_COLORS.personnel }}>
-                          <PersonIcon />
-                        </Avatar>
-                      </ListItemAvatar>
-                      <ListItemText 
-                        primary={person.name} 
-                        secondary={person.hasTask ? 'Görev Atanmış' : 'Müsait'} 
-                      />
-                    </ListItem>
-                  ))
-                )}
-              </List>
-            </CardContent>
-          </StyledCard>
-        </Grid>
-        
-        {/* Son Görevler */}
-        <Grid item xs={12} md={6}>
-          <StyledCard>
-            <CardHeader 
-              title="Son Eklenen Görevler" 
-              titleTypographyProps={{ fontWeight: 'bold' }}
-            />
-            <Divider />
-            <CardContent sx={{ flexGrow: 1, overflow: 'auto', maxHeight: 320 }}>
-              <List>
-                {recentTasks.length === 0 ? (
-                  <Typography variant="body2" color="textSecondary" align="center" sx={{ py: 4 }}>
-                    Henüz görev eklenmemiş
-                  </Typography>
-                ) : (
-                  recentTasks.map((task) => (
-                    <ListItem key={task.id} divider>
-                      <ListItemAvatar>
-                        <Avatar sx={{ bgcolor: getStatusColor(task.status) }}>
-                          <TaskIcon />
-                        </Avatar>
-                      </ListItemAvatar>
-                      <ListItemText 
-                        primary={task.name} 
-                        secondary={task.description || 'Açıklama yok'} 
-                      />
-                    </ListItem>
-                  ))
-                )}
-              </List>
-            </CardContent>
-          </StyledCard>
-        </Grid>
-      </Grid>
-      
-      {/* Harita Bileşeni - En alt kısma taşındı */}
+      {/* Harita bölümü aynı kalacak */}
       <MapCard>
         <CardHeader 
           title="Görev Tamamlama Konumları" 
