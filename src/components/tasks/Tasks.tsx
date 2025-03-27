@@ -170,6 +170,7 @@ const statusOptions = [
 // Liste görünümü için tablo bileşeni
 const TasksTable: React.FC<{ 
   tasks: any[],
+  statusFilter: string,
   onShowTaskDetail: (task: any) => void,
   onOpenQrPrintModal: (task: any, event: React.MouseEvent) => void,
   getStatusColor: (status: string) => string,
@@ -178,6 +179,7 @@ const TasksTable: React.FC<{
   getTaskTimeColor: (task: any, timeString: string) => string,
 }> = ({ 
   tasks, 
+  statusFilter,
   onShowTaskDetail, 
   onOpenQrPrintModal,
   getStatusColor,
@@ -208,7 +210,14 @@ const TasksTable: React.FC<{
         </TableHead>
         <TableBody>
           {tasks.map((task) => (
-            <TableRow key={task.id} hover onClick={() => onShowTaskDetail(task)}>
+            <TableRow 
+              key={task.id} 
+              hover 
+              onClick={() => onShowTaskDetail(task)} 
+              sx={{
+                cursor: statusFilter === 'completed' || statusFilter === 'missed' ? 'default' : 'pointer'
+              }}
+            >
               <TableCell>
                 <Avatar
                   sx={{
@@ -314,7 +323,7 @@ const TasksTable: React.FC<{
               </TableCell>
               <TableCell align="right">
                 <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                  {task.isRecurring && task.completionType === 'qr' && !task.fromDatabase && (
+                  {task.isRecurring && task.completionType === 'qr' && !task.fromDatabase && statusFilter !== 'completed' && statusFilter !== 'missed' && (
                     <IconButton
                       size="small"
                       onClick={(e) => {
@@ -326,16 +335,18 @@ const TasksTable: React.FC<{
                       <QrCodeIcon fontSize="small" />
                     </IconButton>
                   )}
-                  <IconButton
-                    size="small"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onShowTaskDetail(task);
-                    }}
-                    sx={{ color: 'info.main', p: 0.5, ml: 0.5 }}
-                  >
-                    <AssignmentIcon fontSize="small" />
-                  </IconButton>
+                  {statusFilter !== 'completed' && statusFilter !== 'missed' && (
+                    <IconButton
+                      size="small"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onShowTaskDetail(task);
+                      }}
+                      sx={{ color: 'info.main', p: 0.5, ml: 0.5 }}
+                    >
+                      <AssignmentIcon fontSize="small" />
+                    </IconButton>
+                  )}
                 </Box>
               </TableCell>
             </TableRow>
@@ -857,6 +868,11 @@ const Tasks: React.FC = () => {
 
   // Görev detaylarını gösterme fonksiyonu
   const handleShowTaskDetail = (task: any) => {
+    // Tamamlanan veya Tamamlanmamış filtresi aktifse detay modalını açma
+    if (statusFilter === 'completed' || statusFilter === 'missed') {
+      return; // Detay modalını açmadan çık
+    }
+    
     setSelectedTask(task);
     setTaskDetailOpen(true);
   };
@@ -1273,7 +1289,17 @@ const Tasks: React.FC = () => {
         <Grid container spacing={3}>
           {filteredTasks.map((task) => (
             <Grid item xs={12} sm={6} md={3} key={task.id}>
-              <TaskCard onClick={() => handleShowTaskDetail(task)}>
+              <TaskCard 
+                onClick={() => handleShowTaskDetail(task)}
+                sx={{
+                  cursor: statusFilter === 'completed' || statusFilter === 'missed' ? 'default' : 'pointer',
+                  '&:hover': {
+                    boxShadow: statusFilter === 'completed' || statusFilter === 'missed' 
+                      ? '0 4px 12px rgba(0,0,0,0.05)' // Orijinal gölge
+                      : '0 6px 16px rgba(0,0,0,0.1)' // Hover durumunda daha belirgin gölge
+                  }
+                }}
+              >
                 <CardContent sx={{ display: 'flex', flexDirection: 'column', height: '100%', p: 2 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                     <Avatar
@@ -1404,7 +1430,7 @@ const Tasks: React.FC = () => {
                       </Typography>
                     )}
                     
-                    {task.isRecurring && task.completionType === 'qr' && !task.fromDatabase && (
+                    {task.isRecurring && task.completionType === 'qr' && !task.fromDatabase && statusFilter !== 'completed' && statusFilter !== 'missed' && (
                       <Button
                         size="small"
                         startIcon={<QrCodeIcon />}
@@ -1425,6 +1451,7 @@ const Tasks: React.FC = () => {
       ) : (
         <TasksTable 
           tasks={filteredTasks}
+          statusFilter={statusFilter}
           onShowTaskDetail={handleShowTaskDetail}
           onOpenQrPrintModal={handleOpenQrPrintModal}
           getStatusColor={getStatusColor}
