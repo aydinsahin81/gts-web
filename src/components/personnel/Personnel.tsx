@@ -176,19 +176,21 @@ const PersonnelTable: React.FC<{
   personnel: any[],
   onViewDetails: (id: string) => void,
   onDelete: (id: string) => void,
-  onSendMessage: (id: string) => void 
+  onSendMessage: (id: string) => void,
+  showDeleted: boolean
 }> = ({ 
   personnel, 
   onViewDetails, 
   onDelete, 
-  onSendMessage 
+  onSendMessage,
+  showDeleted
 }) => {
   return (
     <TableContainer component={Paper} sx={{ 
       mt: 2, 
       boxShadow: '0 2px 10px rgba(0, 0, 0, 0.05)',
       borderRadius: 2,
-      maxHeight: 'calc(100vh - 240px)',  // Tablonun maksimum yüksekliği
+      maxHeight: 'calc(100vh - 240px)',
       overflowY: 'auto'
     }}>
       <Table size="small" stickyHeader>
@@ -197,8 +199,8 @@ const PersonnelTable: React.FC<{
             <TableCell width="30%">Ad Soyad</TableCell>
             <TableCell width="20%">Telefon</TableCell>
             <TableCell width="25%">E-posta</TableCell>
-            <TableCell width="10%">Durum</TableCell>
-            <TableCell width="15%" align="right">İşlemler</TableCell>
+            {!showDeleted && <TableCell width="10%">Durum</TableCell>}
+            {!showDeleted && <TableCell width="15%" align="right">İşlemler</TableCell>}
           </TableRow>
         </TableHead>
         <TableBody>
@@ -236,41 +238,45 @@ const PersonnelTable: React.FC<{
                   {person.email || '-'}
                 </Typography>
               </TableCell>
-              <TableCell>
-                <Chip 
-                  size="small"
-                  label={person.hasTask ? "Görev Atanmış" : "Müsait"} 
-                  color={person.hasTask ? "primary" : "success"}
-                  sx={{ fontSize: '11px', height: 24 }}
-                />
-              </TableCell>
-              <TableCell align="right">
-                <Tooltip title="Detaylar">
-                  <IconButton 
-                    size="small" 
-                    onClick={() => onViewDetails(person.id)}
-                    sx={{ color: 'primary.main', p: 0.5 }}
-                  >
-                    <PersonIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title="Mesaj Gönder">
-                  <IconButton 
-                    size="small" 
-                    onClick={() => onSendMessage(person.id)}
-                    sx={{ color: 'success.main', p: 0.5, ml: 0.5 }}
-                  >
-                    <EmailIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-              </TableCell>
+              {!showDeleted && (
+                <TableCell>
+                  <Chip 
+                    size="small"
+                    label={person.hasTask ? "Görev Atanmış" : "Müsait"} 
+                    color={person.hasTask ? "primary" : "success"}
+                    sx={{ fontSize: '11px', height: 24 }}
+                  />
+                </TableCell>
+              )}
+              {!showDeleted && (
+                <TableCell align="right">
+                  <Tooltip title="Detaylar">
+                    <IconButton 
+                      size="small" 
+                      onClick={() => onViewDetails(person.id)}
+                      sx={{ color: 'primary.main', p: 0.5 }}
+                    >
+                      <PersonIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="Mesaj Gönder">
+                    <IconButton 
+                      size="small" 
+                      onClick={() => onSendMessage(person.id)}
+                      sx={{ color: 'success.main', p: 0.5, ml: 0.5 }}
+                    >
+                      <EmailIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                </TableCell>
+              )}
             </TableRow>
           ))}
           {personnel.length === 0 && (
             <TableRow>
-              <TableCell colSpan={5} align="center" sx={{ py: 3 }}>
+              <TableCell colSpan={showDeleted ? 3 : 5} align="center" sx={{ py: 3 }}>
                 <Typography color="text.secondary">
-                  Personel bulunamadı
+                  {showDeleted ? "Silinen personel bulunmuyor" : "Personel bulunamadı"}
                 </Typography>
               </TableCell>
             </TableRow>
@@ -288,7 +294,8 @@ const DeleteConfirmModal: React.FC<{
   onConfirm: () => void;
   loading: boolean;
   personName: string;
-}> = ({ open, onClose, onConfirm, loading, personName }) => {
+  hasTask: boolean;
+}> = ({ open, onClose, onConfirm, loading, personName, hasTask }) => {
   return (
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
       <DialogTitle>
@@ -299,7 +306,9 @@ const DeleteConfirmModal: React.FC<{
           <b>{personName}</b> adlı personeli silmek istediğinizden emin misiniz?
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-          Bu işlem geri alınamaz ve personele ait tüm veriler silinecektir.
+          {hasTask 
+            ? "Bu personele aktif görev atanmış durumda. Lütfen önce görevi başka bir personele atayın."
+            : "Bu işlem geri alınamaz ve personele ait tüm veriler silinecektir."}
         </Typography>
       </DialogContent>
       <DialogActions>
@@ -310,7 +319,7 @@ const DeleteConfirmModal: React.FC<{
           onClick={onConfirm} 
           color="error" 
           variant="contained" 
-          disabled={loading}
+          disabled={loading || hasTask}
           startIcon={loading ? <CircularProgress size={16} /> : <DeleteIcon />}
         >
           {loading ? 'Siliniyor...' : 'Evet, Sil'}
@@ -487,6 +496,7 @@ const Personnel: React.FC = () => {
   const [addSuccess, setAddSuccess] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
+  const [showDeleted, setShowDeleted] = useState(false); // Silinen personelleri gösterme durumu
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [companyQRModalOpen, setCompanyQRModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -513,28 +523,6 @@ const Personnel: React.FC = () => {
       setViewMode(newViewMode);
       localStorage.setItem('personnelViewMode', newViewMode);
     }
-  };
-
-  // Veri işleme fonksiyonu
-  const processData = (personnelData: any) => {
-    if (!personnelData) {
-      setPersonnel([]);
-      return;
-    }
-
-    // Personel listesini hazırla
-    const personnelList = Object.entries(personnelData).map(([id, data]: [string, any]) => ({
-      id,
-      name: data.name || 'İsimsiz Personel',
-      hasTask: data.hasTask || false,
-      email: data.email || '',
-      phone: data.phone || '',
-      addedAt: data.addedAt || Date.now(),
-    }));
-    
-    // Ekleme tarihine göre sırala (yeniden eskiye)
-    const sortedPersonnel = [...personnelList].sort((a, b) => b.addedAt - a.addedAt);
-    setPersonnel(sortedPersonnel);
   };
 
   // Component mount olduğunda veri yükleme
@@ -591,7 +579,37 @@ const Personnel: React.FC = () => {
         off(ref(database, `companies/${companyId}/personnel`));
       }
     };
-  }, []);
+  }, [showDeleted]); // showDeleted değiştiğinde useEffect yeniden çalışacak
+
+  // Veri işleme fonksiyonu
+  const processData = (personnelData: any) => {
+    if (!personnelData) {
+      setPersonnel([]);
+      return;
+    }
+
+    // Personel listesini hazırla (isDeleted durumuna göre filtrele)
+    const personnelList = Object.entries(personnelData)
+      .filter(([_, data]: [string, any]) => {
+        // showDeleted true ise silinenleri, false ise silinmeyenleri göster
+        const isDeleted = data.isDeleted === true;
+        return showDeleted ? isDeleted : !isDeleted;
+      })
+      .map(([id, data]: [string, any]) => ({
+        id,
+        name: data.name || 'İsimsiz Personel',
+        hasTask: data.hasTask || false,
+        email: data.email || '',
+        phone: data.phone || '',
+        addedAt: data.addedAt || Date.now(),
+        deletedAt: data.deletedAt || null,
+        isDeleted: data.isDeleted || false
+      }));
+    
+    // Ekleme tarihine göre sırala (yeniden eskiye)
+    const sortedPersonnel = [...personnelList].sort((a, b) => b.addedAt - a.addedAt);
+    setPersonnel(sortedPersonnel);
+  };
 
   // Personel detaylarını gösteren modal
   const handleOpenModal = async (person: any) => {
@@ -640,6 +658,15 @@ const Personnel: React.FC = () => {
   const handleDeletePersonnel = async () => {
     if (!selectedPersonnel || !auth.currentUser) return;
     
+    // Aktif görev kontrolü
+    if (selectedPersonnel.hasTask) {
+      setSnackbarMessage('Görev atanmış personel silinemez. Lütfen önce görevi başka bir personele atayın.');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+      setDeleteModalOpen(false);
+      return;
+    }
+    
     try {
       setLoading(true);
       
@@ -653,9 +680,18 @@ const Personnel: React.FC = () => {
         throw new Error('Şirket ID bulunamadı');
       }
       
-      // Personeli veritabanından sil
+      // Personeli soft delete yap (isDeleted işareti ekle)
       const personnelRef = ref(database, `companies/${companyId}/personnel/${selectedPersonnel.id}`);
-      await remove(personnelRef);
+      await update(personnelRef, {
+        isDeleted: true,
+        deletedAt: Date.now()
+      });
+      
+      // Kullanıcının companyId'sini null yap
+      const personnelUserRef = ref(database, `users/${selectedPersonnel.id}`);
+      await update(personnelUserRef, {
+        companyId: null
+      });
       
       // Başarı mesajı
       setSnackbarMessage('Personel başarıyla silindi');
@@ -664,6 +700,7 @@ const Personnel: React.FC = () => {
       
       // Modalı kapat ve listeden kaldır
       setDeleteModalOpen(false);
+      setModalOpen(false); // Personel detay modalını kapat
       setPersonnel(prev => prev.filter(p => p.id !== selectedPersonnel.id));
     } catch (error) {
       console.error('Personel silinirken hata:', error);
@@ -924,9 +961,20 @@ const Personnel: React.FC = () => {
     <ScrollableContent>
       {/* Başlık, Görünüm Seçici ve Ekleme Butonu */}
       <HeaderContainer>
-        <Typography variant="h4" component="h1" fontWeight="bold" color="primary">
-          Personeller
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Typography variant="h4" component="h1" fontWeight="bold" color="primary">
+            Personeller
+          </Typography>
+          <Button
+            variant={showDeleted ? "contained" : "outlined"}
+            color="error"
+            size="small"
+            onClick={() => setShowDeleted(!showDeleted)}
+            startIcon={<DeleteIcon />}
+          >
+            {showDeleted ? "Aktif Personeller" : "Silinen Personeller"}
+          </Button>
+        </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <ToggleButtonGroup
             value={viewMode}
@@ -970,6 +1018,7 @@ const Personnel: React.FC = () => {
             startIcon={<AddIcon />}
             sx={{ borderRadius: 2 }}
             onClick={handleOpenAddModal}
+            disabled={showDeleted}
           >
             Yeni Personel Ekle
           </Button>
@@ -997,14 +1046,14 @@ const Personnel: React.FC = () => {
         >
           <PersonIcon sx={{ fontSize: 60, color: 'text.disabled', mb: 2 }} />
           <Typography variant="h6" color="text.secondary">
-            Henüz personel bulunmuyor
+            {showDeleted ? "Silinen personel bulunmuyor" : "Henüz personel bulunmuyor"}
           </Typography>
         </Box>
       ) : viewMode === 'card' ? (
         <Grid container spacing={2}>
           {personnel.map((person) => (
             <Grid item xs={12} sm={6} md={3} key={person.id}>
-              <PersonnelCard onClick={() => handleOpenModal(person)}>
+              <PersonnelCard onClick={() => !showDeleted && handleOpenModal(person)}>
                 <CardContent>
                   <Box sx={{ display: 'flex', flexDirection: 'column' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
@@ -1022,12 +1071,14 @@ const Personnel: React.FC = () => {
                         <Typography variant="h6" fontWeight="bold" noWrap>
                           {person.name}
                         </Typography>
-                        <Chip
-                          label={person.hasTask ? 'Görev Atanmış' : 'Müsait'}
-                          size="small"
-                          color={person.hasTask ? 'primary' : 'success'}
-                          sx={{ fontWeight: 'medium', mt: 0.5 }}
-                        />
+                        {!showDeleted && (
+                          <Chip
+                            label={person.hasTask ? 'Görev Atanmış' : 'Müsait'}
+                            size="small"
+                            color={person.hasTask ? 'primary' : 'success'}
+                            sx={{ fontWeight: 'medium', mt: 0.5 }}
+                          />
+                        )}
                       </Box>
                     </Box>
                     
@@ -1051,7 +1102,7 @@ const Personnel: React.FC = () => {
                       </Box>
                     )}
                     
-                    {person.hasTask && (
+                    {!showDeleted && person.hasTask && (
                       <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
                         <TaskIcon fontSize="small" sx={{ mr: 1, color: 'primary.main' }} />
                         <Typography variant="body2" color="primary">
@@ -1083,6 +1134,7 @@ const Personnel: React.FC = () => {
             }
           }}
           onSendMessage={handleSendMessage}
+          showDeleted={showDeleted}
         />
       )}
       
@@ -1122,12 +1174,14 @@ const Personnel: React.FC = () => {
                     <Typography variant="h5" fontWeight="bold">
                       {selectedPersonnel.name}
                     </Typography>
-                    <Chip
-                      label={selectedPersonnel.hasTask ? 'Görev Atanmış' : 'Müsait'}
-                      size="small"
-                      color={selectedPersonnel.hasTask ? 'primary' : 'success'}
-                      sx={{ fontWeight: 'medium', mt: 0.5 }}
-                    />
+                    {!showDeleted && (
+                      <Chip
+                        label={selectedPersonnel.hasTask ? 'Görev Atanmış' : 'Müsait'}
+                        size="small"
+                        color={selectedPersonnel.hasTask ? 'primary' : 'success'}
+                        sx={{ fontWeight: 'medium', mt: 0.5 }}
+                      />
+                    )}
                     <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
                       ID: {selectedPersonnel.id}
                     </Typography>
@@ -1409,6 +1463,7 @@ const Personnel: React.FC = () => {
         onConfirm={handleDeletePersonnel}
         loading={loading}
         personName={selectedPersonnel?.name || ''}
+        hasTask={selectedPersonnel?.hasTask || false}
       />
 
       {/* Personel Bilgi Modalı */}

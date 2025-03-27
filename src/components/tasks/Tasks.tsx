@@ -653,11 +653,13 @@ const Tasks: React.FC = () => {
     }
     
     // Personel listesini hazırla
-    const personnelList = personnelData ? Object.entries(personnelData).map(([id, data]: [string, any]) => ({
-      id,
-      name: data.name || 'İsimsiz Personel',
-      hasTask: data.hasTask || false,
-    })) : [];
+    const personnelList = personnelData ? Object.entries(personnelData)
+      .filter(([_, data]: [string, any]) => !data.isDeleted) // Silinen personelleri filtrele
+      .map(([id, data]: [string, any]) => ({
+        id,
+        name: data.name || 'İsimsiz Personel',
+        hasTask: data.hasTask || false,
+      })) : [];
     
     setPersonnel(personnelList);
   };
