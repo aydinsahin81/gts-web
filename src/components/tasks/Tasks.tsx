@@ -45,7 +45,8 @@ import {
   TableHead,
   TableBody,
   TableRow,
-  TableCell
+  TableCell,
+  InputAdornment
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -73,7 +74,8 @@ import {
   FormatItalicOutlined,
   Category as CategoryIcon,
   Info as InfoIcon,
-  FileDownload as FileDownloadIcon
+  FileDownload as FileDownloadIcon,
+  Search as SearchIcon
 } from '@mui/icons-material';
 import { ref, get, onValue, off, remove, update, push, set } from 'firebase/database';
 import { database, auth } from '../../firebase';
@@ -379,6 +381,8 @@ const Tasks: React.FC = () => {
   const [taskGroups, setTaskGroups] = useState<any[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [personnelFilter, setPersonnelFilter] = useState<string>('all');
+  const [personnelSearchTerm, setPersonnelSearchTerm] = useState<string>('');
+  const [taskSearchTerm, setTaskSearchTerm] = useState<string>('');
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<any | null>(null);
   const [taskDetailOpen, setTaskDetailOpen] = useState(false);
@@ -513,9 +517,17 @@ const Tasks: React.FC = () => {
     if (personnelFilter !== 'all') {
       result = result.filter(task => task.personnelId === personnelFilter);
     }
+
+    // Görev arama filtresi uygulanıyor
+    if (taskSearchTerm !== '') {
+      result = result.filter(task => 
+        task.name.toLowerCase().includes(taskSearchTerm.toLowerCase()) ||
+        task.description.toLowerCase().includes(taskSearchTerm.toLowerCase())
+      );
+    }
     
     return result;
-  }, [tasks, completedTasks, missedTasks, statusFilter, personnelFilter]);
+  }, [tasks, completedTasks, missedTasks, statusFilter, personnelFilter, taskSearchTerm]);
 
   // Veri işleme fonksiyonu
   const processData = (tasksData: any, personnelData: any, completedTasksData: any = null, missedTasksData: any = null) => {
@@ -1352,6 +1364,20 @@ const Tasks: React.FC = () => {
                 </MenuItem>
               ))}
             </Select>
+            <TextField
+              size="small"
+              placeholder="Görev Ara..."
+              value={taskSearchTerm}
+              onChange={(e) => setTaskSearchTerm(e.target.value)}
+              sx={{ mt: 1 }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+              }}
+            />
           </FormControl>
 
           <FormControl sx={{ minWidth: 200, flex: 1 }}>
@@ -1363,12 +1389,31 @@ const Tasks: React.FC = () => {
               size="small"
             >
               <MenuItem value="all">Tüm Personel</MenuItem>
-              {personnel.map((person) => (
-                <MenuItem key={person.id} value={person.id}>
-                  {person.name}
-                </MenuItem>
-              ))}
+              {personnel
+                .filter(person => 
+                  personnelSearchTerm === '' || 
+                  person.name.toLowerCase().includes(personnelSearchTerm.toLowerCase())
+                )
+                .map((person) => (
+                  <MenuItem key={person.id} value={person.id}>
+                    {person.name}
+                  </MenuItem>
+                ))}
             </Select>
+            <TextField
+              size="small"
+              placeholder="Personel Ara..."
+              value={personnelSearchTerm}
+              onChange={(e) => setPersonnelSearchTerm(e.target.value)}
+              sx={{ mt: 1 }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+              }}
+            />
           </FormControl>
         </Box>
       </FilterContainer>
