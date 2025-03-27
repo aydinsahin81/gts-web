@@ -52,10 +52,20 @@ const UserChip = styled(Chip)(({ theme }) => ({
   height: 42,
   borderRadius: 21,
   padding: theme.spacing(0.5, 1),
-  backgroundColor: theme.palette.background.default,
-  '& .MuiChip-avatar': {
-    width: 32,
-    height: 32,
+  backgroundColor: '#0D47A1',
+  transition: 'all 0.2s ease-in-out',
+  '& .MuiChip-label': {
+    color: 'white',
+    transition: 'color 0.2s ease-in-out',
+  },
+  '&:hover': {
+    backgroundColor: 'white',
+    '& .MuiChip-label': {
+      color: '#0D47A1',
+    },
+    '& .MuiIconButton-root': {
+      color: '#0D47A1',
+    },
   },
 }));
 
@@ -153,15 +163,6 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar, isCollapsed }) => {
           <NotificationMenu />
           
           <UserChip
-            avatar={
-              <Avatar 
-                alt={userFullName}
-                src="" 
-                sx={{ bgcolor: '#0D47A1' }}
-              >
-                {userData?.firstName?.charAt(0)}
-              </Avatar>
-            }
             label={
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
                 <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
