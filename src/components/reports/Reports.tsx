@@ -22,7 +22,8 @@ import {
   TableCell,
   TableContainer,
   TableHead,
-  TableRow
+  TableRow,
+  Button
 } from '@mui/material';
 import {
   Assignment as AssignmentIcon,
@@ -32,11 +33,15 @@ import {
   CalendarToday as CalendarTodayIcon,
   CheckCircleOutline as CheckCircleOutlineIcon,
   PersonOutline as PersonOutlineIcon,
-  AccessTime as AccessTimeIcon
+  AccessTime as AccessTimeIcon,
+  Download as DownloadIcon
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { ref, get } from 'firebase/database';
 import { database } from '../../firebase';
+import { utils, writeFile } from 'xlsx';
+import * as ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
 
 // Kaydırılabilir ana içerik için styled component
 const ScrollableContent = styled(Box)(({ theme }) => ({
@@ -677,14 +682,516 @@ const Reports: React.FC = () => {
     );
   };
 
+  // Excel indirme fonksiyonu
+  const handleDownloadExcel = async () => {
+    if (!selectedTask) return;
+
+    try {
+      // Excel workbook oluştur
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet(selectedTask.isRecurring ? 'Haftalık Görev Raporu' : 'Görev Raporu');
+
+      if (selectedTask.isRecurring && recurringData) {
+        // Tekrarlı görev için veri hazırla
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const dates = Array.from({ length: 7 }, (_, index) => {
+          const date = new Date(today);
+          date.setDate(today.getDate() - (6 - index));
+          return date;
+        });
+
+        // Gün kısaltmaları
+        const dayShorts = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
+
+        // Başlık satırını oluştur
+        worksheet.columns = [
+          { header: 'Gün', key: 'day', width: 15 },
+          ...recurringData.taskHours.map(hour => ({
+            header: hour,
+            key: hour,
+            width: 15
+          }))
+        ];
+
+        // Başlık stilini ayarla
+        const headerStyle: Partial<ExcelJS.Style> = {
+          font: { bold: true, color: { argb: 'FFFFFFFF' } },
+          fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1976D2' } },
+          border: {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' }
+          },
+          alignment: {
+            vertical: 'middle',
+            horizontal: 'center',
+            wrapText: true
+          }
+        };
+
+        // Başlık satırına stil uygula
+        worksheet.getRow(1).eachCell(cell => {
+          cell.style = headerStyle;
+        });
+
+        // Her gün için satır oluştur
+        dates.forEach((date, index) => {
+          const dayOfWeek = date.getDay() === 0 ? 6 : date.getDay() - 1;
+          const formattedDate = `${date.getDate()}.${date.getMonth() + 1}`;
+          const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+          const dayEnd = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59).getTime();
+
+          const row = worksheet.addRow({
+            day: `${dayShorts[dayOfWeek]}\n${formattedDate}`
+          });
+
+          // Gün sütununa stil uygula
+          const dayColumnStyle: Partial<ExcelJS.Style> = {
+            font: { bold: true, color: { argb: 'FFFFFFFF' } },
+            fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1976D2' } },
+            border: {
+              top: { style: 'thin' },
+              left: { style: 'thin' },
+              bottom: { style: 'thin' },
+              right: { style: 'thin' }
+            },
+            alignment: {
+              vertical: 'middle',
+              horizontal: 'center',
+              wrapText: true
+            }
+          };
+          row.getCell('day').style = dayColumnStyle;
+
+          // Her saat için durum kontrolü
+          recurringData.taskHours.forEach(hour => {
+            const completedTask = recurringData.completedTasks.find(task => 
+              task.date >= dayStart && task.date <= dayEnd && task.time === hour
+            );
+            const missedTask = recurringData.missedTasks.find(task => 
+              task.date >= dayStart && task.date <= dayEnd && task.time === hour
+            );
+
+            let status = '';
+            let cellStyle: Partial<ExcelJS.Style> = {
+              border: {
+                top: { style: 'thin' },
+                left: { style: 'thin' },
+                bottom: { style: 'thin' },
+                right: { style: 'thin' }
+              },
+              alignment: {
+                vertical: 'middle',
+                horizontal: 'center'
+              }
+            };
+
+            if (completedTask) {
+              status = '✓';
+              cellStyle = {
+                ...cellStyle,
+                font: { color: { argb: 'FFFFFFFF' } },
+                fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4CAF50' } }
+              };
+            } else if (missedTask) {
+              status = missedTask.started ? '⚠' : '✗';
+              cellStyle = {
+                ...cellStyle,
+                font: { color: { argb: missedTask.started ? 'FF000000' : 'FFFFFFFF' } },
+                fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: missedTask.started ? 'FFFFC107' : 'FFF44336' } }
+              };
+            }
+
+            const cell = row.getCell(hour);
+            cell.value = status;
+            cell.style = cellStyle;
+          });
+        });
+
+        // Satır yüksekliklerini ayarla
+        worksheet.eachRow((row, rowNumber) => {
+          row.height = 40;
+        });
+
+        // Boş satır ekle
+        worksheet.addRow({});
+        worksheet.addRow({});
+
+        // Görev Detayları Başlığı
+        const detailsHeaderRow = worksheet.addRow({ day: 'Görev Detayları' });
+        detailsHeaderRow.getCell('day').style = {
+          font: { bold: true, size: 14, color: { argb: 'FFFFFFFF' } },
+          fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1976D2' } }
+        };
+
+        // Görev Adı
+        worksheet.addRow({ day: 'Görev Adı', [recurringData.taskHours[0]]: selectedTask.name });
+        
+        // Açıklama
+        worksheet.addRow({ day: 'Açıklama', [recurringData.taskHours[0]]: selectedTask.description || '-' });
+        
+        // Oluşturulma Tarihi
+        worksheet.addRow({ 
+          day: 'Oluşturulma Tarihi', 
+          [recurringData.taskHours[0]]: selectedTask.createdAt ? new Date(selectedTask.createdAt).toLocaleString('tr-TR') : '-'
+        });
+        
+        // Kabul Edilme Tarihi
+        worksheet.addRow({ 
+          day: 'Kabul Edilme Tarihi', 
+          [recurringData.taskHours[0]]: selectedTask.acceptedAt ? new Date(selectedTask.acceptedAt).toLocaleString('tr-TR') : '-'
+        });
+
+        // Personel Bilgileri Başlığı
+        worksheet.addRow({});
+        const personnelHeaderRow = worksheet.addRow({ day: 'Görev Atanan Personel' });
+        personnelHeaderRow.getCell('day').style = {
+          font: { bold: true, size: 14, color: { argb: 'FFFFFFFF' } },
+          fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1976D2' } }
+        };
+
+        // Personel Bilgileri
+        if (personnelData) {
+          worksheet.addRow({ 
+            day: 'Ad Soyad', 
+            [recurringData.taskHours[0]]: `${personnelData.firstName || ''} ${personnelData.lastName || ''}`
+          });
+          worksheet.addRow({ 
+            day: 'E-posta', 
+            [recurringData.taskHours[0]]: personnelData.email || '-'
+          });
+        } else {
+          worksheet.addRow({ 
+            day: 'Personel Bilgisi', 
+            [recurringData.taskHours[0]]: 'Personel bilgisi bulunamadı'
+          });
+        }
+
+        // Detay satırlarına stil uygula
+        worksheet.eachRow((row, rowNumber) => {
+          if (rowNumber > dates.length + 2) { // Tablo satırlarından sonraki satırlar
+            row.eachCell(cell => {
+              cell.style = {
+                border: {
+                  top: { style: 'thin' },
+                  left: { style: 'thin' },
+                  bottom: { style: 'thin' },
+                  right: { style: 'thin' }
+                }
+              };
+            });
+          }
+        });
+      } else {
+        // Normal görev için veri hazırla
+        worksheet.columns = [
+          { header: 'Alan', key: 'field', width: 20 },
+          { header: 'Değer', key: 'value', width: 40 }
+        ];
+
+        // Başlık stilini ayarla
+        const headerStyle: Partial<ExcelJS.Style> = {
+          font: { bold: true, color: { argb: 'FFFFFFFF' } },
+          fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1976D2' } },
+          border: {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' }
+          }
+        };
+
+        // Başlık satırına stil uygula
+        worksheet.getRow(1).eachCell(cell => {
+          cell.style = headerStyle;
+        });
+
+        // Veri satırlarını ekle
+        const data = [
+          { field: 'Görev Adı', value: selectedTask.name },
+          { field: 'Açıklama', value: selectedTask.description || '-' },
+          { field: 'Durum', value: getStatusText(selectedTask.status) },
+          { field: 'Oluşturulma Tarihi', value: selectedTask.createdAt ? new Date(selectedTask.createdAt).toLocaleString('tr-TR') : '-' },
+          { field: 'Kabul Edilme Tarihi', value: selectedTask.acceptedAt ? new Date(selectedTask.acceptedAt).toLocaleString('tr-TR') : '-' },
+          { field: 'Başlama Tarihi', value: selectedTask.startedAt ? new Date(selectedTask.startedAt).toLocaleString('tr-TR') : '-' },
+          { field: 'Tamamlanma Tarihi', value: selectedTask.completedAt ? new Date(selectedTask.completedAt).toLocaleString('tr-TR') : '-' },
+          { field: 'Toplam Süre', value: calculateTaskDuration() }
+        ];
+
+        data.forEach((item, index) => {
+          const row = worksheet.addRow(item);
+          row.eachCell(cell => {
+            cell.style = {
+              border: {
+                top: { style: 'thin' },
+                left: { style: 'thin' },
+                bottom: { style: 'thin' },
+                right: { style: 'thin' }
+              }
+            };
+          });
+        });
+      }
+
+      // Excel dosyasını oluştur ve indir
+      const buffer = await workbook.xlsx.writeBuffer();
+      const downloadDate = new Date().toLocaleDateString('tr-TR').replace(/\./g, '-');
+      saveAs(new Blob([buffer]), `${selectedTask.name}_${downloadDate}.xlsx`);
+
+    } catch (error) {
+      console.error('Excel dosyası oluşturulurken hata:', error);
+      alert('Excel dosyası oluşturulurken bir hata oluştu.');
+    }
+  };
+
+  // Aylık Excel indirme fonksiyonu
+  const handleDownloadMonthlyExcel = async () => {
+    if (!selectedTask || !recurringData) return;
+
+    try {
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Aylık Görev Raporu');
+
+      // Son 1 aylık tarihleri oluştur
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const oneMonthAgo = new Date(today);
+      oneMonthAgo.setMonth(today.getMonth() - 1);
+
+      const dates = [];
+      let monthlyCurrentDate = new Date(oneMonthAgo);
+      while (monthlyCurrentDate <= today) {
+        dates.push(new Date(monthlyCurrentDate));
+        monthlyCurrentDate.setDate(monthlyCurrentDate.getDate() + 1);
+      }
+
+      // Başlık satırını oluştur
+      worksheet.columns = [
+        { header: 'Tarih', key: 'date', width: 15 },
+        ...recurringData.taskHours.map(hour => ({
+          header: hour,
+          key: hour,
+          width: 15
+        }))
+      ];
+
+      // Başlık stilini ayarla
+      const headerStyle: Partial<ExcelJS.Style> = {
+        font: { bold: true, color: { argb: 'FFFFFFFF' } },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1976D2' } },
+        border: {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' }
+        },
+        alignment: {
+          vertical: 'middle',
+          horizontal: 'center',
+          wrapText: true
+        }
+      };
+
+      // Başlık satırına stil uygula
+      worksheet.getRow(1).eachCell(cell => {
+        cell.style = headerStyle;
+      });
+
+      // Her gün için satır oluştur
+      dates.forEach((date) => {
+        const formattedDate = `${date.getDate()}.${date.getMonth() + 1}.${date.getFullYear()}`;
+        const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+        const dayEnd = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59).getTime();
+
+        const row = worksheet.addRow({
+          date: formattedDate
+        });
+
+        // Tarih sütununa stil uygula
+        const dateColumnStyle: Partial<ExcelJS.Style> = {
+          font: { bold: true, color: { argb: 'FFFFFFFF' } },
+          fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1976D2' } },
+          border: {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' }
+          },
+          alignment: {
+            vertical: 'middle',
+            horizontal: 'center',
+            wrapText: true
+          }
+        };
+        row.getCell('date').style = dateColumnStyle;
+
+        // Her saat için durum kontrolü
+        recurringData.taskHours.forEach(hour => {
+          const completedTask = recurringData.completedTasks.find(task => 
+            task.date >= dayStart && task.date <= dayEnd && task.time === hour
+          );
+          const missedTask = recurringData.missedTasks.find(task => 
+            task.date >= dayStart && task.date <= dayEnd && task.time === hour
+          );
+
+          let status = '';
+          let cellStyle: Partial<ExcelJS.Style> = {
+            border: {
+              top: { style: 'thin' },
+              left: { style: 'thin' },
+              bottom: { style: 'thin' },
+              right: { style: 'thin' }
+            },
+            alignment: {
+              vertical: 'middle',
+              horizontal: 'center'
+            }
+          };
+
+          if (completedTask) {
+            status = '✓';
+            cellStyle = {
+              ...cellStyle,
+              font: { color: { argb: 'FFFFFFFF' } },
+              fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4CAF50' } }
+            };
+          } else if (missedTask) {
+            status = missedTask.started ? '⚠' : '✗';
+            cellStyle = {
+              ...cellStyle,
+              font: { color: { argb: missedTask.started ? 'FF000000' : 'FFFFFFFF' } },
+              fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: missedTask.started ? 'FFFFC107' : 'FFF44336' } }
+            };
+          }
+
+          const cell = row.getCell(hour);
+          cell.value = status;
+          cell.style = cellStyle;
+        });
+      });
+
+      // Satır yüksekliklerini ayarla
+      worksheet.eachRow((row, rowNumber) => {
+        row.height = 40;
+      });
+
+      // Boş satır ekle
+      worksheet.addRow({});
+      worksheet.addRow({});
+
+      // Görev Detayları Başlığı
+      const detailsHeaderRow = worksheet.addRow({ date: 'Görev Detayları' });
+      detailsHeaderRow.getCell('date').style = {
+        font: { bold: true, size: 14, color: { argb: 'FFFFFFFF' } },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1976D2' } }
+      };
+
+      // Görev Adı
+      worksheet.addRow({ date: 'Görev Adı', [recurringData.taskHours[0]]: selectedTask.name });
+      
+      // Açıklama
+      worksheet.addRow({ date: 'Açıklama', [recurringData.taskHours[0]]: selectedTask.description || '-' });
+      
+      // Oluşturulma Tarihi
+      worksheet.addRow({ 
+        date: 'Oluşturulma Tarihi', 
+        [recurringData.taskHours[0]]: selectedTask.createdAt ? new Date(selectedTask.createdAt).toLocaleString('tr-TR') : '-'
+      });
+      
+      // Kabul Edilme Tarihi
+      worksheet.addRow({ 
+        date: 'Kabul Edilme Tarihi', 
+        [recurringData.taskHours[0]]: selectedTask.acceptedAt ? new Date(selectedTask.acceptedAt).toLocaleString('tr-TR') : '-'
+      });
+
+      // Personel Bilgileri Başlığı
+      worksheet.addRow({});
+      const personnelHeaderRow = worksheet.addRow({ date: 'Görev Atanan Personel' });
+      personnelHeaderRow.getCell('date').style = {
+        font: { bold: true, size: 14, color: { argb: 'FFFFFFFF' } },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1976D2' } }
+      };
+
+      // Personel Bilgileri
+      if (personnelData) {
+        worksheet.addRow({ 
+          date: 'Ad Soyad', 
+          [recurringData.taskHours[0]]: `${personnelData.firstName || ''} ${personnelData.lastName || ''}`
+        });
+        worksheet.addRow({ 
+          date: 'E-posta', 
+          [recurringData.taskHours[0]]: personnelData.email || '-'
+        });
+      } else {
+        worksheet.addRow({ 
+          date: 'Personel Bilgisi', 
+          [recurringData.taskHours[0]]: 'Personel bilgisi bulunamadı'
+        });
+      }
+
+      // Detay satırlarına stil uygula
+      worksheet.eachRow((row, rowNumber) => {
+        if (rowNumber > dates.length + 2) {
+          row.eachCell(cell => {
+            cell.style = {
+              border: {
+                top: { style: 'thin' },
+                left: { style: 'thin' },
+                bottom: { style: 'thin' },
+                right: { style: 'thin' }
+              }
+            };
+          });
+        }
+      });
+
+      // Excel dosyasını oluştur ve indir
+      const buffer = await workbook.xlsx.writeBuffer();
+      const downloadDate = new Date().toLocaleDateString('tr-TR').replace(/\./g, '-');
+      saveAs(new Blob([buffer]), `${selectedTask.name}_Aylik_${downloadDate}.xlsx`);
+
+    } catch (error) {
+      console.error('Excel dosyası oluşturulurken hata:', error);
+      alert('Excel dosyası oluşturulurken bir hata oluştu.');
+    }
+  };
+
   return (
     <ScrollableContent>
       <Container maxWidth="lg">
         {/* Üst Kısım - Görev Seçici */}
         <TaskSelector>
-          <Typography variant="subtitle1" fontWeight="bold" color="primary.main" gutterBottom>
-            Görev Seçiniz
-          </Typography>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="subtitle1" fontWeight="bold" color="primary.main">
+              Görev Seçiniz
+            </Typography>
+            {selectedTask && (
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <Button
+                  variant="contained"
+                  color="info"
+                  startIcon={<DownloadIcon />}
+                  onClick={handleDownloadExcel}
+                  size="small"
+                >
+                  Excel İndir
+                </Button>
+                {selectedTask.isRecurring && (
+                  <Button
+                    variant="contained"
+                    color="info"
+                    startIcon={<DownloadIcon />}
+                    onClick={handleDownloadMonthlyExcel}
+                    size="small"
+                  >
+                    1 Aylık Rapor İndir
+                  </Button>
+                )}
+              </Box>
+            )}
+          </Box>
           
           <FormControl fullWidth size="small">
             <InputLabel id="task-select-label">Görev seçiniz</InputLabel>
