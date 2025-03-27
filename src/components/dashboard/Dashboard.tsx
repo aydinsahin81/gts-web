@@ -16,14 +16,24 @@ import {
   ListItemAvatar,
   Avatar,
   Button,
-  useTheme
+  useTheme,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Checkbox,
+  ListItemButton,
+  FormControlLabel,
+  Chip,
+  SelectChangeEvent
 } from '@mui/material';
 import {
   PeopleOutline as PeopleIcon,
   AssignmentOutlined as TaskIcon,
   CheckCircleOutline as CompletedIcon,
   PendingOutlined as PendingIcon,
-  Person as PersonIcon
+  Person as PersonIcon,
+  LocationOn as LocationIcon
 } from '@mui/icons-material';
 import { ref, get, onValue, off } from 'firebase/database';
 import { database, auth } from '../../firebase';
@@ -41,11 +51,51 @@ import {
   CartesianGrid,
   LabelList
 } from 'recharts';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
 import MissedTasksModal from './MissedTasksModal';
 import CompletedTasksModal from './CompletedTasksModal';
 import PendingTasksModal from './PendingTasksModal';
 import AllCompletedTasksModal from './AllCompletedTasksModal';
 import { useNavigate } from 'react-router-dom';
+
+// Leaflet için marker icon düzeltmeleri
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
+});
+
+// Marker icon with custom color
+const createColoredMarkerIcon = (color = 'blue') => {
+  return new L.Icon({
+    iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-${color}.png`,
+    iconRetinaUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${color}.png`,
+    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    shadowSize: [41, 41]
+  });
+};
+
+// Map view ayarlamak için özel komponent
+interface MapViewProps {
+  center: L.LatLngExpression;
+  zoom: number;
+}
+
+function MapView({ center, zoom }: MapViewProps) {
+  const map = useMap();
+  if (Array.isArray(center)) {
+    map.setView(center as [number, number], zoom);
+  } else {
+    map.setView([center.lat, center.lng], zoom);
+  }
+  return null;
+}
 
 // Tema renkleri (mobile uyumlu)
 const THEME_COLORS = {
@@ -127,6 +177,36 @@ const ChartContainer = styled(Card)(({ theme }) => ({
   borderRadius: 12,
 }));
 
+// Location Map Card
+const MapCard = styled(Card)(({ theme }) => ({
+  height: '100%',
+  display: 'flex',
+  flexDirection: 'column',
+  boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+  borderRadius: 12,
+  overflow: 'hidden',
+  marginBottom: theme.spacing(4)
+}));
+
+const MapContainerWrapper = styled(Box)(({ theme }) => ({
+  height: 400,
+  width: '100%',
+  '& .leaflet-container': {
+    height: '100%',
+    width: '100%',
+    borderRadius: '0 0 12px 12px',
+  }
+}));
+
+const FilterContainer = styled(Box)(({ theme }) => ({
+  padding: theme.spacing(2),
+  borderBottom: `1px solid ${theme.palette.divider}`,
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: theme.spacing(2),
+  alignItems: 'flex-end'
+}));
+
 const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
@@ -153,6 +233,14 @@ const Dashboard: React.FC = () => {
   const [worstPerformers, setWorstPerformers] = useState<any[]>([]);
   const theme = useTheme();
   const navigate = useNavigate();
+  
+  // New state for map features
+  const [taskLocations, setTaskLocations] = useState<any[]>([]);
+  const [filteredLocations, setFilteredLocations] = useState<any[]>([]);
+  const [selectedTaskCount, setSelectedTaskCount] = useState<number>(10);
+  const [selectedPersonnel, setSelectedPersonnel] = useState<string[]>([]);
+  const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
+  const [allTasksWithLocation, setAllTasksWithLocation] = useState<any[]>([]);
   
   // Modal pencereleri için işlevler
   const handleOpenMissedTasksModal = () => {
@@ -437,6 +525,103 @@ const Dashboard: React.FC = () => {
     // Tüm geciken ve tamamlanan görevleri de sakla (en yeniden eskiye doğru sıralı)
     setAllMissedTasks([...missedTasksList].sort((a, b) => b.missedAt - a.missedAt));
     setAllCompletedTasks([...completedTasksList].sort((a, b) => b.completedAt - a.completedAt));
+
+    // Extract all completed tasks with location data
+    const tasksWithLocation: any[] = [];
+    
+    if (companyData && companyData.completedTasks) {
+      Object.entries(companyData.completedTasks).forEach(([taskId, taskDates]: [string, any]) => {
+        // Her tarih için
+        Object.entries(taskDates).forEach(([date, timeSlots]: [string, any]) => {
+          // Her saat için
+          Object.entries(timeSlots).forEach(([time, taskData]: [string, any]) => {
+            // Check if task has location data
+            if (taskData.completionLocation) {
+              // Find task and personnel info
+              const task = tasksList.find(t => t.id === taskId);
+              let personnelName = "Atanmamış";
+              let personnelId = null;
+              
+              // Determine who completed the task
+              if (taskData.completedBy) {
+                personnelId = taskData.completedBy;
+                const person = personnelList.find(p => p.id === taskData.completedBy);
+                if (person) personnelName = person.name;
+              } else if (task && task.personnelId) {
+                personnelId = task.personnelId;
+                const person = personnelList.find(p => p.id === task.personnelId);
+                if (person) personnelName = person.name;
+              }
+              
+              // Add to location list
+              tasksWithLocation.push({
+                id: `${taskId}-${date}-${time}`,
+                taskId: taskId,
+                name: taskData.taskName,
+                description: taskData.taskDescription || '',
+                date: date,
+                time: time,
+                location: taskData.completionLocation,
+                completedAt: taskData.completedAt,
+                personnelId: personnelId,
+                personnelName: personnelName
+              });
+            }
+          });
+        });
+      });
+    }
+    
+    // Sort by completion time (newest first)
+    tasksWithLocation.sort((a, b) => b.completedAt - a.completedAt);
+    
+    // Set all tasks with location data
+    setAllTasksWithLocation(tasksWithLocation);
+    
+    // Set initial filtered tasks (most recent N tasks)
+    setFilteredLocations(tasksWithLocation.slice(0, selectedTaskCount));
+  };
+  
+  // Filter locations based on selections
+  useEffect(() => {
+    let filtered = [...allTasksWithLocation];
+    
+    // Filter by personnel if any selected
+    if (selectedPersonnel.length > 0) {
+      filtered = filtered.filter(task => selectedPersonnel.includes(task.personnelId));
+    }
+    
+    // Filter by task ID if any selected
+    if (selectedTasks.length > 0) {
+      filtered = filtered.filter(task => selectedTasks.includes(task.taskId));
+    }
+    
+    // Limit to selected count
+    filtered = filtered.slice(0, selectedTaskCount);
+    
+    setFilteredLocations(filtered);
+  }, [selectedTaskCount, selectedPersonnel, selectedTasks, allTasksWithLocation]);
+  
+  // Handle task count selection
+  const handleTaskCountChange = (event: SelectChangeEvent<number>) => {
+    setSelectedTaskCount(event.target.value as number);
+  };
+  
+  // Handle personnel selection
+  const handlePersonnelChange = (event: SelectChangeEvent<string[]>) => {
+    setSelectedPersonnel(event.target.value as string[]);
+  };
+  
+  // Handle task selection
+  const handleTaskChange = (event: SelectChangeEvent<string[]>) => {
+    setSelectedTasks(event.target.value as string[]);
+  };
+  
+  // Clear all filters
+  const handleClearFilters = () => {
+    setSelectedTaskCount(10);
+    setSelectedPersonnel([]);
+    setSelectedTasks([]);
   };
   
   useEffect(() => {
@@ -761,6 +946,174 @@ const Dashboard: React.FC = () => {
           </ChartContainer>
         </Grid>
       </Grid>
+      
+      {/* Harita Bileşeni */}
+      <MapCard>
+        <CardHeader 
+          title="Görev Tamamlama Konumları" 
+          titleTypographyProps={{ fontWeight: 'bold' }}
+          avatar={<Avatar sx={{ bgcolor: THEME_COLORS.completed }}><LocationIcon /></Avatar>}
+        />
+        <Divider />
+        
+        <FilterContainer>
+          <FormControl sx={{ minWidth: 150 }}>
+            <InputLabel>Son Görevler</InputLabel>
+            <Select
+              value={selectedTaskCount}
+              label="Son Görevler"
+              onChange={handleTaskCountChange}
+            >
+              <MenuItem value={10}>Son 10 Görev</MenuItem>
+              <MenuItem value={20}>Son 20 Görev</MenuItem>
+              <MenuItem value={30}>Son 30 Görev</MenuItem>
+              <MenuItem value={50}>Son 50 Görev</MenuItem>
+              <MenuItem value={100}>Son 100 Görev</MenuItem>
+            </Select>
+          </FormControl>
+          
+          <FormControl sx={{ minWidth: 200, maxWidth: 300 }}>
+            <InputLabel>Personel Filtrele</InputLabel>
+            <Select
+              multiple
+              value={selectedPersonnel}
+              label="Personel Filtrele"
+              onChange={handlePersonnelChange}
+              renderValue={(selected) => (
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                  {(selected as string[]).map((value) => {
+                    const person = personnel.find(p => p.id === value);
+                    return (
+                      <Chip 
+                        key={value} 
+                        label={person ? person.name : value} 
+                        size="small" 
+                      />
+                    );
+                  })}
+                </Box>
+              )}
+            >
+              {personnel.map((person) => (
+                <MenuItem key={person.id} value={person.id}>
+                  <Checkbox checked={selectedPersonnel.indexOf(person.id) > -1} />
+                  <ListItemText primary={person.name} />
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          
+          <FormControl sx={{ minWidth: 200, maxWidth: 300 }}>
+            <InputLabel>Görev Filtrele</InputLabel>
+            <Select
+              multiple
+              value={selectedTasks}
+              label="Görev Filtrele"
+              onChange={handleTaskChange}
+              renderValue={(selected) => (
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                  {(selected as string[]).map((value) => {
+                    const task = tasks.find(t => t.id === value);
+                    return (
+                      <Chip 
+                        key={value} 
+                        label={task ? task.name : value} 
+                        size="small" 
+                      />
+                    );
+                  })}
+                </Box>
+              )}
+            >
+              {tasks.map((task) => (
+                <MenuItem key={task.id} value={task.id}>
+                  <Checkbox checked={selectedTasks.indexOf(task.id) > -1} />
+                  <ListItemText primary={task.name} />
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          
+          <Button 
+            variant="outlined" 
+            color="secondary" 
+            onClick={handleClearFilters}
+            sx={{ height: 40 }}
+          >
+            Filtreleri Temizle
+          </Button>
+          
+          <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center' }}>
+            <Typography variant="body2" color="textSecondary">
+              Toplam: {filteredLocations.length} konum gösteriliyor
+            </Typography>
+          </Box>
+        </FilterContainer>
+        
+        <MapContainerWrapper>
+          {filteredLocations.length === 0 ? (
+            <Box sx={{ height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+              <Typography color="textSecondary">
+                Konum bilgisi olan görev bulunmuyor veya seçilen filtrelere uygun görev yok
+              </Typography>
+            </Box>
+          ) : (
+            <MapContainer 
+              style={{ height: '100%', width: '100%' }}
+              zoom={13} 
+              scrollWheelZoom={true}
+            >
+              <MapView 
+                center={
+                  filteredLocations.length > 0 
+                    ? [filteredLocations[0].location.latitude, filteredLocations[0].location.longitude] as [number, number]
+                    : [39.9334, 32.8597] as [number, number]
+                } 
+                zoom={13} 
+              />
+              
+              <TileLayer
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              />
+              
+              {filteredLocations.map((task, index) => {
+                const icon = createColoredMarkerIcon(getPersonnelColor(task.personnelId, index));
+                return (
+                  <Marker 
+                    key={task.id} 
+                    position={[task.location.latitude, task.location.longitude] as [number, number]} 
+                    icon={icon}
+                  >
+                    <Popup>
+                      <Box sx={{ minWidth: 200 }}>
+                        <Typography variant="subtitle1" fontWeight="bold">{task.name}</Typography>
+                        <Typography variant="body2">{task.description}</Typography>
+                        <Divider sx={{ my: 1 }} />
+                        <Typography variant="body2">
+                          <strong>Personel:</strong> {task.personnelName}
+                        </Typography>
+                        <Typography variant="body2">
+                          <strong>Tarih:</strong> {task.date}
+                        </Typography>
+                        <Typography variant="body2">
+                          <strong>Saat:</strong> {task.time}
+                        </Typography>
+                        <Typography variant="body2">
+                          <strong>Konum:</strong> {task.location.latitude.toFixed(5)}, {task.location.longitude.toFixed(5)}
+                        </Typography>
+                        <Typography variant="body2">
+                          <strong>Doğruluk:</strong> {task.location.accuracy ? `±${task.location.accuracy.toFixed(1)}m` : 'Belirtilmemiş'}
+                        </Typography>
+                      </Box>
+                    </Popup>
+                  </Marker>
+                );
+              })}
+            </MapContainer>
+          )}
+        </MapContainerWrapper>
+      </MapCard>
       
       {/* Geciken ve Tamamlanan Son Görevler */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
@@ -1090,6 +1443,18 @@ const Dashboard: React.FC = () => {
     </ScrollableContent>
   );
 };
+
+// Personele göre marker rengi belirle (her personel farklı renk)
+function getPersonnelColor(personnelId: string, index: number): string {
+  // Standard colors that work well with map markers
+  const colors = ['blue', 'red', 'green', 'orange', 'yellow', 'violet', 'grey', 'black'];
+  
+  if (!personnelId) return 'grey';
+  
+  // Use simple hash function to map personnel ID to a consistent color
+  const hash = personnelId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  return colors[hash % colors.length];
+}
 
 // Görev durumuna göre renk döndürür
 function getStatusColor(status: string): string {
