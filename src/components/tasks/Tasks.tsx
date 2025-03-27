@@ -1292,16 +1292,6 @@ const Tasks: React.FC = () => {
               <ViewListIcon />
             </ToggleButton>
           </ToggleButtonGroup>
-          <Button
-            variant="outlined"
-            color="primary"
-            startIcon={<FileDownloadIcon />}
-            onClick={exportToExcel}
-            disabled={loading || filteredTasks.length === 0}
-            sx={{ borderRadius: 2 }}
-          >
-            İndir
-          </Button>
           <IconButton
             color="warning"
             onClick={() => setInfoModalOpen(true)}
@@ -1316,6 +1306,15 @@ const Tasks: React.FC = () => {
           >
             <InfoIcon fontSize="small" />
           </IconButton>
+          <Button
+            variant="contained"
+            color="info"
+            startIcon={<DownloadIcon />}
+            onClick={exportToExcel}
+            disabled={loading || filteredTasks.length === 0}
+          >
+            Excel İndir
+          </Button>
           <Button
             variant="contained"
             color="success"

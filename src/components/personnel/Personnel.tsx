@@ -53,7 +53,8 @@ import {
   PhotoLibrary as PhotoLibraryIcon,
   ViewModule as ViewModuleIcon,
   ViewList as ViewListIcon,
-  Info as InfoIcon
+  Info as InfoIcon,
+  Download as DownloadIcon
 } from '@mui/icons-material';
 import { ref, get, onValue, off, remove, update, set, push } from 'firebase/database';
 import { database, auth } from '../../firebase';
@@ -62,6 +63,7 @@ import CompanyQRModal from './CompanyQRModal';
 import QrCode2Icon from '@mui/icons-material/QrCode2';
 import MuiAlert, { AlertProps } from '@mui/material/Alert';
 import { useNavigate } from 'react-router-dom';
+import { utils, writeFile } from 'xlsx';
 
 // Kaydırılabilir ana içerik için styled component
 const ScrollableContent = styled(Box)(({ theme }) => ({
@@ -255,7 +257,10 @@ const PersonnelTable: React.FC<{
                   <Tooltip title="İşe Geri Al">
                     <IconButton 
                       size="small" 
-                      onClick={() => onRestore(person.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onRestore(person.id);
+                      }}
                       sx={{ color: 'success.main', p: 0.5 }}
                     >
                       <PersonAddIcon fontSize="small" />
@@ -1026,6 +1031,59 @@ const Personnel: React.FC = () => {
     }
   };
 
+  // Excel indirme fonksiyonu
+  const handleDownloadExcel = () => {
+    // Excel verilerini hazırla
+    const excelData = personnel.map(person => ({
+      'Ad Soyad': person.name,
+      'E-posta': person.email || '-',
+      'Telefon': person.phone || '-',
+      'Durum': showDeleted ? 'Silinmiş' : (person.hasTask ? 'Görev Atanmış' : 'Müsait'),
+      'Eklenme Tarihi': new Date(person.addedAt).toLocaleDateString('tr-TR'),
+      'Silinme Tarihi': person.deletedAt ? new Date(person.deletedAt).toLocaleDateString('tr-TR') : '-'
+    }));
+
+    // Excel çalışma kitabı oluştur
+    const wb = utils.book_new();
+    const ws = utils.json_to_sheet(excelData);
+
+    // Sütun genişliklerini ayarla
+    const colWidths = [
+      { wch: 30 }, // Ad Soyad
+      { wch: 30 }, // E-posta
+      { wch: 15 }, // Telefon
+      { wch: 15 }, // Durum
+      { wch: 15 }, // Eklenme Tarihi
+      { wch: 15 }  // Silinme Tarihi
+    ];
+    ws['!cols'] = colWidths;
+
+    // Başlık stilini ayarla
+    const headerStyle = {
+      font: { bold: true },
+      fill: { fgColor: { rgb: "CCCCCC" } },
+      border: {
+        top: { style: 'thin' },
+        bottom: { style: 'thin' },
+        left: { style: 'thin' },
+        right: { style: 'thin' }
+      }
+    };
+
+    // Başlık hücrelerine stil uygula
+    for (let i = 0; i < Object.keys(excelData[0]).length; i++) {
+      const cellRef = utils.encode_cell({ r: 0, c: i });
+      if (!ws[cellRef]) continue;
+      ws[cellRef].s = headerStyle;
+    }
+
+    // Çalışma sayfasını kitaba ekle
+    utils.book_append_sheet(wb, ws, showDeleted ? 'Silinen Personeller' : 'Aktif Personeller');
+
+    // Excel dosyasını indir
+    writeFile(wb, `${showDeleted ? 'Silinen_Personeller' : 'Aktif_Personeller'}_${new Date().toLocaleDateString('tr-TR').replace(/\./g, '-')}.xlsx`);
+  };
+
   return (
     <ScrollableContent>
       {/* Başlık, Görünüm Seçici ve Ekleme Butonu */}
@@ -1080,6 +1138,15 @@ const Personnel: React.FC = () => {
             onClick={handleOpenCompanyQRModal}
           >
             Şirket QR
+          </Button>
+          <Button
+            variant="contained"
+            color="info"
+            startIcon={<DownloadIcon />}
+            onClick={handleDownloadExcel}
+            disabled={personnel.length === 0}
+          >
+            Excel İndir
           </Button>
           <Button
             variant="contained"
