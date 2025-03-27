@@ -9,7 +9,10 @@ import {
   Divider, 
   styled,
   Typography,
-  IconButton
+  IconButton,
+  Drawer,
+  Link,
+  useTheme
 } from '@mui/material';
 import { useAuth } from '../../contexts/AuthContext';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
@@ -27,7 +30,7 @@ import MessageIcon from '@mui/icons-material/Message';
 const SidebarContainer = styled(Box)<{ isCollapsed: boolean }>(({ theme, isCollapsed }) => ({
   width: isCollapsed ? 70 : 260,
   height: '100vh',
-  backgroundColor: '#0D47A1',
+  backgroundColor: '#102648',
   color: 'white',
   display: 'flex',
   flexDirection: 'column',
@@ -97,6 +100,17 @@ const ToggleButton = styled(IconButton)(({ theme }) => ({
   boxShadow: '0 0 5px rgba(0,0,0,0.2)',
 }));
 
+const StyledDrawer = styled(Drawer)(({ theme }) => ({
+  width: 240,
+  flexShrink: 0,
+  '& .MuiDrawer-paper': {
+    width: 240,
+    boxSizing: 'border-box',
+    backgroundColor: '#102648',
+    color: theme.palette.common.white,
+  },
+}));
+
 interface SidebarProps {
   openMobile?: boolean;
   onCloseMobile?: () => void;
@@ -104,9 +118,10 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ openMobile, onCloseMobile, onCollapse }) => {
+  const { logout } = useAuth();
+  const theme = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
-  const { logout } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const isActive = (path: string) => {
@@ -220,14 +235,43 @@ const Sidebar: React.FC<SidebarProps> = ({ openMobile, onCloseMobile, onCollapse
       
       <Divider sx={{ backgroundColor: 'rgba(255,255,255,0.1)' }} />
       
-      <FooterContainer>
-        <Typography variant="caption" display="block" gutterBottom>
-          {!isCollapsed && "Powered by"}
-        </Typography>
-        <Typography variant="body2" fontWeight="bold">
-          {isCollapsed ? "MT" : "MT TEKNOLOJİ"}
-        </Typography>
-      </FooterContainer>
+      <Box sx={{ 
+        mt: 'auto', 
+        p: 2, 
+        textAlign: 'center',
+        borderTop: '1px solid rgba(255, 255, 255, 0.1)'
+      }}>
+        <Link 
+          href="https://www.mt-teknoloji.com" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          style={{ textDecoration: 'none' }}
+        >
+          <Typography 
+            variant="body2" 
+            sx={{ 
+              color: 'white',
+              opacity: 0.8,
+              mb: 0.5
+            }}
+          >
+            Powered by
+          </Typography>
+          <Typography 
+            variant="h6" 
+            sx={{ 
+              color: 'white',
+              fontWeight: 'bold',
+              '&:hover': {
+                color: theme.palette.primary.light,
+                transition: 'color 0.2s'
+              }
+            }}
+          >
+            AQUASOFT
+          </Typography>
+        </Link>
+      </Box>
     </SidebarContainer>
   );
 };
