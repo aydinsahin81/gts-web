@@ -1012,6 +1012,7 @@ const Dashboard: React.FC = () => {
                       const percent = total > 0 ? ((taskStatusData[index].value / total) * 100).toFixed(0) : 0;
                       return `${value} (%${percent})`;
                     }}
+                    wrapperStyle={{ fontSize: '12px' }}
                   />
                 </PieChart>
               </ResponsiveContainer>
