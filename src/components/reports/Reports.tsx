@@ -23,7 +23,11 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Button
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions
 } from '@mui/material';
 import {
   Assignment as AssignmentIcon,
@@ -42,6 +46,10 @@ import { database } from '../../firebase';
 import { utils, writeFile } from 'xlsx';
 import * as ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { tr } from 'date-fns/locale';
 
 // Kaydırılabilir ana içerik için styled component
 const ScrollableContent = styled(Box)(({ theme }) => ({
@@ -194,6 +202,9 @@ const Reports: React.FC = () => {
   const [recurringDataLoading, setRecurringDataLoading] = useState(false);
   const [personnelData, setPersonnelData] = useState<any>(null);
   const [personnelLoading, setPersonnelLoading] = useState(false);
+  const [dateRangeDialogOpen, setDateRangeDialogOpen] = useState(false);
+  const [startDate, setStartDate] = useState<Date | null>(null);
+  const [endDate, setEndDate] = useState<Date | null>(null);
 
   // Şirket görevlerini yükle
   useEffect(() => {
@@ -1158,372 +1169,628 @@ const Reports: React.FC = () => {
     }
   };
 
+  // İki tarih arası Excel indirme fonksiyonu
+  const handleDownloadDateRangeExcel = async () => {
+    if (!selectedTask || !recurringData || !startDate || !endDate) return;
+
+    try {
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Tarih Aralığı Görev Raporu');
+
+      // Seçilen tarih aralığındaki tarihleri oluştur
+      const dates = [];
+      let currentDate = new Date(startDate);
+      while (currentDate <= endDate) {
+        dates.push(new Date(currentDate));
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+
+      // Başlık satırını oluştur
+      worksheet.columns = [
+        { header: 'Tarih', key: 'date', width: 15 },
+        ...recurringData.taskHours.map(hour => ({
+          header: hour,
+          key: hour,
+          width: 15
+        }))
+      ];
+
+      // Başlık stilini ayarla
+      const headerStyle: Partial<ExcelJS.Style> = {
+        font: { bold: true, color: { argb: 'FFFFFFFF' } },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1976D2' } },
+        border: {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' }
+        },
+        alignment: {
+          vertical: 'middle',
+          horizontal: 'center',
+          wrapText: true
+        }
+      };
+
+      // Başlık satırına stil uygula
+      worksheet.getRow(1).eachCell(cell => {
+        cell.style = headerStyle;
+      });
+
+      // Her gün için satır oluştur
+      dates.forEach((date) => {
+        const formattedDate = `${date.getDate()}.${date.getMonth() + 1}.${date.getFullYear()}`;
+        const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+        const dayEnd = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59).getTime();
+
+        const row = worksheet.addRow({
+          date: formattedDate
+        });
+
+        // Tarih sütununa stil uygula
+        const dateColumnStyle: Partial<ExcelJS.Style> = {
+          font: { bold: true, color: { argb: 'FFFFFFFF' } },
+          fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1976D2' } },
+          border: {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' }
+          },
+          alignment: {
+            vertical: 'middle',
+            horizontal: 'center',
+            wrapText: true
+          }
+        };
+        row.getCell('date').style = dateColumnStyle;
+
+        // Her saat için durum kontrolü
+        recurringData.taskHours.forEach(hour => {
+          const completedTask = recurringData.completedTasks.find(task => 
+            task.date >= dayStart && task.date <= dayEnd && task.time === hour
+          );
+          const missedTask = recurringData.missedTasks.find(task => 
+            task.date >= dayStart && task.date <= dayEnd && task.time === hour
+          );
+
+          let status = '';
+          let cellStyle: Partial<ExcelJS.Style> = {
+            border: {
+              top: { style: 'thin' },
+              left: { style: 'thin' },
+              bottom: { style: 'thin' },
+              right: { style: 'thin' }
+            },
+            alignment: {
+              vertical: 'middle',
+              horizontal: 'center'
+            }
+          };
+
+          if (completedTask) {
+            status = '✓';
+            cellStyle = {
+              ...cellStyle,
+              font: { color: { argb: 'FFFFFFFF' } },
+              fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4CAF50' } }
+            };
+          } else if (missedTask) {
+            status = missedTask.started ? '⚠' : '✗';
+            cellStyle = {
+              ...cellStyle,
+              font: { color: { argb: missedTask.started ? 'FF000000' : 'FFFFFFFF' } },
+              fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: missedTask.started ? 'FFFFC107' : 'FFF44336' } }
+            };
+          }
+
+          const cell = row.getCell(hour);
+          cell.value = status;
+          cell.style = cellStyle;
+        });
+      });
+
+      // Satır yüksekliklerini ayarla
+      worksheet.eachRow((row, rowNumber) => {
+        row.height = 40;
+      });
+
+      // Boş satır ekle
+      worksheet.addRow({});
+      worksheet.addRow({});
+
+      // Görev Detayları Başlığı
+      const detailsHeaderRow = worksheet.addRow({ date: 'Görev Detayları' });
+      detailsHeaderRow.getCell('date').style = {
+        font: { bold: true, size: 14, color: { argb: 'FFFFFFFF' } },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1976D2' } }
+      };
+
+      // Görev Adı
+      worksheet.addRow({ date: 'Görev Adı', [recurringData.taskHours[0]]: selectedTask.name });
+      
+      // Açıklama
+      worksheet.addRow({ date: 'Açıklama', [recurringData.taskHours[0]]: selectedTask.description || '-' });
+      
+      // Oluşturulma Tarihi
+      worksheet.addRow({ 
+        date: 'Oluşturulma Tarihi', 
+        [recurringData.taskHours[0]]: selectedTask.createdAt ? new Date(selectedTask.createdAt).toLocaleString('tr-TR') : '-'
+      });
+      
+      // Kabul Edilme Tarihi
+      worksheet.addRow({ 
+        date: 'Kabul Edilme Tarihi', 
+        [recurringData.taskHours[0]]: selectedTask.acceptedAt ? new Date(selectedTask.acceptedAt).toLocaleString('tr-TR') : '-'
+      });
+
+      // Personel Bilgileri Başlığı
+      worksheet.addRow({});
+      const personnelHeaderRow = worksheet.addRow({ date: 'Görev Atanan Personel' });
+      personnelHeaderRow.getCell('date').style = {
+        font: { bold: true, size: 14, color: { argb: 'FFFFFFFF' } },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1976D2' } }
+      };
+
+      // Personel Bilgileri
+      if (personnelData) {
+        worksheet.addRow({ 
+          date: 'Ad Soyad', 
+          [recurringData.taskHours[0]]: `${personnelData.firstName || ''} ${personnelData.lastName || ''}`
+        });
+        worksheet.addRow({ 
+          date: 'E-posta', 
+          [recurringData.taskHours[0]]: personnelData.email || '-'
+        });
+      } else {
+        worksheet.addRow({ 
+          date: 'Personel Bilgisi', 
+          [recurringData.taskHours[0]]: 'Personel bilgisi bulunamadı'
+        });
+      }
+
+      // Detay satırlarına stil uygula
+      worksheet.eachRow((row, rowNumber) => {
+        if (rowNumber > dates.length + 2) {
+          row.eachCell(cell => {
+            cell.style = {
+              border: {
+                top: { style: 'thin' },
+                left: { style: 'thin' },
+                bottom: { style: 'thin' },
+                right: { style: 'thin' }
+              }
+            };
+          });
+        }
+      });
+
+      // Excel dosyasını oluştur ve indir
+      const buffer = await workbook.xlsx.writeBuffer();
+      const downloadDate = new Date().toLocaleDateString('tr-TR').replace(/\./g, '-');
+      saveAs(new Blob([buffer]), `${selectedTask.name}_TarihAraligi_${downloadDate}.xlsx`);
+
+      // Modalı kapat
+      setDateRangeDialogOpen(false);
+      setStartDate(null);
+      setEndDate(null);
+
+    } catch (error) {
+      console.error('Excel dosyası oluşturulurken hata:', error);
+      alert('Excel dosyası oluşturulurken bir hata oluştu.');
+    }
+  };
+
   return (
-    <ScrollableContent>
-      <Container maxWidth="lg">
-        {/* Üst Kısım - Görev Seçici */}
-        <TaskSelector>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Typography variant="subtitle1" fontWeight="bold" color="primary.main">
-              Görev Seçiniz
-            </Typography>
-            {selectedTask && (
-              <Box sx={{ display: 'flex', gap: 1 }}>
-                <Button
-                  variant="contained"
-                  color="info"
-                  startIcon={<DownloadIcon />}
-                  onClick={handleDownloadExcel}
-                  size="small"
-                >
-                  Excel İndir
-                </Button>
-                {selectedTask.isRecurring && (
+    <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={tr}>
+      <ScrollableContent>
+        <Container maxWidth="lg">
+          {/* Üst Kısım - Görev Seçici */}
+          <TaskSelector>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="subtitle1" fontWeight="bold" color="primary.main">
+                Görev Seçiniz
+              </Typography>
+              {selectedTask && (
+                <Box sx={{ display: 'flex', gap: 1 }}>
                   <Button
                     variant="contained"
                     color="info"
                     startIcon={<DownloadIcon />}
-                    onClick={handleDownloadMonthlyExcel}
+                    onClick={handleDownloadExcel}
                     size="small"
                   >
-                    1 Aylık Rapor İndir
+                    Excel İndir
                   </Button>
-                )}
-              </Box>
-            )}
-          </Box>
-          
-          <FormControl fullWidth size="small">
-            <InputLabel id="task-select-label">Görev seçiniz</InputLabel>
-            <Select
-              labelId="task-select-label"
-              value={selectedTask?.id || ''}
-              onChange={handleTaskChange}
-              label="Görev seçiniz"
-            >
-              {taskList.map((task) => (
-                <MenuItem key={task.id} value={task.id}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-                    <IconButton size="small" sx={{ mr: 1, color: 'primary.main' }}>
-                      {task.isRecurring ? <RepeatIcon /> : <AssignmentIcon />}
-                    </IconButton>
-                    <Typography variant="body2" sx={{ flexGrow: 1 }}>
-                      {task.name}
-                    </Typography>
-                    <Chip
-                      label={getStatusText(task.status)}
-                      size="small"
-                      sx={{
-                        backgroundColor: getStatusColor(task.status) + '20',
-                        color: getStatusColor(task.status),
-                        fontWeight: 'medium',
-                        height: 20,
-                        fontSize: 11,
-                      }}
-                    />
-                  </Box>
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </TaskSelector>
-
-        {/* Alt Kısım - Rapor İçeriği */}
-        {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
-            <CircularProgress />
-          </Box>
-        ) : taskList.length === 0 ? (
-          <Box 
-            sx={{ 
-              display: 'flex', 
-              flexDirection: 'column', 
-              alignItems: 'center', 
-              justifyContent: 'center', 
-              my: 8,
-              textAlign: 'center'
-            }}
-          >
-            <BarChartIcon sx={{ fontSize: 80, color: 'primary.light', mb: 2 }} />
-            <Typography variant="h5" fontWeight="bold" color="primary.main" gutterBottom>
-              Henüz rapor oluşturmak için görev yok
-            </Typography>
-            <Typography variant="body1" color="text.secondary">
-              Görev eklediğinizde burada raporlarını görebileceksiniz
-            </Typography>
-          </Box>
-        ) : (
-          <>
-            {selectedTask ? (
-              <ReportContent>
-                {/* Görev Başlık ve Açıklama */}
-                <Box sx={{ display: 'flex', mb: 3 }}>
-                  <Box
-                    sx={{
-                      p: 1.5,
-                      borderRadius: 2,
-                      backgroundColor: 'primary.main' + '10',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      mr: 2,
-                    }}
-                  >
-                    {selectedTask.isRecurring ? (
-                      <RepeatIcon fontSize="large" color="primary" />
-                    ) : (
-                      <AssignmentIcon fontSize="large" color="primary" />
-                    )}
-                  </Box>
-                  <Box>
-                    <Typography variant="h6" fontWeight="bold" color="primary.main">
-                      {selectedTask.name}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {selectedTask.description || 'Açıklama yok'}
-                    </Typography>
-                  </Box>
+                  {selectedTask.isRecurring && (
+                    <>
+                      <Button
+                        variant="contained"
+                        color="info"
+                        startIcon={<DownloadIcon />}
+                        onClick={handleDownloadMonthlyExcel}
+                        size="small"
+                      >
+                        1 Aylık Rapor İndir
+                      </Button>
+                      <Button
+                        variant="contained"
+                        color="info"
+                        startIcon={<DownloadIcon />}
+                        onClick={() => setDateRangeDialogOpen(true)}
+                        size="small"
+                      >
+                        İki Tarih Arası Rapor İndir
+                      </Button>
+                    </>
+                  )}
                 </Box>
-                
-                <Divider sx={{ mb: 3 }} />
-                
-                <Typography variant="h6" fontWeight="bold" color="primary.main" gutterBottom>
-                  Rapor Detayları
-                </Typography>
-                
-                {/* Görev Türüne Göre İçerik */}
-                {selectedTask.isRecurring ? (
-                  /* Tekrarlı Görev Raporu */
-                  <Box>
-                    {/* Görev Tarihleri */}
-                    <StatusCard>
-                      <Typography variant="subtitle1" fontWeight="bold" color="primary.main" gutterBottom>
-                        Görev Tarihleri
-                      </Typography>
-                      
-                      <InfoRow>
-                        <IconBox>
-                          <CalendarTodayIcon color="primary" />
-                        </IconBox>
-                        <Box>
-                          <Typography variant="body2" color="text.secondary">
-                            Oluşturulma Tarihi
-                          </Typography>
-                          <Typography variant="body1" fontWeight="medium">
-                            {selectedTask.createdAt 
-                              ? new Date(selectedTask.createdAt).toLocaleString('tr-TR')
-                              : 'Belirtilmemiş'
-                            }
-                          </Typography>
-                        </Box>
-                      </InfoRow>
-                      
-                      <InfoRow>
-                        <IconBox>
-                          <CheckCircleOutlineIcon color="primary" />
-                        </IconBox>
-                        <Box>
-                          <Typography variant="body2" color="text.secondary">
-                            Kabul Edilme Tarihi
-                          </Typography>
-                          <Typography variant="body1" fontWeight="medium">
-                            {selectedTask.acceptedAt 
-                              ? new Date(selectedTask.acceptedAt).toLocaleString('tr-TR')
-                              : 'Belirtilmemiş'
-                            }
-                          </Typography>
-                        </Box>
-                      </InfoRow>
-                    </StatusCard>
-                    
-                    {/* Haftalık Görev Raporu */}
-                    <StatusCard>
-                      <Typography variant="subtitle1" fontWeight="bold" color="primary.main" gutterBottom>
-                        Haftalık Görev Raporu
-                      </Typography>
-                      
-                      {recurringDataLoading ? (
-                        <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
-                          <CircularProgress size={30} />
-                        </Box>
-                      ) : (
-                        buildWeeklyTaskTable()
-                      )}
-                    </StatusCard>
-                    
-                    {/* Görevli Personel */}
-                    <StatusCard>
-                      <Typography variant="subtitle1" fontWeight="bold" color="primary.main" gutterBottom>
-                        Görev Atanan Personel
-                      </Typography>
-                      
-                      {personnelLoading ? (
-                        <Box sx={{ display: 'flex', alignItems: 'center', my: 2 }}>
-                          <CircularProgress size={20} sx={{ mr: 2 }} />
-                          <Typography variant="body2">Personel bilgileri yükleniyor...</Typography>
-                        </Box>
-                      ) : !personnelData ? (
-                        <Typography variant="body2" color="text.secondary">
-                          Personel bilgisi bulunamadı
-                        </Typography>
-                      ) : (
-                        <Box>
-                          <Typography variant="body1" fontWeight="bold">
-                            {`${personnelData.firstName || ''} ${personnelData.lastName || ''}`}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            {personnelData.email || ''}
-                          </Typography>
-                        </Box>
-                      )}
-                    </StatusCard>
-                  </Box>
-                ) : (
-                  /* Normal Görev Raporu */
-                  <Box>
-                    {/* Görev Tarihleri */}
-                    <StatusCard>
-                      <Typography variant="subtitle1" fontWeight="bold" color="primary.main" gutterBottom>
-                        Görev Tarihleri
-                      </Typography>
-                      
-                      <InfoRow>
-                        <IconBox>
-                          <CalendarTodayIcon color="primary" />
-                        </IconBox>
-                        <Box>
-                          <Typography variant="body2" color="text.secondary">
-                            Oluşturulma Tarihi
-                          </Typography>
-                          <Typography variant="body1" fontWeight="medium">
-                            {selectedTask.createdAt 
-                              ? new Date(selectedTask.createdAt).toLocaleString('tr-TR')
-                              : 'Belirtilmemiş'
-                            }
-                          </Typography>
-                        </Box>
-                      </InfoRow>
-                      
-                      <InfoRow>
-                        <IconBox>
-                          <CheckCircleOutlineIcon color="primary" />
-                        </IconBox>
-                        <Box>
-                          <Typography variant="body2" color="text.secondary">
-                            Kabul Edilme Tarihi
-                          </Typography>
-                          <Typography variant="body1" fontWeight="medium">
-                            {selectedTask.acceptedAt 
-                              ? new Date(selectedTask.acceptedAt).toLocaleString('tr-TR')
-                              : 'Belirtilmemiş'
-                            }
-                          </Typography>
-                        </Box>
-                      </InfoRow>
-                    </StatusCard>
-                    
-                    {/* Görev Durumu */}
-                    <StatusCard>
-                      <Typography variant="subtitle1" fontWeight="bold" color="primary.main" gutterBottom>
-                        Görev Durumu
-                      </Typography>
-                      
-                      {/* Durum çubuğu */}
-                      <StatusBar>
-                        <StatusStep 
-                          active={getStatusLevel(selectedTask.status) >= 1} 
-                          sx={{ borderTopLeftRadius: 3, borderBottomLeftRadius: 3 }}
-                        />
-                        <Box sx={{ width: 4 }} />
-                        <StatusStep active={getStatusLevel(selectedTask.status) >= 2} />
-                        <Box sx={{ width: 4 }} />
-                        <StatusStep 
-                          active={getStatusLevel(selectedTask.status) >= 3} 
-                          sx={{ borderTopRightRadius: 3, borderBottomRightRadius: 3 }}
-                        />
-                      </StatusBar>
-                      
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', px: 1, mt: 1 }}>
-                        <StatusStepLabel active={getStatusLevel(selectedTask.status) === 1}>
-                          Beklemede
-                        </StatusStepLabel>
-                        <StatusStepLabel active={getStatusLevel(selectedTask.status) === 2}>
-                          Başladı
-                        </StatusStepLabel>
-                        <StatusStepLabel active={getStatusLevel(selectedTask.status) === 3}>
-                          Tamamlandı
-                        </StatusStepLabel>
-                      </Box>
-                      
-                      {/* Görev süresi */}
-                      <InfoRow sx={{ mt: 3 }}>
-                        <IconBox>
-                          <AccessTimeIcon color="primary" />
-                        </IconBox>
-                        <Box>
-                          <Typography variant="body2" color="text.secondary">
-                            Toplam Görev Süresi
-                          </Typography>
-                          <Typography variant="body1" fontWeight="medium">
-                            {calculateTaskDuration()}
-                          </Typography>
-                        </Box>
-                      </InfoRow>
-                    </StatusCard>
-                    
-                    {/* Görevli Personel */}
-                    <StatusCard>
-                      <Typography variant="subtitle1" fontWeight="bold" color="primary.main" gutterBottom>
-                        Görev Atanan Personel
-                      </Typography>
-                      
-                      {personnelLoading ? (
-                        <Box sx={{ display: 'flex', alignItems: 'center', my: 2 }}>
-                          <CircularProgress size={20} sx={{ mr: 2 }} />
-                          <Typography variant="body2">Personel bilgileri yükleniyor...</Typography>
-                        </Box>
-                      ) : !personnelData ? (
-                        <Typography variant="body2" color="text.secondary">
-                          Personel bilgisi bulunamadı
-                        </Typography>
-                      ) : (
-                        <Box>
-                          <Typography variant="body1" fontWeight="bold">
-                            {`${personnelData.firstName || ''} ${personnelData.lastName || ''}`}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            {personnelData.email || ''}
-                          </Typography>
-                        </Box>
-                      )}
-                    </StatusCard>
-                  </Box>
-                )}
-              </ReportContent>
-            ) : (
-              <Box 
-                sx={{ 
-                  display: 'flex', 
-                  flexDirection: 'column', 
-                  alignItems: 'center', 
-                  justifyContent: 'center', 
-                  my: 8,
-                  textAlign: 'center'
-                }}
+              )}
+            </Box>
+            
+            <FormControl fullWidth size="small">
+              <InputLabel id="task-select-label">Görev seçiniz</InputLabel>
+              <Select
+                labelId="task-select-label"
+                value={selectedTask?.id || ''}
+                onChange={handleTaskChange}
+                label="Görev seçiniz"
               >
-                <TouchAppIcon sx={{ fontSize: 60, color: 'primary.light', mb: 2 }} />
-                <Typography variant="h6" fontWeight="bold" color="primary.main" gutterBottom>
-                  Lütfen yukarıdan bir görev seçin
-                </Typography>
-                <Typography variant="body1" color="text.secondary">
-                  Görev seçtiğinizde detaylı raporu burada görüntülenecek
-                </Typography>
+                {taskList.map((task) => (
+                  <MenuItem key={task.id} value={task.id}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                      <IconButton size="small" sx={{ mr: 1, color: 'primary.main' }}>
+                        {task.isRecurring ? <RepeatIcon /> : <AssignmentIcon />}
+                      </IconButton>
+                      <Typography variant="body2" sx={{ flexGrow: 1 }}>
+                        {task.name}
+                      </Typography>
+                      <Chip
+                        label={getStatusText(task.status)}
+                        size="small"
+                        sx={{
+                          backgroundColor: getStatusColor(task.status) + '20',
+                          color: getStatusColor(task.status),
+                          fontWeight: 'medium',
+                          height: 20,
+                          fontSize: 11,
+                        }}
+                      />
+                    </Box>
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </TaskSelector>
+
+          {/* Tarih Aralığı Seçim Modalı */}
+          <Dialog open={dateRangeDialogOpen} onClose={() => setDateRangeDialogOpen(false)}>
+            <DialogTitle>Tarih Aralığı Seçin</DialogTitle>
+            <DialogContent>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
+                <DatePicker
+                  label="Başlangıç Tarihi"
+                  value={startDate}
+                  onChange={(newValue) => setStartDate(newValue)}
+                  slotProps={{ textField: { fullWidth: true } }}
+                />
+                <DatePicker
+                  label="Bitiş Tarihi"
+                  value={endDate}
+                  onChange={(newValue) => setEndDate(newValue)}
+                  slotProps={{ textField: { fullWidth: true } }}
+                />
               </Box>
-            )}
-          </>
-        )}
-      </Container>
-    </ScrollableContent>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setDateRangeDialogOpen(false)}>İptal</Button>
+              <Button 
+                onClick={handleDownloadDateRangeExcel}
+                variant="contained"
+                disabled={!startDate || !endDate}
+              >
+                İndir
+              </Button>
+            </DialogActions>
+          </Dialog>
+
+          {/* Alt Kısım - Rapor İçeriği */}
+          {loading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : taskList.length === 0 ? (
+            <Box 
+              sx={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                my: 8,
+                textAlign: 'center'
+              }}
+            >
+              <BarChartIcon sx={{ fontSize: 80, color: 'primary.light', mb: 2 }} />
+              <Typography variant="h5" fontWeight="bold" color="primary.main" gutterBottom>
+                Henüz rapor oluşturmak için görev yok
+              </Typography>
+              <Typography variant="body1" color="text.secondary">
+                Görev eklediğinizde burada raporlarını görebileceksiniz
+              </Typography>
+            </Box>
+          ) : (
+            <>
+              {selectedTask ? (
+                <ReportContent>
+                  {/* Görev Başlık ve Açıklama */}
+                  <Box sx={{ display: 'flex', mb: 3 }}>
+                    <Box
+                      sx={{
+                        p: 1.5,
+                        borderRadius: 2,
+                        backgroundColor: 'primary.main' + '10',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        mr: 2,
+                      }}
+                    >
+                      {selectedTask.isRecurring ? (
+                        <RepeatIcon fontSize="large" color="primary" />
+                      ) : (
+                        <AssignmentIcon fontSize="large" color="primary" />
+                      )}
+                    </Box>
+                    <Box>
+                      <Typography variant="h6" fontWeight="bold" color="primary.main">
+                        {selectedTask.name}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {selectedTask.description || 'Açıklama yok'}
+                      </Typography>
+                    </Box>
+                  </Box>
+                  
+                  <Divider sx={{ mb: 3 }} />
+                  
+                  <Typography variant="h6" fontWeight="bold" color="primary.main" gutterBottom>
+                    Rapor Detayları
+                  </Typography>
+                  
+                  {/* Görev Türüne Göre İçerik */}
+                  {selectedTask.isRecurring ? (
+                    /* Tekrarlı Görev Raporu */
+                    <Box>
+                      {/* Görev Tarihleri */}
+                      <StatusCard>
+                        <Typography variant="subtitle1" fontWeight="bold" color="primary.main" gutterBottom>
+                          Görev Tarihleri
+                        </Typography>
+                        
+                        <InfoRow>
+                          <IconBox>
+                            <CalendarTodayIcon color="primary" />
+                          </IconBox>
+                          <Box>
+                            <Typography variant="body2" color="text.secondary">
+                              Oluşturulma Tarihi
+                            </Typography>
+                            <Typography variant="body1" fontWeight="medium">
+                              {selectedTask.createdAt 
+                                ? new Date(selectedTask.createdAt).toLocaleString('tr-TR')
+                                : 'Belirtilmemiş'
+                              }
+                            </Typography>
+                          </Box>
+                        </InfoRow>
+                        
+                        <InfoRow>
+                          <IconBox>
+                            <CheckCircleOutlineIcon color="primary" />
+                          </IconBox>
+                          <Box>
+                            <Typography variant="body2" color="text.secondary">
+                              Kabul Edilme Tarihi
+                            </Typography>
+                            <Typography variant="body1" fontWeight="medium">
+                              {selectedTask.acceptedAt 
+                                ? new Date(selectedTask.acceptedAt).toLocaleString('tr-TR')
+                                : 'Belirtilmemiş'
+                              }
+                            </Typography>
+                          </Box>
+                        </InfoRow>
+                      </StatusCard>
+                      
+                      {/* Haftalık Görev Raporu */}
+                      <StatusCard>
+                        <Typography variant="subtitle1" fontWeight="bold" color="primary.main" gutterBottom>
+                          Haftalık Görev Raporu
+                        </Typography>
+                        
+                        {recurringDataLoading ? (
+                          <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
+                            <CircularProgress size={30} />
+                          </Box>
+                        ) : (
+                          buildWeeklyTaskTable()
+                        )}
+                      </StatusCard>
+                      
+                      {/* Görevli Personel */}
+                      <StatusCard>
+                        <Typography variant="subtitle1" fontWeight="bold" color="primary.main" gutterBottom>
+                          Görev Atanan Personel
+                        </Typography>
+                        
+                        {personnelLoading ? (
+                          <Box sx={{ display: 'flex', alignItems: 'center', my: 2 }}>
+                            <CircularProgress size={20} sx={{ mr: 2 }} />
+                            <Typography variant="body2">Personel bilgileri yükleniyor...</Typography>
+                          </Box>
+                        ) : !personnelData ? (
+                          <Typography variant="body2" color="text.secondary">
+                            Personel bilgisi bulunamadı
+                          </Typography>
+                        ) : (
+                          <Box>
+                            <Typography variant="body1" fontWeight="bold">
+                              {`${personnelData.firstName || ''} ${personnelData.lastName || ''}`}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              {personnelData.email || ''}
+                            </Typography>
+                          </Box>
+                        )}
+                      </StatusCard>
+                    </Box>
+                  ) : (
+                    /* Normal Görev Raporu */
+                    <Box>
+                      {/* Görev Tarihleri */}
+                      <StatusCard>
+                        <Typography variant="subtitle1" fontWeight="bold" color="primary.main" gutterBottom>
+                          Görev Tarihleri
+                        </Typography>
+                        
+                        <InfoRow>
+                          <IconBox>
+                            <CalendarTodayIcon color="primary" />
+                          </IconBox>
+                          <Box>
+                            <Typography variant="body2" color="text.secondary">
+                              Oluşturulma Tarihi
+                            </Typography>
+                            <Typography variant="body1" fontWeight="medium">
+                              {selectedTask.createdAt 
+                                ? new Date(selectedTask.createdAt).toLocaleString('tr-TR')
+                                : 'Belirtilmemiş'
+                              }
+                            </Typography>
+                          </Box>
+                        </InfoRow>
+                        
+                        <InfoRow>
+                          <IconBox>
+                            <CheckCircleOutlineIcon color="primary" />
+                          </IconBox>
+                          <Box>
+                            <Typography variant="body2" color="text.secondary">
+                              Kabul Edilme Tarihi
+                            </Typography>
+                            <Typography variant="body1" fontWeight="medium">
+                              {selectedTask.acceptedAt 
+                                ? new Date(selectedTask.acceptedAt).toLocaleString('tr-TR')
+                                : 'Belirtilmemiş'
+                              }
+                            </Typography>
+                          </Box>
+                        </InfoRow>
+                      </StatusCard>
+                      
+                      {/* Görev Durumu */}
+                      <StatusCard>
+                        <Typography variant="subtitle1" fontWeight="bold" color="primary.main" gutterBottom>
+                          Görev Durumu
+                        </Typography>
+                        
+                        {/* Durum çubuğu */}
+                        <StatusBar>
+                          <StatusStep 
+                            active={getStatusLevel(selectedTask.status) >= 1} 
+                            sx={{ borderTopLeftRadius: 3, borderBottomLeftRadius: 3 }}
+                          />
+                          <Box sx={{ width: 4 }} />
+                          <StatusStep active={getStatusLevel(selectedTask.status) >= 2} />
+                          <Box sx={{ width: 4 }} />
+                          <StatusStep 
+                            active={getStatusLevel(selectedTask.status) >= 3} 
+                            sx={{ borderTopRightRadius: 3, borderBottomRightRadius: 3 }}
+                          />
+                        </StatusBar>
+                        
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', px: 1, mt: 1 }}>
+                          <StatusStepLabel active={getStatusLevel(selectedTask.status) === 1}>
+                            Beklemede
+                          </StatusStepLabel>
+                          <StatusStepLabel active={getStatusLevel(selectedTask.status) === 2}>
+                            Başladı
+                          </StatusStepLabel>
+                          <StatusStepLabel active={getStatusLevel(selectedTask.status) === 3}>
+                            Tamamlandı
+                          </StatusStepLabel>
+                        </Box>
+                        
+                        {/* Görev süresi */}
+                        <InfoRow sx={{ mt: 3 }}>
+                          <IconBox>
+                            <AccessTimeIcon color="primary" />
+                          </IconBox>
+                          <Box>
+                            <Typography variant="body2" color="text.secondary">
+                              Toplam Görev Süresi
+                            </Typography>
+                            <Typography variant="body1" fontWeight="medium">
+                              {calculateTaskDuration()}
+                            </Typography>
+                          </Box>
+                        </InfoRow>
+                      </StatusCard>
+                      
+                      {/* Görevli Personel */}
+                      <StatusCard>
+                        <Typography variant="subtitle1" fontWeight="bold" color="primary.main" gutterBottom>
+                          Görev Atanan Personel
+                        </Typography>
+                        
+                        {personnelLoading ? (
+                          <Box sx={{ display: 'flex', alignItems: 'center', my: 2 }}>
+                            <CircularProgress size={20} sx={{ mr: 2 }} />
+                            <Typography variant="body2">Personel bilgileri yükleniyor...</Typography>
+                          </Box>
+                        ) : !personnelData ? (
+                          <Typography variant="body2" color="text.secondary">
+                            Personel bilgisi bulunamadı
+                          </Typography>
+                        ) : (
+                          <Box>
+                            <Typography variant="body1" fontWeight="bold">
+                              {`${personnelData.firstName || ''} ${personnelData.lastName || ''}`}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              {personnelData.email || ''}
+                            </Typography>
+                          </Box>
+                        )}
+                      </StatusCard>
+                    </Box>
+                  )}
+                </ReportContent>
+              ) : (
+                <Box 
+                  sx={{ 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    my: 8,
+                    textAlign: 'center'
+                  }}
+                >
+                  <TouchAppIcon sx={{ fontSize: 60, color: 'primary.light', mb: 2 }} />
+                  <Typography variant="h6" fontWeight="bold" color="primary.main" gutterBottom>
+                    Lütfen yukarıdan bir görev seçin
+                  </Typography>
+                  <Typography variant="body1" color="text.secondary">
+                    Görev seçtiğinizde detaylı raporu burada görüntülenecek
+                  </Typography>
+                </Box>
+              )}
+            </>
+          )}
+        </Container>
+      </ScrollableContent>
+    </LocalizationProvider>
   );
 };
 
