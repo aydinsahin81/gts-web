@@ -500,6 +500,8 @@ const Personnel: React.FC = () => {
   // State tanımlamaları
   const [loading, setLoading] = useState(true);
   const [personnel, setPersonnel] = useState<any[]>([]);
+  const [filteredPersonnel, setFilteredPersonnel] = useState<any[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [selectedPersonnel, setSelectedPersonnel] = useState<any | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -629,6 +631,21 @@ const Personnel: React.FC = () => {
     const sortedPersonnel = [...personnelList].sort((a, b) => b.addedAt - a.addedAt);
     setPersonnel(sortedPersonnel);
   };
+
+  // Arama fonksiyonu
+  useEffect(() => {
+    if (!searchTerm.trim()) {
+      setFilteredPersonnel(personnel);
+      return;
+    }
+
+    const filtered = personnel.filter(person => 
+      person.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (person.email && person.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (person.phone && person.phone.includes(searchTerm))
+    );
+    setFilteredPersonnel(filtered);
+  }, [searchTerm, personnel]);
 
   // Personel detaylarını gösteren modal
   const handleOpenModal = async (person: any) => {
@@ -1160,13 +1177,31 @@ const Personnel: React.FC = () => {
           </Button>
         </Box>
       </HeaderContainer>
+
+      {/* Arama Barı */}
+      <Box sx={{ mb: 3 }}>
+        <TextField
+          fullWidth
+          size="small"
+          placeholder="Personel Ara..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon />
+              </InputAdornment>
+            ),
+          }}
+        />
+      </Box>
       
       {/* Personel Listesi */}
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
           <CircularProgress />
         </Box>
-      ) : personnel.length === 0 ? (
+      ) : filteredPersonnel.length === 0 ? (
         <Box 
           sx={{ 
             display: 'flex', 
@@ -1182,12 +1217,12 @@ const Personnel: React.FC = () => {
         >
           <PersonIcon sx={{ fontSize: 60, color: 'text.disabled', mb: 2 }} />
           <Typography variant="h6" color="text.secondary">
-            {showDeleted ? "Silinen personel bulunmuyor" : "Henüz personel bulunmuyor"}
+            {searchTerm ? "Arama sonucu bulunamadı" : (showDeleted ? "Silinen personel bulunmuyor" : "Henüz personel bulunmuyor")}
           </Typography>
         </Box>
       ) : viewMode === 'card' ? (
         <Grid container spacing={2}>
-          {personnel.map((person) => (
+          {filteredPersonnel.map((person) => (
             <Grid item xs={12} sm={6} md={3} key={person.id}>
               <PersonnelCard onClick={() => !showDeleted && handleOpenModal(person)}>
                 <CardContent>
@@ -1271,16 +1306,16 @@ const Personnel: React.FC = () => {
         </Grid>
       ) : (
         <PersonnelTable 
-          personnel={personnel}
+          personnel={filteredPersonnel}
           onViewDetails={(id) => {
-            const selectedPerson = personnel.find(p => p.id === id);
+            const selectedPerson = filteredPersonnel.find(p => p.id === id);
             if (selectedPerson) {
               setSelectedPersonnel(selectedPerson);
               setModalOpen(true);
             }
           }}
           onDelete={(id) => {
-            const selectedPerson = personnel.find(p => p.id === id);
+            const selectedPerson = filteredPersonnel.find(p => p.id === id);
             if (selectedPerson) {
               setSelectedPersonnel(selectedPerson);
               setDeleteModalOpen(true);
