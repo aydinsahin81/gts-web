@@ -20,6 +20,9 @@ export interface Notification {
   sentCount?: number;
   errorCount?: number;
   sentAt?: number;
+  read?: string[]; // Bildirimi okuyan kullanıcıların ID'leri
+  readAt?: number; // Bildirimin okunma zamanı
+  readBy?: string; // Bildirimi okuyan son kullanıcı ID'si
 }
 
 // Personel tipi
@@ -66,6 +69,103 @@ class NotificationService {
     } catch (error) {
       console.error('Şirket ID alınırken hata:', error);
       return null;
+    }
+  }
+
+  // Bildirim silme fonksiyonu
+  async deleteNotification(companyId: string, notificationId: string): Promise<boolean> {
+    try {
+      if (!companyId || !notificationId) {
+        console.error('Geçersiz şirket ID veya bildirim ID');
+        return false;
+      }
+
+      const notificationRef = ref(database, `companies/${companyId}/notifications/${notificationId}`);
+      
+      // Referansı kontrol et
+      const snapshot = await get(notificationRef);
+      if (!snapshot.exists()) {
+        console.error(`${notificationId} ID'li bildirim bulunamadı`);
+        return false;
+      }
+      
+      // Bildirimi sil
+      await set(notificationRef, null);
+      console.log(`${notificationId} ID'li bildirim başarıyla silindi`);
+      return true;
+    } catch (error) {
+      console.error('Bildirim silinirken hata:', error);
+      return false;
+    }
+  }
+
+  // Belirli bir personele gönderilen bildirimleri getir
+  async getPersonnelNotifications(companyId: string, personnelId: string): Promise<Notification[]> {
+    try {
+      if (!companyId || !personnelId) {
+        console.error('Geçersiz şirket ID veya personel ID');
+        return [];
+      }
+      
+      console.log(`getPersonnelNotifications - Bildirimler yükleniyor - Şirket: ${companyId}, Personel: ${personnelId}`);
+      
+      // Veritabanı referansını al
+      const notificationsRef = ref(database, `companies/${companyId}/notifications`);
+      console.log(`Firebase yolu: companies/${companyId}/notifications`);
+      
+      // Veritabanından verileri al
+      const snapshot = await get(notificationsRef);
+      
+      const notifications: Notification[] = [];
+      
+      if (snapshot.exists()) {
+        const snapshotData = snapshot.val();
+        console.log('Bildirim verisi:', JSON.stringify(snapshotData, null, 2).substring(0, 200) + '...');
+        console.log('Toplam bildirim sayısı:', Object.keys(snapshotData).length);
+        
+        // Her bir bildirimi kontrol et
+        snapshot.forEach((childSnapshot) => {
+          const id = childSnapshot.key;
+          const data = childSnapshot.val();
+          
+          // Debug bilgileri
+          console.log(`Bildirim kontrolü - ID: ${id}, Status: ${data.status}`);
+          console.log('Bildirim alıcıları:', Array.isArray(data.recipients) ? data.recipients : 'Alıcı dizisi değil');
+          console.log('Personel ID:', personnelId);
+          
+          // Sadece bu personele gönderilen bildirimleri filtrele
+          if (data.recipients && Array.isArray(data.recipients) && data.recipients.includes(personnelId)) {
+            console.log(`${id} ID'li bildirim eşleşti - bu personele gönderilmiş`);
+            
+            // Tüm bildirimleri ekle (id ekleniyor)
+            notifications.push({
+              id: id || '',
+              ...data
+            });
+          } else {
+            console.log(`${id} ID'li bildirim eşleşmedi - bu personele gönderilmemiş`);
+            console.log('Alıcılar:', data.recipients);
+          }
+        });
+        
+        console.log(`Personele gönderilmiş ${notifications.length} bildirim bulundu`);
+        
+        if (notifications.length > 0) {
+          console.log('İlk bildirim örneği:', JSON.stringify(notifications[0], null, 2));
+        }
+      } else {
+        console.log('Veri tabanında hiç bildirim bulunamadı');
+      }
+      
+      // Tarihe göre sırala (en yeniler en üstte)
+      const sortedNotifications = notifications.sort((a, b) => b.createdAt - a.createdAt);
+      console.log(`Sıralanmış ${sortedNotifications.length} bildirim döndürülüyor`);
+      return sortedNotifications;
+        
+    } catch (error) {
+      console.error('Personel bildirimleri alınırken hata:', error);
+      console.error('Hata detayı:', JSON.stringify(error));
+      return [];
     }
   }
 
@@ -123,29 +223,38 @@ class NotificationService {
     
     this.isProcessingNotifications = true;
     try {
-      // Bekleyen bildirimleri al
+      console.log(`${companyId} şirketi için bekleyen bildirimleri işleme başlıyor...`);
+      
+      // Tüm bildirimleri al, sorgulama yapmadan
       const notificationsRef = ref(database, `companies/${companyId}/notifications`);
-      const pendingQuery = query(notificationsRef, orderByChild('status'), equalTo('pending'));
-      const snapshot = await get(pendingQuery);
+      const snapshot = await get(notificationsRef);
       
       if (!snapshot.exists()) {
-        console.log('Bekleyen bildirim bulunamadı');
+        console.log('Hiç bildirim bulunamadı');
         return;
       }
       
       const pendingNotifications: Notification[] = [];
       const processedNotifications: Notification[] = [];
       
-      // Bildirimleri işle
+      // Bildirimleri manuel olarak filtrele
       snapshot.forEach((childSnapshot) => {
         const id = childSnapshot.key;
         const notificationData = childSnapshot.val();
         
-        pendingNotifications.push({
-          id: id || '',
-          ...notificationData
-        });
+        // Sadece 'pending' durumundaki bildirimleri işle
+        if (notificationData.status === 'pending') {
+          pendingNotifications.push({
+            id: id || '',
+            ...notificationData
+          });
+        }
       });
+      
+      if (pendingNotifications.length === 0) {
+        console.log('Bekleyen bildirim bulunamadı');
+        return;
+      }
       
       console.log(`${pendingNotifications.length} adet bekleyen bildirim bulundu`);
       
@@ -166,7 +275,7 @@ class NotificationService {
           errorCount: result.errorCount
         });
         
-        // İşlenen bildirimleri kaydet (as Notification tipinde)
+        // İşlenen bildirimleri kaydet
         const updatedNotification: Notification = {
           ...notification,
           status,
@@ -198,7 +307,10 @@ class NotificationService {
     body: string
   ): Promise<NotificationStatus> {
     try {
+      console.log(`Bildirim gönderiliyor - Şirket: ${companyId}, Kullanıcılar: ${userIds.join(', ')}`);
+      
       if (!companyId || userIds.length === 0) {
+        console.error('Geçersiz şirket ID veya kullanıcı listesi');
         return {
           success: false,
           message: 'Geçersiz şirket ID veya kullanıcı listesi',
@@ -206,32 +318,44 @@ class NotificationService {
       }
 
       // Bildirim verilerini hazırla
+      const now = Date.now();
+      const uniqueId = `notif_${now}_${Math.random().toString(36).substring(2, 10)}`;
+      
       const notificationData = {
         title,
         body,
-        createdAt: Date.now(),
+        createdAt: now,
         recipients: userIds,
-        status: 'pending' // işleme alındı durumu
+        status: 'pending', // işleme alındı durumu
+        uniqueId: uniqueId, // Benzersiz bir ID ekleyelim
       };
+
+      console.log('Oluşturulan bildirim verisi:', notificationData);
 
       // Bildirimi veritabanına kaydet
       const notificationsRef = ref(database, `companies/${companyId}/notifications`);
       const newNotifRef = push(notificationsRef);
+      
+      console.log(`Yeni bildirim yolu: companies/${companyId}/notifications/${newNotifRef.key}`);
+      
       await set(newNotifRef, notificationData);
+      console.log(`Bildirim başarıyla veritabanına kaydedildi, ID: ${newNotifRef.key}`);
 
       // Bildirimi hemen işlemeye başla
       setTimeout(() => {
+        console.log(`Bildirim işleme süreci başlatılıyor: ${newNotifRef.key}`);
         this.processPendingNotifications(companyId);
       }, 1000);
       
       return {
         success: true,
-        message: 'Bildirim başarıyla kaydedildi ve gönderme kuyruğuna alındı',
+        message: `Bildirim başarıyla kaydedildi ve gönderme kuyruğuna alındı (ID: ${newNotifRef.key})`,
         sentCount: 0,
         errorCount: 0
       };
     } catch (error) {
       console.error('Bildirim gönderme hatası:', error);
+      console.error('Hata detayı:', JSON.stringify(error));
       return {
         success: false,
         message: `Bildirim gönderilirken hata oluştu: ${error}`,

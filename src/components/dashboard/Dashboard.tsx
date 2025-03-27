@@ -313,12 +313,15 @@ const Dashboard: React.FC = () => {
     }
     
     // Tamamlanan görevleri al
+    let completedTasksFromDbCount = 0;
     if (companyData && companyData.completedTasks) {
       Object.entries(companyData.completedTasks).forEach(([taskId, taskDates]: [string, any]) => {
         // Her tarih için
         Object.entries(taskDates).forEach(([date, timeSlots]: [string, any]) => {
           // Her saat için
           Object.entries(timeSlots).forEach(([time, taskData]: [string, any]) => {
+            completedTasksFromDbCount++; // Tamamlanan görev sayacını artır
+            
             // İlgili görevi tasks listesinden bul (atanan personeli almak için)
             const task = tasksList.find(t => t.id === taskId);
             
@@ -358,6 +361,12 @@ const Dashboard: React.FC = () => {
       });
     }
     
+    // Toplam tamamlanan görev sayısı: ana liste + veritabanından gelen
+    const totalCompletedTasks = completedTasksCount + completedTasksFromDbCount;
+    console.log("Toplam tamamlanan görevler:", totalCompletedTasks);
+    console.log("- Ana listeden:", completedTasksCount);
+    console.log("- Veritabanından:", completedTasksFromDbCount);
+    
     // En kötü performans gösteren personelleri hesapla (en çok görev geciktiren)
     const worstPerformers = Object.values(personnelMissedCounts)
       .filter(person => person.missedCount > 0) // Sadece görevi geciktirmiş personelleri al
@@ -369,7 +378,7 @@ const Dashboard: React.FC = () => {
     setStats({
       totalPersonnel: personnelList.length,
       totalTasks, // Sadece tasks altındaki görevleri göster, missedTasks'ı dahil etme
-      completedTasks: completedTasksCount,
+      completedTasks: totalCompletedTasks, // Değiştirildi: Toplam tamamlanan görev sayısı
       pendingTasks: activeTasksCount,
     });
     
@@ -1059,7 +1068,24 @@ const Dashboard: React.FC = () => {
       <AllCompletedTasksModal 
         open={allCompletedTasksModalOpen} 
         onClose={handleCloseAllCompletedTasksModal} 
-        tasks={tasks.filter(task => task.status === 'completed')} 
+        tasks={[
+          // Ana görev listesindeki tamamlanmış görevler
+          ...tasks.filter(task => task.status === 'completed').map(task => {
+            // Personel bilgisini bul
+            const personel = personnel.find(p => p.id === task.personnelId);
+            return {
+              id: task.id,
+              name: task.name,
+              description: task.description || '',
+              // Tamamlanma zamanı varsa kullan, yoksa oluşturulma zamanını kullan
+              completedAt: task.completedAt || task.createdAt,
+              personnelId: task.personnelId,
+              personnelName: personel ? personel.name : 'Atanmamış'
+            };
+          }),
+          // Veritabanından çekilen completedTasks koleksiyonundaki görevler
+          ...allCompletedTasks
+        ].sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0))} // En son tamamlananlar en üstte
       />
     </ScrollableContent>
   );

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Grid, 
   Alert, 
@@ -18,13 +18,28 @@ import {
   Radio,
   Paper,
   styled,
-  ListItemButton
+  ListItemButton,
+  IconButton,
+  Tooltip,
+  Divider,
+  Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button
 } from '@mui/material';
 import MessageComposer from './MessageComposer';
-import NotificationService, { Personnel, getPersonFullName } from '../../services/NotificationService';
+import NotificationService, { Personnel, getPersonFullName, Notification } from '../../services/NotificationService';
 import { useAuth } from '../../contexts/AuthContext';
 import SearchIcon from '@mui/icons-material/Search';
 import FaceIcon from '@mui/icons-material/Face';
+import DeleteIcon from '@mui/icons-material/Delete';
+import MarkEmailReadIcon from '@mui/icons-material/MarkEmailRead';
+import MarkEmailUnreadIcon from '@mui/icons-material/MarkEmailUnread';
+import { format } from 'date-fns';
+import { ref, get } from 'firebase/database';
+import { database } from '../../firebase';
 
 // Özelleştirilmiş bileşenler
 const StyledPaper = styled(Paper)(({ theme }) => ({
@@ -72,6 +87,13 @@ const SinglePersonMessage: React.FC<SinglePersonMessageProps> = ({ personnelId }
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [companyId, setCompanyId] = useState<string | null>(null);
+  
+  // Bildirimler için state'ler
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [notificationToDelete, setNotificationToDelete] = useState<string | null>(null);
   
   const { currentUser } = useAuth();
   
@@ -89,15 +111,17 @@ const SinglePersonMessage: React.FC<SinglePersonMessageProps> = ({ personnelId }
         }
         
         // Kullanıcının şirket ID'sini al
-        const userRef = await NotificationService.getCurrentUserCompany(currentUser.uid);
-        if (!userRef) {
+        const userCompanyId = await NotificationService.getCurrentUserCompany(currentUser.uid);
+        if (!userCompanyId) {
           setError('Şirket bilgisi bulunamadı.');
           setLoading(false);
           return;
         }
         
+        setCompanyId(userCompanyId);
+        
         // Tüm personeli getir
-        const personnelList = await NotificationService.getAllPersonnel(userRef);
+        const personnelList = await NotificationService.getAllPersonnel(userCompanyId);
         setPersonnel(personnelList);
       } catch (error) {
         console.error('Personel yüklenirken hata:', error);
@@ -120,6 +144,73 @@ const SinglePersonMessage: React.FC<SinglePersonMessageProps> = ({ personnelId }
       }
     }
   }, [personnelId, personnel]);
+  
+  // Tüm bildirimleri yükle - personel seçimi olmadan
+  const loadAllNotifications = useCallback(async () => {
+    try {
+      setLoadingNotifications(true);
+      
+      if (!companyId) {
+        console.error('Şirket ID bulunamadı');
+        setLoadingNotifications(false);
+        return;
+      }
+      
+      console.log(`Tüm bildirimler yükleniyor - Şirket: ${companyId}`);
+      
+      // Tüm bildirimleri almak için direkt koleksiyona erişim
+      const notificationsRef = ref(database, `companies/${companyId}/notifications`);
+      const snapshot = await get(notificationsRef);
+      
+      const notificationsList: Notification[] = [];
+      
+      if (snapshot.exists()) {
+        snapshot.forEach((childSnapshot) => {
+          const id = childSnapshot.key;
+          const data = childSnapshot.val();
+          
+          console.log(`Bildirim yükleniyor - ID: ${id}, Status: ${data.status}`);
+          
+          notificationsList.push({
+            id: id || '',
+            ...data
+          });
+        });
+        
+        // Tarihe göre sırala (en yenisi en üstte)
+        notificationsList.sort((a, b) => b.createdAt - a.createdAt);
+        
+        console.log(`Toplam ${notificationsList.length} bildirim bulundu`);
+      } else {
+        console.log('Bildirim verisi bulunamadı');
+      }
+      
+      setNotifications(notificationsList);
+      setLoadingNotifications(false);
+    } catch (err) {
+      console.error('Bildirimler yüklenirken hata:', err);
+      setLoadingNotifications(false);
+    }
+  }, [companyId]);
+
+  // Alıcı personel adlarını al
+  const getRecipientNames = useCallback((recipients: string[]) => {
+    if (!recipients || recipients.length === 0) return "Alıcı yok";
+    
+    const recipientPersonnel = recipients.map(id => {
+      const person = personnel.find(p => p.id === id);
+      return person ? getPersonFullName(person) : "Bilinmeyen Personel";
+    });
+    
+    return recipientPersonnel.join(", ");
+  }, [personnel]);
+
+  // Component yüklendiğinde tüm bildirimleri al
+  useEffect(() => {
+    if (companyId) {
+      loadAllNotifications();
+    }
+  }, [companyId, loadAllNotifications]);
   
   // Personel seçimi
   const handlePersonChange = (id: string) => {
@@ -159,8 +250,10 @@ const SinglePersonMessage: React.FC<SinglePersonMessageProps> = ({ personnelId }
       
       if (result.success) {
         setSuccessMessage(`Bildirim başarıyla gönderildi.`);
-        // Seçimi temizleme - isteğe bağlı
-        // setSelectedPersonId(null);
+        // Bildirimleri yeniden yükle
+        setTimeout(() => {
+          loadAllNotifications();
+        }, 1000);
       } else {
         setError(result.message);
       }
@@ -169,6 +262,37 @@ const SinglePersonMessage: React.FC<SinglePersonMessageProps> = ({ personnelId }
       setError('Bildirim gönderilirken bir hata oluştu.');
     } finally {
       setSending(false);
+    }
+  };
+  
+  // Bildirim silme işlemini başlat
+  const handleDeleteClick = (notificationId: string) => {
+    setNotificationToDelete(notificationId);
+    setDeleteDialogOpen(true);
+  };
+  
+  // Bildirimi sil
+  const handleConfirmDelete = async () => {
+    if (!notificationToDelete || !companyId) {
+      setDeleteDialogOpen(false);
+      return;
+    }
+    
+    try {
+      const success = await NotificationService.deleteNotification(companyId, notificationToDelete);
+      if (success) {
+        setSuccessMessage('Bildirim başarıyla silindi.');
+        // Listeyi güncelle
+        setNotifications(prev => prev.filter(n => n.id !== notificationToDelete));
+      } else {
+        setError('Bildirim silinirken bir hata oluştu.');
+      }
+    } catch (error) {
+      console.error('Bildirim silinirken hata:', error);
+      setError('Bildirim silinirken bir hata oluştu.');
+    } finally {
+      setDeleteDialogOpen(false);
+      setNotificationToDelete(null);
     }
   };
   
@@ -185,6 +309,17 @@ const SinglePersonMessage: React.FC<SinglePersonMessageProps> = ({ personnelId }
   
   // Seçili personel bulma
   const selectedPerson = personnel.find(p => p.id === selectedPersonId);
+  
+  // Tarih formatı
+  const formatDate = (timestamp: number) => {
+    try {
+      const date = new Date(timestamp);
+      return format(date, 'dd MMMM yyyy HH:mm');
+    } catch (error) {
+      console.error('Tarih formatlanırken hata:', error);
+      return 'Geçersiz tarih';
+    }
+  };
   
   return (
     <Box>
@@ -303,8 +438,211 @@ const SinglePersonMessage: React.FC<SinglePersonMessageProps> = ({ personnelId }
               recipientCount={selectedPersonId ? 1 : 0}
             />
           </Grid>
+          
+          {/* Gönderilen Bildirimler - Artık companyId varlığına bağlı */}
+          {companyId && (
+            <Grid item xs={12}>
+              <StyledPaper elevation={0} sx={{ mt: 2 }}>
+                <HeaderArea sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Box>
+                    <Typography variant="h6" gutterBottom>
+                      Gönderilen Bildirimler
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Sistemde kayıtlı tüm bildirimler
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Button 
+                      variant="outlined" 
+                      size="small" 
+                      onClick={loadAllNotifications}
+                    >
+                      Yenile
+                    </Button>
+                    <Chip 
+                      label={`${notifications.length} Bildirim`} 
+                      color="primary" 
+                      variant="outlined" 
+                      size="small" 
+                    />
+                  </Box>
+                </HeaderArea>
+                
+                {loadingNotifications ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                    <CircularProgress size={24} />
+                  </Box>
+                ) : notifications.length === 0 ? (
+                  <Box sx={{ p: 4, textAlign: 'center' }}>
+                    <Typography color="text.secondary">
+                      Henüz gönderilmiş bildirim bulunmuyor.
+                    </Typography>
+                    <Button 
+                      variant="outlined" 
+                      size="small" 
+                      color="primary" 
+                      onClick={loadAllNotifications}
+                      sx={{ mt: 2 }}
+                    >
+                      Bildirimleri Yenile
+                    </Button>
+                  </Box>
+                ) : (
+                  <List sx={{ width: '100%' }}>
+                    {notifications.map((notification) => {
+                      // Bildirimin durumuna göre renklendirme
+                      const statusColor = notification.status === 'sent' 
+                        ? 'success.light'
+                        : notification.status === 'pending' 
+                          ? 'warning.light' 
+                          : 'success.light';
+                          
+                      const statusText = notification.status === 'sent' 
+                        ? 'Gönderildi'
+                        : notification.status === 'pending' 
+                          ? 'Beklemede' 
+                          : 'Gönderildi';
+                      
+                      // Okundu bilgisi kontrolü
+                      const isReadByAnyone = notification.read && notification.read.length > 0;
+                      const readByNames = isReadByAnyone && notification.read ? 
+                        notification.read.map(id => {
+                          const person = personnel.find(p => p.id === id);
+                          return person ? getPersonFullName(person) : "Bilinmeyen Personel";
+                        }).join(", ") : "";
+                      
+                      return (
+                        <React.Fragment key={notification.id}>
+                          <ListItem
+                            secondaryAction={
+                              <Box>
+                                <Tooltip title="Bildirimi Sil">
+                                  <IconButton 
+                                    edge="end" 
+                                    aria-label="delete"
+                                    onClick={() => handleDeleteClick(notification.id)}
+                                    color="error"
+                                  >
+                                    <DeleteIcon />
+                                  </IconButton>
+                                </Tooltip>
+                              </Box>
+                            }
+                            sx={{ 
+                              borderLeft: '4px solid',
+                              borderLeftColor: statusColor,
+                              backgroundColor: isReadByAnyone ? 'rgba(0, 200, 0, 0.05)' : 'transparent'
+                            }}
+                          >
+                            <ListItemAvatar>
+                              <Avatar sx={{ 
+                                bgcolor: isReadByAnyone ? 'success.main' : statusColor,
+                                color: 'white'
+                              }}>
+                                {isReadByAnyone ? <MarkEmailReadIcon /> : <MarkEmailUnreadIcon />}
+                              </Avatar>
+                            </ListItemAvatar>
+                            <ListItemText
+                              primary={
+                                <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                                  <Typography variant="subtitle1" fontWeight="bold">
+                                    {notification.title}
+                                  </Typography>
+                                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mt: 0.5 }}>
+                                    <Chip 
+                                      label={statusText} 
+                                      size="small" 
+                                      color={
+                                        notification.status === 'sent' 
+                                          ? 'success'
+                                          : notification.status === 'pending' 
+                                            ? 'warning' 
+                                            : 'success'
+                                      }
+                                      sx={{ height: 20, fontSize: '0.7rem' }}
+                                    />
+                                    {isReadByAnyone && (
+                                      <Chip 
+                                        label="Okundu" 
+                                        size="small"
+                                        color="success"
+                                        sx={{ height: 20, fontSize: '0.7rem' }}
+                                      />
+                                    )}
+                                    <Typography variant="caption" color="text.secondary">
+                                      Gönderilme: {formatDate(notification.createdAt)}
+                                    </Typography>
+                                  </Box>
+                                </Box>
+                              }
+                              secondary={
+                                <Box>
+                                  <Typography variant="body2" color="text.primary" sx={{ mt: 1 }}>
+                                    {notification.body}
+                                  </Typography>
+                                  
+                                  <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                                      <strong>Alıcılar:</strong> {notification.recipients ? getRecipientNames(notification.recipients) : "Alıcı belirtilmemiş"}
+                                    </Typography>
+                                    
+                                    {isReadByAnyone && (
+                                      <Typography variant="caption" color="success.main" sx={{ display: 'block' }}>
+                                        <strong>Okuyanlar:</strong> {readByNames}
+                                      </Typography>
+                                    )}
+                                    
+                                    {notification.readAt && (
+                                      <Typography variant="caption" color="text.secondary">
+                                        Okunma: {formatDate(notification.readAt)}
+                                      </Typography>
+                                    )}
+                                    
+                                    {notification.sentAt && (
+                                      <Typography variant="caption" color="text.secondary">
+                                        İşlenme: {formatDate(notification.sentAt)}
+                                      </Typography>
+                                    )}
+                                    
+                                    {notification.sentCount && notification.sentCount > 0 && (
+                                      <Typography variant="caption" color="success.main">
+                                        {notification.sentCount} alıcıya gönderildi
+                                      </Typography>
+                                    )}
+                                  </Box>
+                                </Box>
+                              }
+                            />
+                          </ListItem>
+                          <Divider variant="inset" component="li" />
+                        </React.Fragment>
+                      );
+                    })}
+                  </List>
+                )}
+              </StyledPaper>
+            </Grid>
+          )}
         </Grid>
       )}
+      
+      {/* Bildirim Silme Onay Dialog */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={() => setDeleteDialogOpen(false)}
+      >
+        <DialogTitle>Bildirimi Sil</DialogTitle>
+        <DialogContent>
+          <Typography>Bu bildirimi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialogOpen(false)}>İptal</Button>
+          <Button onClick={handleConfirmDelete} color="error" variant="contained">
+            Sil
+          </Button>
+        </DialogActions>
+      </Dialog>
       
       {/* Başarı bildirimi */}
       <Snackbar
