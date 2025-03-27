@@ -100,9 +100,10 @@ const ToggleButton = styled(IconButton)(({ theme }) => ({
 interface SidebarProps {
   openMobile?: boolean;
   onCloseMobile?: () => void;
+  onCollapse: (isCollapsed: boolean) => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ openMobile, onCloseMobile }) => {
+const Sidebar: React.FC<SidebarProps> = ({ openMobile, onCloseMobile, onCollapse }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { logout } = useAuth();
@@ -129,7 +130,9 @@ const Sidebar: React.FC<SidebarProps> = ({ openMobile, onCloseMobile }) => {
   };
 
   const toggleSidebar = () => {
-    setIsCollapsed(!isCollapsed);
+    const newCollapsedState = !isCollapsed;
+    setIsCollapsed(newCollapsedState);
+    onCollapse(newCollapsedState);
   };
 
   return (
