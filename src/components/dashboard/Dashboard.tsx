@@ -30,7 +30,13 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions
+  DialogActions,
+  TableContainer,
+  Table,
+  TableHead,
+  TableBody,
+  TableRow,
+  TableCell
 } from '@mui/material';
 import {
   PeopleOutline as PeopleIcon,
@@ -1106,52 +1112,50 @@ const Dashboard: React.FC = () => {
               }
             />
             <Divider />
-            <CardContent sx={{ flexGrow: 1, overflow: 'auto', maxHeight: 250 }}>
-              <List dense>
-                {recentMissedTasks.length === 0 ? (
-                  <Typography variant="body2" color="textSecondary" align="center" sx={{ py: 2 }}>
-                    Henüz geciken görev bulunmuyor
-                  </Typography>
-                ) : (
-                  recentMissedTasks.map((task) => (
-                    <ListItem key={task.id} divider>
-                      <ListItemAvatar>
-                        <Avatar sx={{ width: 32, height: 32, bgcolor: '#F44336' }}>
-                          <TaskIcon fontSize="small" />
-                        </Avatar>
-                      </ListItemAvatar>
-                      <ListItemText 
-                        primary={
-                          <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.5 }}>
-                            <Typography variant="body2">{task.name}</Typography>
+            <CardContent>
+              {recentMissedTasks.length === 0 ? (
+                <Typography variant="body2" color="textSecondary" align="center" sx={{ py: 2 }}>
+                  Henüz geciken görev bulunmuyor
+                </Typography>
+              ) : (
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Görev Adı</TableCell>
+                        <TableCell>Personel</TableCell>
+                        <TableCell>Tarih</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {recentMissedTasks.map((task) => (
+                        <TableRow key={task.id} hover>
+                          <TableCell>
+                            <Typography variant="body2" noWrap>
+                              {task.name}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
                             {task.personnelName && (
-                              <Typography variant="caption" 
-                                sx={{ 
-                                  bgcolor: theme.palette.grey[100], 
-                                  px: 0.5, 
-                                  py: 0.25, 
-                                  borderRadius: 0.5,
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: 0.25
-                                }}
-                              >
-                                <PersonIcon fontSize="inherit" color="primary" />
-                                {task.personnelName}
-                              </Typography>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                <PersonIcon fontSize="small" color="primary" />
+                                <Typography variant="body2" noWrap>
+                                  {task.personnelName}
+                                </Typography>
+                              </Box>
                             )}
-                          </Box>
-                        }
-                        secondary={
-                          <Typography variant="caption">
-                            {`${task.time} - ${task.date}`}
-                          </Typography>
-                        }
-                      />
-                    </ListItem>
-                  ))
-                )}
-              </List>
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2" noWrap>
+                              {`${task.time} - ${task.date}`}
+                            </Typography>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
             </CardContent>
           </StyledCard>
         </Grid>
@@ -1173,52 +1177,50 @@ const Dashboard: React.FC = () => {
               }
             />
             <Divider />
-            <CardContent sx={{ flexGrow: 1, overflow: 'auto', maxHeight: 250 }}>
-              <List dense>
-                {recentCompletedTasks.length === 0 ? (
-                  <Typography variant="body2" color="textSecondary" align="center" sx={{ py: 2 }}>
-                    Henüz tamamlanan görev bulunmuyor
-                  </Typography>
-                ) : (
-                  recentCompletedTasks.map((task) => (
-                    <ListItem key={task.id} divider>
-                      <ListItemAvatar>
-                        <Avatar sx={{ width: 32, height: 32, bgcolor: THEME_COLORS.completed }}>
-                          <TaskIcon fontSize="small" />
-                        </Avatar>
-                      </ListItemAvatar>
-                      <ListItemText 
-                        primary={
-                          <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.5 }}>
-                            <Typography variant="body2">{task.name}</Typography>
+            <CardContent>
+              {recentCompletedTasks.length === 0 ? (
+                <Typography variant="body2" color="textSecondary" align="center" sx={{ py: 2 }}>
+                  Henüz tamamlanan görev bulunmuyor
+                </Typography>
+              ) : (
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Görev Adı</TableCell>
+                        <TableCell>Personel</TableCell>
+                        <TableCell>Tarih</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {recentCompletedTasks.map((task) => (
+                        <TableRow key={task.id} hover>
+                          <TableCell>
+                            <Typography variant="body2" noWrap>
+                              {task.name}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
                             {task.personnelName && (
-                              <Typography variant="caption" 
-                                sx={{ 
-                                  bgcolor: theme.palette.grey[100], 
-                                  px: 0.5, 
-                                  py: 0.25, 
-                                  borderRadius: 0.5,
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: 0.25
-                                }}
-                              >
-                                <PersonIcon fontSize="inherit" color="success" />
-                                {task.personnelName}
-                              </Typography>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                <PersonIcon fontSize="small" color="success" />
+                                <Typography variant="body2" noWrap>
+                                  {task.personnelName}
+                                </Typography>
+                              </Box>
                             )}
-                          </Box>
-                        }
-                        secondary={
-                          <Typography variant="caption">
-                            {`${task.time} - ${task.date}`}
-                          </Typography>
-                        }
-                      />
-                    </ListItem>
-                  ))
-                )}
-              </List>
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2" noWrap>
+                              {`${task.time} - ${task.date}`}
+                            </Typography>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
             </CardContent>
           </StyledCard>
         </Grid>
