@@ -36,7 +36,9 @@ import {
   TableHead,
   TableBody,
   TableRow,
-  TableCell
+  TableCell,
+  TextField,
+  InputAdornment
 } from '@mui/material';
 import {
   PeopleOutline as PeopleIcon,
@@ -45,7 +47,8 @@ import {
   PendingOutlined as PendingIcon,
   Person as PersonIcon,
   LocationOn as LocationIcon,
-  InfoOutlined as InfoIcon
+  InfoOutlined as InfoIcon,
+  Search as SearchIcon
 } from '@mui/icons-material';
 import { ref, get, onValue, off } from 'firebase/database';
 import { database, auth } from '../../firebase';
@@ -274,6 +277,10 @@ const Dashboard: React.FC = () => {
   const [worstPerformers, setWorstPerformers] = useState<any[]>([]);
   const theme = useTheme();
   const navigate = useNavigate();
+  
+  // Arama için state'ler
+  const [personnelSearchTerm, setPersonnelSearchTerm] = useState('');
+  const [taskSearchTerm, setTaskSearchTerm] = useState('');
   
   // New state for map features
   const [taskLocations, setTaskLocations] = useState<any[]>([]);
@@ -1355,13 +1362,36 @@ const Dashboard: React.FC = () => {
                   })}
                 </Box>
               )}
+              onClose={() => setPersonnelSearchTerm('')}
             >
-              {personnel.map((person) => (
-                <MenuItem key={person.id} value={person.id}>
-                  <Checkbox checked={selectedPersonnel.indexOf(person.id) > -1} />
-                  <ListItemText primary={person.name} />
-                </MenuItem>
-              ))}
+              <ListItem>
+                <TextField
+                  size="small"
+                  autoFocus
+                  placeholder="Personel Ara..."
+                  fullWidth
+                  value={personnelSearchTerm}
+                  onChange={(e) => setPersonnelSearchTerm(e.target.value)}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </ListItem>
+              {personnel
+                .filter(person => 
+                  personnelSearchTerm === '' || 
+                  person.name.toLowerCase().includes(personnelSearchTerm.toLowerCase())
+                )
+                .map((person) => (
+                  <MenuItem key={person.id} value={person.id}>
+                    <Checkbox checked={selectedPersonnel.indexOf(person.id) > -1} />
+                    <ListItemText primary={person.name} />
+                  </MenuItem>
+                ))}
             </Select>
           </FormControl>
           
@@ -1386,13 +1416,36 @@ const Dashboard: React.FC = () => {
                   })}
                 </Box>
               )}
+              onClose={() => setTaskSearchTerm('')}
             >
-              {tasks.map((task) => (
-                <MenuItem key={task.id} value={task.id}>
-                  <Checkbox checked={selectedTasks.indexOf(task.id) > -1} />
-                  <ListItemText primary={task.name} />
-                </MenuItem>
-              ))}
+              <ListItem>
+                <TextField
+                  size="small"
+                  autoFocus
+                  placeholder="Görev Ara..."
+                  fullWidth
+                  value={taskSearchTerm}
+                  onChange={(e) => setTaskSearchTerm(e.target.value)}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </ListItem>
+              {tasks
+                .filter(task => 
+                  taskSearchTerm === '' || 
+                  task.name.toLowerCase().includes(taskSearchTerm.toLowerCase())
+                )
+                .map((task) => (
+                  <MenuItem key={task.id} value={task.id}>
+                    <Checkbox checked={selectedTasks.indexOf(task.id) > -1} />
+                    <ListItemText primary={task.name} />
+                  </MenuItem>
+                ))}
             </Select>
           </FormControl>
           
