@@ -25,7 +25,12 @@ import {
   ListItemButton,
   FormControlLabel,
   Chip,
-  SelectChangeEvent
+  SelectChangeEvent,
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions
 } from '@mui/material';
 import {
   PeopleOutline as PeopleIcon,
@@ -33,7 +38,8 @@ import {
   CheckCircleOutline as CompletedIcon,
   PendingOutlined as PendingIcon,
   Person as PersonIcon,
-  LocationOn as LocationIcon
+  LocationOn as LocationIcon,
+  InfoOutlined as InfoIcon
 } from '@mui/icons-material';
 import { ref, get, onValue, off } from 'firebase/database';
 import { database, auth } from '../../firebase';
@@ -42,7 +48,7 @@ import {
   Pie, 
   Cell, 
   ResponsiveContainer, 
-  Tooltip, 
+  Tooltip as RechartsTooltip,
   Legend,
   BarChart,
   Bar,
@@ -51,7 +57,7 @@ import {
   CartesianGrid,
   LabelList
 } from 'recharts';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap, Tooltip } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import MissedTasksModal from './MissedTasksModal';
@@ -185,11 +191,19 @@ const MapCard = styled(Card)(({ theme }) => ({
   boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
   borderRadius: 12,
   overflow: 'hidden',
-  marginBottom: theme.spacing(4)
 }));
 
 const MapContainerWrapper = styled(Box)(({ theme }) => ({
   height: 400,
+  [theme.breakpoints.up('md')]: {
+    height: 500, // Orta boyutlu ekranlarda (tablet)
+  },
+  [theme.breakpoints.up('lg')]: {
+    height: 600, // Büyük ekranlarda
+  },
+  [theme.breakpoints.up('xl')]: {
+    height: 700, // Çok büyük ekranlarda
+  },
   width: '100%',
   '& .leaflet-container': {
     height: '100%',
@@ -241,6 +255,10 @@ const Dashboard: React.FC = () => {
   const [selectedPersonnel, setSelectedPersonnel] = useState<string[]>([]);
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
   const [allTasksWithLocation, setAllTasksWithLocation] = useState<any[]>([]);
+  
+  // Görev durum dağılımı ve personel performansı için açıklama modalları için state
+  const [taskStatusInfoModalOpen, setTaskStatusInfoModalOpen] = useState(false);
+  const [personnelPerformanceInfoModalOpen, setPersonnelPerformanceInfoModalOpen] = useState(false);
   
   // Modal pencereleri için işlevler
   const handleOpenMissedTasksModal = () => {
@@ -472,25 +490,27 @@ const Dashboard: React.FC = () => {
     
     // Görev durumu verilerini hazırla
     setTaskStatusData([
-      { name: 'Tamamlanan', value: completedTasksCount, color: THEME_COLORS.completed },
+      { name: 'Tamamlanan', value: totalCompletedTasks, color: THEME_COLORS.completed }, // Tüm tamamlanan görevler (ana liste + veritabanı)
       { name: 'Devam Eden', value: activeTasksCount, color: '#1976D2' }, // Mavi
       { name: 'Bekleyen', value: waitingTasksCount, color: '#2196F3' }, // Açık Mavi
-      { name: 'Pending', value: pendingTasksCount, color: THEME_COLORS.pending }, // Turuncu
+      { name: 'Bekliyor', value: pendingTasksCount, color: THEME_COLORS.pending }, // Turuncu
       { name: 'Tamamlanmamış', value: missedTasksCount, color: '#F44336' }, // Kırmızı
     ].filter(item => item.value > 0));
     
     // Personel performans verilerini hazırla
     // Personellerin tamamladığı görev sayılarını hesapla
-    const personnelPerformance: { [key: string]: { completed: number, pending: number, name: string } } = {};
+    const personnelPerformance: { [key: string]: { name: string, completed: number, pending: number, missed: number } } = {};
     
     personnelList.forEach(person => {
       personnelPerformance[person.id] = {
         name: person.name,
-        completed: 0,
-        pending: 0
+        completed: 0,   // Tüm tamamlanan görevler (ana liste + veritabanı)
+        pending: 0,     // Devam eden görevler
+        missed: 0       // Kaçırılan görevler
       };
     });
     
+    // Ana görev listesindeki tamamlanan ve devam eden görevleri hesapla
     tasksList.forEach(task => {
       if (task.personnelId && personnelPerformance[task.personnelId]) {
         if (task.status === 'completed') {
@@ -501,10 +521,61 @@ const Dashboard: React.FC = () => {
       }
     });
     
+    // Veritabanından gelen tamamlanan görevleri hesapla
+    if (companyData && companyData.completedTasks) {
+      Object.entries(companyData.completedTasks).forEach(([taskId, taskDates]: [string, any]) => {
+        Object.entries(taskDates).forEach(([date, timeSlots]: [string, any]) => {
+          Object.entries(timeSlots).forEach(([time, taskData]: [string, any]) => {
+            // Personel bilgisini bul
+            let personnelId = null;
+            
+            // Öncelikle completedBy varsa kullan
+            if (taskData.completedBy) {
+              personnelId = taskData.completedBy;
+            } 
+            // Yoksa ilgili görevi bul ve onun personnelId'sini kullan
+            else {
+              const task = tasksList.find(t => t.id === taskId);
+              if (task && task.personnelId) {
+                personnelId = task.personnelId;
+              }
+            }
+            
+            // Personel bulunabildiyse ve dizinde varsa sayacı artır
+            if (personnelId && personnelPerformance[personnelId]) {
+              personnelPerformance[personnelId].completed += 1;
+            }
+          });
+        });
+      });
+    }
+    
+    // Kaçırılan görevleri hesapla
+    if (companyData && companyData.missedTasks) {
+      Object.entries(companyData.missedTasks).forEach(([taskId, taskDates]: [string, any]) => {
+        Object.entries(taskDates).forEach(([date, timeSlots]: [string, any]) => {
+          Object.entries(timeSlots).forEach(([time, taskData]: [string, any]) => {
+            // İlgili görevi tasks listesinden bul (atanan personeli almak için)
+            const task = tasksList.find(t => t.id === taskId);
+            
+            // Personel bilgisini bul
+            if (task && task.personnelId && personnelPerformance[task.personnelId]) {
+              personnelPerformance[task.personnelId].missed += 1;
+            }
+          });
+        });
+      });
+    }
+    
     // Performans verilerini grafiğe uygun hale getir
     const performanceData = Object.values(personnelPerformance)
-      .filter(p => p.completed > 0 || p.pending > 0) // Sadece görevi olan personelleri göster
-      .sort((a, b) => (b.completed + b.pending) - (a.completed + a.pending)) // Toplam görev sayısına göre sırala
+      .filter(p => p.completed > 0 || p.pending > 0 || p.missed > 0) // Görevi olan personelleri göster
+      .sort((a, b) => {
+        // Toplam görev sayısına göre sırala (tüm kategoriler)
+        const totalA = a.completed + a.pending + a.missed;
+        const totalB = b.completed + b.pending + b.missed;
+        return totalB - totalA;
+      })
       .slice(0, 5); // İlk 5 personeli al
     
     setPersonnelPerformanceData(performanceData);
@@ -737,8 +808,9 @@ const Dashboard: React.FC = () => {
   
   // Personel performans grafiği için renkler
   const PERFORMANCE_COLORS = {
-    completed: THEME_COLORS.completed,
-    pending: '#1976D2' // Devam eden görevler için mavi
+    completed: THEME_COLORS.completed, // Tamamlanan görevler için yeşil
+    pending: '#1976D2',                // Devam eden görevler için mavi
+    missed: '#F44336'                  // Kaçırılan görevler için kırmızı
   };
   
   const CustomTooltip = ({ active, payload, label, performanceChart }: any) => {
@@ -754,6 +826,10 @@ const Dashboard: React.FC = () => {
             <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mt: 0.5 }}>
               <Box sx={{ width: 10, height: 10, bgcolor: PERFORMANCE_COLORS.pending, borderRadius: '50%' }} />
               <Typography variant="body2">Devam Eden: {payload[1]?.value}</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mt: 0.5 }}>
+              <Box sx={{ width: 10, height: 10, bgcolor: PERFORMANCE_COLORS.missed, borderRadius: '50%' }} />
+              <Typography variant="body2">Kaçırılan: {payload[2]?.value}</Typography>
             </Box>
           </Box>
         );
@@ -771,6 +847,23 @@ const Dashboard: React.FC = () => {
     }
     
     return null;
+  };
+  
+  // Modal açma/kapama fonksiyonları
+  const handleTaskStatusInfoOpen = () => {
+    setTaskStatusInfoModalOpen(true);
+  };
+
+  const handleTaskStatusInfoClose = () => {
+    setTaskStatusInfoModalOpen(false);
+  };
+
+  const handlePersonnelPerformanceInfoOpen = () => {
+    setPersonnelPerformanceInfoModalOpen(true);
+  };
+
+  const handlePersonnelPerformanceInfoClose = () => {
+    setPersonnelPerformanceInfoModalOpen(false);
   };
   
   return (
@@ -859,9 +952,14 @@ const Dashboard: React.FC = () => {
         {/* Görev Durumu Dağılım Grafiği */}
         <Grid item xs={12} md={6}>
           <ChartContainer>
-            <Typography variant="h6" fontWeight="bold" gutterBottom>
-              Görev Durumu Dağılımı
-            </Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+              <Typography variant="h6" fontWeight="bold">
+                Görev Durumu Dağılımı
+              </Typography>
+              <IconButton onClick={handleTaskStatusInfoOpen} size="small">
+                <InfoIcon />
+              </IconButton>
+            </Box>
             <Divider sx={{ mb: 2 }} />
             
             {taskStatusData.length === 0 ? (
@@ -875,18 +973,31 @@ const Dashboard: React.FC = () => {
                     data={taskStatusData}
                     cx="50%"
                     cy="50%"
-                    outerRadius={80}
+                    outerRadius={100}
                     fill="#8884d8"
                     dataKey="value"
                     labelLine={false}
-                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                    label={false}
                   >
                     {taskStatusData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color || COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip content={<CustomTooltip />} />
-                  <Legend verticalAlign="bottom" height={36} />
+                  <RechartsTooltip content={<CustomTooltip />} />
+                  <Legend 
+                    verticalAlign="bottom" 
+                    height={36} 
+                    formatter={(value, entry, index) => {
+                      // Toplam değeri hesapla
+                      const total = taskStatusData.reduce((sum, item) => sum + item.value, 0);
+                      
+                      // İlgili öğenin yüzdesini hesapla
+                      const percent = total > 0 ? ((taskStatusData[index].value / total) * 100).toFixed(0) : 0;
+                      
+                      // Adı ve yüzdeyi birlikte göster
+                      return `${value} (%${percent})`;
+                    }}
+                  />
                 </PieChart>
               </ResponsiveContainer>
             )}
@@ -896,9 +1007,14 @@ const Dashboard: React.FC = () => {
         {/* Personel Performans Grafiği */}
         <Grid item xs={12} md={6}>
           <ChartContainer>
-            <Typography variant="h6" fontWeight="bold" gutterBottom>
-              Personel Performansı
-            </Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+              <Typography variant="h6" fontWeight="bold">
+                Personel Performansı
+              </Typography>
+              <IconButton onClick={handlePersonnelPerformanceInfoOpen} size="small">
+                <InfoIcon />
+              </IconButton>
+            </Box>
             <Divider sx={{ mb: 2 }} />
             
             {personnelPerformanceData.length === 0 ? (
@@ -920,7 +1036,7 @@ const Dashboard: React.FC = () => {
                     tick={{ fontSize: 12 }}
                     width={100}
                   />
-                  <Tooltip content={<CustomTooltip performanceChart={true} />} />
+                  <RechartsTooltip content={<CustomTooltip performanceChart={true} />} />
                   <Legend verticalAlign="bottom" height={36} />
                   <Bar 
                     dataKey="completed" 
@@ -940,180 +1056,21 @@ const Dashboard: React.FC = () => {
                   >
                     <LabelList dataKey="pending" position="right" style={{ fill: theme.palette.text.primary }} />
                   </Bar>
+                  <Bar 
+                    dataKey="missed" 
+                    stackId="a" 
+                    fill={PERFORMANCE_COLORS.missed} 
+                    name="Kaçırılan"
+                    barSize={20}
+                  >
+                    <LabelList dataKey="missed" position="right" style={{ fill: theme.palette.text.primary }} />
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             )}
           </ChartContainer>
         </Grid>
       </Grid>
-      
-      {/* Harita Bileşeni */}
-      <MapCard>
-        <CardHeader 
-          title="Görev Tamamlama Konumları" 
-          titleTypographyProps={{ fontWeight: 'bold' }}
-          avatar={<Avatar sx={{ bgcolor: THEME_COLORS.completed }}><LocationIcon /></Avatar>}
-        />
-        <Divider />
-        
-        <FilterContainer>
-          <FormControl sx={{ minWidth: 150 }}>
-            <InputLabel>Son Görevler</InputLabel>
-            <Select
-              value={selectedTaskCount}
-              label="Son Görevler"
-              onChange={handleTaskCountChange}
-            >
-              <MenuItem value={10}>Son 10 Görev</MenuItem>
-              <MenuItem value={20}>Son 20 Görev</MenuItem>
-              <MenuItem value={30}>Son 30 Görev</MenuItem>
-              <MenuItem value={50}>Son 50 Görev</MenuItem>
-              <MenuItem value={100}>Son 100 Görev</MenuItem>
-            </Select>
-          </FormControl>
-          
-          <FormControl sx={{ minWidth: 200, maxWidth: 300 }}>
-            <InputLabel>Personel Filtrele</InputLabel>
-            <Select
-              multiple
-              value={selectedPersonnel}
-              label="Personel Filtrele"
-              onChange={handlePersonnelChange}
-              renderValue={(selected) => (
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                  {(selected as string[]).map((value) => {
-                    const person = personnel.find(p => p.id === value);
-                    return (
-                      <Chip 
-                        key={value} 
-                        label={person ? person.name : value} 
-                        size="small" 
-                      />
-                    );
-                  })}
-                </Box>
-              )}
-            >
-              {personnel.map((person) => (
-                <MenuItem key={person.id} value={person.id}>
-                  <Checkbox checked={selectedPersonnel.indexOf(person.id) > -1} />
-                  <ListItemText primary={person.name} />
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          
-          <FormControl sx={{ minWidth: 200, maxWidth: 300 }}>
-            <InputLabel>Görev Filtrele</InputLabel>
-            <Select
-              multiple
-              value={selectedTasks}
-              label="Görev Filtrele"
-              onChange={handleTaskChange}
-              renderValue={(selected) => (
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                  {(selected as string[]).map((value) => {
-                    const task = tasks.find(t => t.id === value);
-                    return (
-                      <Chip 
-                        key={value} 
-                        label={task ? task.name : value} 
-                        size="small" 
-                      />
-                    );
-                  })}
-                </Box>
-              )}
-            >
-              {tasks.map((task) => (
-                <MenuItem key={task.id} value={task.id}>
-                  <Checkbox checked={selectedTasks.indexOf(task.id) > -1} />
-                  <ListItemText primary={task.name} />
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          
-          <Button 
-            variant="outlined" 
-            color="secondary" 
-            onClick={handleClearFilters}
-            sx={{ height: 40 }}
-          >
-            Filtreleri Temizle
-          </Button>
-          
-          <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center' }}>
-            <Typography variant="body2" color="textSecondary">
-              Toplam: {filteredLocations.length} konum gösteriliyor
-            </Typography>
-          </Box>
-        </FilterContainer>
-        
-        <MapContainerWrapper>
-          {filteredLocations.length === 0 ? (
-            <Box sx={{ height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-              <Typography color="textSecondary">
-                Konum bilgisi olan görev bulunmuyor veya seçilen filtrelere uygun görev yok
-              </Typography>
-            </Box>
-          ) : (
-            <MapContainer 
-              style={{ height: '100%', width: '100%' }}
-              zoom={13} 
-              scrollWheelZoom={true}
-            >
-              <MapView 
-                center={
-                  filteredLocations.length > 0 
-                    ? [filteredLocations[0].location.latitude, filteredLocations[0].location.longitude] as [number, number]
-                    : [39.9334, 32.8597] as [number, number]
-                } 
-                zoom={13} 
-              />
-              
-              <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              />
-              
-              {filteredLocations.map((task, index) => {
-                const icon = createColoredMarkerIcon(getPersonnelColor(task.personnelId, index));
-                return (
-                  <Marker 
-                    key={task.id} 
-                    position={[task.location.latitude, task.location.longitude] as [number, number]} 
-                    icon={icon}
-                  >
-                    <Popup>
-                      <Box sx={{ minWidth: 200 }}>
-                        <Typography variant="subtitle1" fontWeight="bold">{task.name}</Typography>
-                        <Typography variant="body2">{task.description}</Typography>
-                        <Divider sx={{ my: 1 }} />
-                        <Typography variant="body2">
-                          <strong>Personel:</strong> {task.personnelName}
-                        </Typography>
-                        <Typography variant="body2">
-                          <strong>Tarih:</strong> {task.date}
-                        </Typography>
-                        <Typography variant="body2">
-                          <strong>Saat:</strong> {task.time}
-                        </Typography>
-                        <Typography variant="body2">
-                          <strong>Konum:</strong> {task.location.latitude.toFixed(5)}, {task.location.longitude.toFixed(5)}
-                        </Typography>
-                        <Typography variant="body2">
-                          <strong>Doğruluk:</strong> {task.location.accuracy ? `±${task.location.accuracy.toFixed(1)}m` : 'Belirtilmemiş'}
-                        </Typography>
-                      </Box>
-                    </Popup>
-                  </Marker>
-                );
-              })}
-            </MapContainer>
-          )}
-        </MapContainerWrapper>
-      </MapCard>
       
       {/* Geciken ve Tamamlanan Son Görevler */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
@@ -1328,7 +1285,7 @@ const Dashboard: React.FC = () => {
       </Grid>
       
       {/* Alt Kartlar */}
-      <Grid container spacing={3}>
+      <Grid container spacing={3} sx={{ mb: 4 }}>
         {/* Personel Listesi */}
         <Grid item xs={12} md={6}>
           <StyledCard>
@@ -1398,6 +1355,178 @@ const Dashboard: React.FC = () => {
         </Grid>
       </Grid>
       
+      {/* Harita Bileşeni - En alt kısma taşındı */}
+      <MapCard>
+        <CardHeader 
+          title="Görev Tamamlama Konumları" 
+          titleTypographyProps={{ fontWeight: 'bold' }}
+          avatar={<Avatar sx={{ bgcolor: THEME_COLORS.completed }}><LocationIcon /></Avatar>}
+        />
+        <Divider />
+        
+        <FilterContainer>
+          <FormControl sx={{ minWidth: 150 }}>
+            <InputLabel>Son Görevler</InputLabel>
+            <Select
+              value={selectedTaskCount}
+              label="Son Görevler"
+              onChange={handleTaskCountChange}
+            >
+              <MenuItem value={10}>Son 10 Görev</MenuItem>
+              <MenuItem value={20}>Son 20 Görev</MenuItem>
+              <MenuItem value={30}>Son 30 Görev</MenuItem>
+              <MenuItem value={50}>Son 50 Görev</MenuItem>
+              <MenuItem value={100}>Son 100 Görev</MenuItem>
+            </Select>
+          </FormControl>
+          
+          <FormControl sx={{ minWidth: 200, maxWidth: 300 }}>
+            <InputLabel>Personel Filtrele</InputLabel>
+            <Select
+              multiple
+              value={selectedPersonnel}
+              label="Personel Filtrele"
+              onChange={handlePersonnelChange}
+              renderValue={(selected) => (
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                  {(selected as string[]).map((value) => {
+                    const person = personnel.find(p => p.id === value);
+                    return (
+                      <Chip 
+                        key={value} 
+                        label={person ? person.name : value} 
+                        size="small" 
+                      />
+                    );
+                  })}
+                </Box>
+              )}
+            >
+              {personnel.map((person) => (
+                <MenuItem key={person.id} value={person.id}>
+                  <Checkbox checked={selectedPersonnel.indexOf(person.id) > -1} />
+                  <ListItemText primary={person.name} />
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          
+          <FormControl sx={{ minWidth: 200, maxWidth: 300 }}>
+            <InputLabel>Görev Filtrele</InputLabel>
+            <Select
+              multiple
+              value={selectedTasks}
+              label="Görev Filtrele"
+              onChange={handleTaskChange}
+              renderValue={(selected) => (
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                  {(selected as string[]).map((value) => {
+                    const task = tasks.find(t => t.id === value);
+                    return (
+                      <Chip 
+                        key={value} 
+                        label={task ? task.name : value} 
+                        size="small" 
+                      />
+                    );
+                  })}
+                </Box>
+              )}
+            >
+              {tasks.map((task) => (
+                <MenuItem key={task.id} value={task.id}>
+                  <Checkbox checked={selectedTasks.indexOf(task.id) > -1} />
+                  <ListItemText primary={task.name} />
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          
+          <Button 
+            variant="outlined" 
+            color="secondary" 
+            onClick={handleClearFilters}
+            sx={{ height: 40 }}
+          >
+            Filtreleri Temizle
+          </Button>
+          
+          <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center' }}>
+            <Typography variant="body2" color="textSecondary">
+              Toplam: {filteredLocations.length} konum gösteriliyor
+            </Typography>
+          </Box>
+        </FilterContainer>
+        
+        <MapContainerWrapper>
+          {filteredLocations.length === 0 ? (
+            <Box sx={{ height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+              <Typography color="textSecondary">
+                Konum bilgisi olan görev bulunmuyor veya seçilen filtrelere uygun görev yok
+              </Typography>
+            </Box>
+          ) : (
+            <MapContainer 
+              style={{ height: '100%', width: '100%' }}
+              zoom={13} 
+              scrollWheelZoom={true}
+            >
+              <MapView 
+                center={
+                  filteredLocations.length > 0 
+                    ? [filteredLocations[0].location.latitude, filteredLocations[0].location.longitude] as [number, number]
+                    : [39.9334, 32.8597] as [number, number]
+                } 
+                zoom={13} 
+              />
+              
+              <TileLayer
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              />
+              
+              {filteredLocations.map((task, index) => {
+                const icon = createColoredMarkerIcon(getPersonnelColor(task.personnelId, index));
+                return (
+                  <Marker 
+                    key={task.id} 
+                    position={[task.location.latitude, task.location.longitude] as [number, number]} 
+                    icon={icon}
+                  >
+                    <Tooltip permanent={false} direction="top">
+                      <strong>{task.name}</strong><br />
+                      {task.personnelName}
+                    </Tooltip>
+                    <Popup>
+                      <Box sx={{ minWidth: 200 }}>
+                        <Typography variant="subtitle1" fontWeight="bold">{task.name}</Typography>
+                        <Typography variant="body2">{task.description}</Typography>
+                        <Divider sx={{ my: 1 }} />
+                        <Typography variant="body2">
+                          <strong>Personel:</strong> {task.personnelName}
+                        </Typography>
+                        <Typography variant="body2">
+                          <strong>Tarih:</strong> {task.date}
+                        </Typography>
+                        <Typography variant="body2">
+                          <strong>Saat:</strong> {task.time}
+                        </Typography>
+                        <Typography variant="body2">
+                          <strong>Konum:</strong> {task.location.latitude.toFixed(5)}, {task.location.longitude.toFixed(5)}
+                        </Typography>
+                        <Typography variant="body2">
+                          <strong>Doğruluk:</strong> {task.location.accuracy ? `±${task.location.accuracy.toFixed(1)}m` : 'Belirtilmemiş'}
+                        </Typography>
+                      </Box>
+                    </Popup>
+                  </Marker>
+                );
+              })}
+            </MapContainer>
+          )}
+        </MapContainerWrapper>
+      </MapCard>
+      
       {/* Modal Pencereler */}
       <MissedTasksModal 
         open={missedTasksModalOpen} 
@@ -1440,6 +1569,139 @@ const Dashboard: React.FC = () => {
           ...allCompletedTasks
         ].sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0))} // En son tamamlananlar en üstte
       />
+      
+      {/* Bilgi modalları */}
+      <Dialog open={taskStatusInfoModalOpen} onClose={handleTaskStatusInfoClose} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          <Box display="flex" alignItems="center">
+            <InfoIcon sx={{ mr: 1, color: 'primary.main' }} />
+            Görev Durumu Dağılımı Hakkında
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Typography paragraph>
+            Bu grafik şirketteki tüm görevlerin durum dağılımını göstermektedir. Her dilim bir görev durumunu temsil eder:
+          </Typography>
+          <List>
+            <ListItem>
+              <ListItemAvatar>
+                <Avatar sx={{ bgcolor: THEME_COLORS.completed }}>
+                  <CompletedIcon />
+                </Avatar>
+              </ListItemAvatar>
+              <ListItemText 
+                primary="Tamamlanan" 
+                secondary="Ana görev listesindeki tamamlanan görevler ile veritabanındaki tamamlanan görevlerin toplamı"
+              />
+            </ListItem>
+            <ListItem>
+              <ListItemAvatar>
+                <Avatar sx={{ bgcolor: '#1976D2' }}>
+                  <TaskIcon />
+                </Avatar>
+              </ListItemAvatar>
+              <ListItemText 
+                primary="Devam Eden" 
+                secondary="Personel tarafından kabul edilmiş veya atanmış durumda olan görevler"
+              />
+            </ListItem>
+            <ListItem>
+              <ListItemAvatar>
+                <Avatar sx={{ bgcolor: '#2196F3' }}>
+                  <TaskIcon />
+                </Avatar>
+              </ListItemAvatar>
+              <ListItemText 
+                primary="Bekleyen" 
+                secondary="Henüz personele atanmamış, bekleyen görevler"
+              />
+            </ListItem>
+            <ListItem>
+              <ListItemAvatar>
+                <Avatar sx={{ bgcolor: THEME_COLORS.pending }}>
+                  <PendingIcon />
+                </Avatar>
+              </ListItemAvatar>
+              <ListItemText 
+                primary="Bekliyor" 
+                secondary="Bekleyen durumundaki görevler"
+              />
+            </ListItem>
+            <ListItem>
+              <ListItemAvatar>
+                <Avatar sx={{ bgcolor: '#F44336' }}>
+                  <TaskIcon />
+                </Avatar>
+              </ListItemAvatar>
+              <ListItemText 
+                primary="Tamamlanmamış" 
+                secondary="Zamanında tamamlanamamış ve gecikmiş görevler"
+              />
+            </ListItem>
+          </List>
+          <Typography paragraph>
+            Grafiğin altında her bir durumun toplam görevlere oranı yüzde olarak gösterilmektedir.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleTaskStatusInfoClose}>Kapat</Button>
+        </DialogActions>
+      </Dialog>
+      
+      <Dialog open={personnelPerformanceInfoModalOpen} onClose={handlePersonnelPerformanceInfoClose} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          <Box display="flex" alignItems="center">
+            <InfoIcon sx={{ mr: 1, color: 'primary.main' }} />
+            Personel Performansı Hakkında
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Typography paragraph>
+            Bu grafik, en aktif 5 personelinizin görev performansını göstermektedir. Her çubuk bir personelin görev dağılımını temsil eder:
+          </Typography>
+          <List>
+            <ListItem>
+              <ListItemAvatar>
+                <Avatar sx={{ bgcolor: THEME_COLORS.completed }}>
+                  <CompletedIcon />
+                </Avatar>
+              </ListItemAvatar>
+              <ListItemText 
+                primary="Tamamlanan" 
+                secondary="Personelin başarıyla tamamladığı görevlerin toplam sayısı"
+              />
+            </ListItem>
+            <ListItem>
+              <ListItemAvatar>
+                <Avatar sx={{ bgcolor: '#1976D2' }}>
+                  <TaskIcon />
+                </Avatar>
+              </ListItemAvatar>
+              <ListItemText 
+                primary="Devam Eden" 
+                secondary="Personelin şu anda devam ettiği görevlerin sayısı"
+              />
+            </ListItem>
+            <ListItem>
+              <ListItemAvatar>
+                <Avatar sx={{ bgcolor: '#F44336' }}>
+                  <TaskIcon />
+                </Avatar>
+              </ListItemAvatar>
+              <ListItemText 
+                primary="Kaçırılan" 
+                secondary="Personelin zamanında tamamlayamadığı görevlerin sayısı"
+              />
+            </ListItem>
+          </List>
+          <Typography paragraph>
+            Bu grafik, hangi personelin daha fazla görev üstlendiğini ve bu görevleri ne kadar başarılı bir şekilde tamamladığını göstermektedir. Toplam görev sayısına göre en çok göreve sahip 5 personel listelenmektedir.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handlePersonnelPerformanceInfoClose}>Kapat</Button>
+        </DialogActions>
+      </Dialog>
     </ScrollableContent>
   );
 };

@@ -33,7 +33,7 @@ declare module 'react-leaflet' {
   import * as L from 'leaflet';
   
   export interface MapContainerProps {
-    center?: L.LatLngExpression;
+    center?: L.LatLngExpression | [number, number];
     zoom?: number;
     scrollWheelZoom?: boolean;
     style?: React.CSSProperties;
@@ -47,7 +47,7 @@ declare module 'react-leaflet' {
   }
   
   export interface MarkerProps {
-    position: L.LatLngExpression;
+    position: L.LatLngExpression | [number, number];
     icon?: L.Icon;
     children?: ReactNode;
   }
@@ -56,8 +56,14 @@ declare module 'react-leaflet' {
     children?: ReactNode;
   }
   
+  export interface TooltipProps {
+    children?: ReactNode;
+    permanent?: boolean;
+    direction?: 'right' | 'left' | 'top' | 'bottom' | 'center';
+  }
+  
   export interface MapViewProps {
-    center: L.LatLngExpression;
+    center: L.LatLngExpression | [number, number];
     zoom: number;
     children?: ReactNode;
   }
@@ -66,5 +72,6 @@ declare module 'react-leaflet' {
   export const TileLayer: ComponentType<TileLayerProps>;
   export const Marker: ComponentType<MarkerProps>;
   export const Popup: ComponentType<PopupProps>;
+  export const Tooltip: ComponentType<TooltipProps>;
   export function useMap(): any;
 } 
