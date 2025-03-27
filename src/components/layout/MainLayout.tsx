@@ -70,7 +70,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       </Drawer>
       
       {/* Header */}
-      <Header onToggleSidebar={handleDrawerToggle} />
+      <Header onToggleSidebar={handleDrawerToggle} isCollapsed={isCollapsed} />
       
       {/* Main Content */}
       <ContentContainer isCollapsed={isCollapsed}>

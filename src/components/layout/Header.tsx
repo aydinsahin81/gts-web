@@ -22,14 +22,18 @@ import { database } from '../../firebase';
 import { useNavigate } from 'react-router-dom';
 import NotificationMenu from '../notifications/NotificationMenu';
 
-const StyledAppBar = styled(AppBar)(({ theme }) => ({
+const StyledAppBar = styled(AppBar)<{ isCollapsed: boolean }>(({ theme, isCollapsed }) => ({
   backgroundColor: 'white',
   color: theme.palette.text.primary,
   boxShadow: '0px 1px 4px rgba(0, 0, 0, 0.1)',
   position: 'fixed',
-  width: 'calc(100% - 260px)',
-  marginLeft: 260,
+  width: `calc(100% - ${isCollapsed ? 70 : 260}px)`,
+  marginLeft: isCollapsed ? 70 : 260,
   zIndex: 99,
+  transition: theme.transitions.create(['width', 'margin'], {
+    easing: theme.transitions.easing.sharp,
+    duration: theme.transitions.duration.leavingScreen,
+  }),
   [theme.breakpoints.down('md')]: {
     width: '100%',
     marginLeft: 0,
@@ -57,6 +61,7 @@ const UserChip = styled(Chip)(({ theme }) => ({
 
 interface HeaderProps {
   onToggleSidebar: () => void;
+  isCollapsed: boolean;
 }
 
 interface UserData {
@@ -66,7 +71,7 @@ interface UserData {
   companyName: string;
 }
 
-const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
+const Header: React.FC<HeaderProps> = ({ onToggleSidebar, isCollapsed }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
   const { currentUser, logout } = useAuth();
@@ -119,7 +124,7 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
     : 'Kullanıcı';
 
   return (
-    <StyledAppBar elevation={0}>
+    <StyledAppBar elevation={0} isCollapsed={isCollapsed}>
       <Toolbar>
         <MenuButton 
           edge="start" 

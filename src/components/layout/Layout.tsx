@@ -34,7 +34,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         onCollapse={handleCollapse}
       />
       <MainContent isCollapsed={isCollapsed}>
-        <Header onToggleSidebar={handleDrawerToggle} />
+        <Header onToggleSidebar={handleDrawerToggle} isCollapsed={isCollapsed} />
         <Box component="main" sx={{ p: 3 }}>
           {children}
         </Box>
