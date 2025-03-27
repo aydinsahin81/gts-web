@@ -27,7 +27,10 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions
+  DialogActions,
+  TextField,
+  Autocomplete,
+  InputAdornment
 } from '@mui/material';
 import {
   Assignment as AssignmentIcon,
@@ -38,7 +41,8 @@ import {
   CheckCircleOutline as CheckCircleOutlineIcon,
   PersonOutline as PersonOutlineIcon,
   AccessTime as AccessTimeIcon,
-  Download as DownloadIcon
+  Download as DownloadIcon,
+  Search as SearchIcon
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { ref, get } from 'firebase/database';
@@ -1428,39 +1432,63 @@ const Reports: React.FC = () => {
               )}
             </Box>
             
-            <FormControl fullWidth size="small">
-              <InputLabel id="task-select-label">Görev seçiniz</InputLabel>
-              <Select
-                labelId="task-select-label"
-                value={selectedTask?.id || ''}
-                onChange={handleTaskChange}
-                label="Görev seçiniz"
-              >
-                {taskList.map((task) => (
-                  <MenuItem key={task.id} value={task.id}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-                      <IconButton size="small" sx={{ mr: 1, color: 'primary.main' }}>
-                        {task.isRecurring ? <RepeatIcon /> : <AssignmentIcon />}
-                      </IconButton>
-                      <Typography variant="body2" sx={{ flexGrow: 1 }}>
-                        {task.name}
-                      </Typography>
-                      <Chip
-                        label={getStatusText(task.status)}
-                        size="small"
-                        sx={{
-                          backgroundColor: getStatusColor(task.status) + '20',
-                          color: getStatusColor(task.status),
-                          fontWeight: 'medium',
-                          height: 20,
-                          fontSize: 11,
-                        }}
-                      />
-                    </Box>
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <Autocomplete
+              size="small"
+              options={taskList}
+              getOptionLabel={(option) => option.name || ''}
+              value={selectedTask}
+              onChange={(event, newValue) => {
+                setSelectedTask(newValue);
+                if (newValue && newValue.isRecurring) {
+                  fetchRecurringTaskData(newValue.id);
+                }
+                if (newValue && newValue.personnelId) {
+                  fetchPersonnelData(newValue.personnelId);
+                }
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  placeholder="Görev Ara..."
+                  InputProps={{
+                    ...params.InputProps,
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              )}
+              renderOption={(props, option) => (
+                <MenuItem {...props}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                    <IconButton size="small" sx={{ mr: 1, color: 'primary.main' }}>
+                      {option.isRecurring ? <RepeatIcon /> : <AssignmentIcon />}
+                    </IconButton>
+                    <Typography variant="body2" sx={{ flexGrow: 1 }}>
+                      {option.name}
+                    </Typography>
+                    <Chip
+                      label={getStatusText(option.status)}
+                      size="small"
+                      sx={{
+                        backgroundColor: getStatusColor(option.status) + '20',
+                        color: getStatusColor(option.status),
+                        fontWeight: 'medium',
+                        height: 20,
+                        fontSize: 11,
+                      }}
+                    />
+                  </Box>
+                </MenuItem>
+              )}
+              isOptionEqualToValue={(option, value) => option.id === value.id}
+              noOptionsText="Görev bulunamadı"
+              clearText="Tümünü Temizle"
+              openText="Aç"
+              closeText="Kapat"
+            />
           </TaskSelector>
 
           {/* Tarih Aralığı Seçim Modalı */}
