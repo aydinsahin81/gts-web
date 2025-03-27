@@ -72,7 +72,8 @@ import {
   FormatBoldOutlined,
   FormatItalicOutlined,
   Category as CategoryIcon,
-  Info as InfoIcon
+  Info as InfoIcon,
+  FileDownload as FileDownloadIcon
 } from '@mui/icons-material';
 import { ref, get, onValue, off, remove, update, push, set } from 'firebase/database';
 import { database, auth } from '../../firebase';
@@ -89,6 +90,8 @@ import TaskGroupsModal from './modals/TaskGroupsModal';
 import TaskInfoModal from './modals/TaskInfoModal';
 // Import uuid tipini ve v4 fonksiyonunu ayrı ayrı tanımlama
 import * as uuidModule from 'uuid';
+import * as ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
 const uuidv4 = uuidModule.v4;
 
 // Kaydırılabilir ana içerik için styled component
@@ -1168,6 +1171,104 @@ const Tasks: React.FC = () => {
     setQrPrintModalOpen(true);
   };
 
+  // Excel dışa aktarma fonksiyonu
+  const exportToExcel = async () => {
+    try {
+      // Excel workbook oluştur
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Görevler');
+      
+      // Sütun başlıklarını tanımla
+      worksheet.columns = [
+        { header: 'Durum', key: 'status', width: 15 },
+        { header: 'Görev Adı', key: 'name', width: 30 },
+        { header: 'Görev Saatleri', key: 'times', width: 30 },
+        { header: 'Tarih', key: 'date', width: 20 },
+        { header: 'Tolerans', key: 'tolerance', width: 12 },
+        { header: 'Personel', key: 'personnel', width: 20 },
+        { header: 'Açıklama', key: 'description', width: 40 }
+      ];
+      
+      // Stil tanımlamaları
+      const headerStyle = {
+        font: { bold: true, color: { argb: 'FFFFFFFF' } },
+        fill: { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FF4F81BD' } },
+        border: {
+          top: { style: 'thin' as const },
+          left: { style: 'thin' as const },
+          bottom: { style: 'thin' as const },
+          right: { style: 'thin' as const }
+        }
+      };
+      
+      // Başlık stilini uygula
+      worksheet.getRow(1).eachCell(cell => {
+        cell.style = headerStyle;
+      });
+      
+      // Filtrelenmiş görev verilerini ekle
+      filteredTasks.forEach(task => {
+        // Görev saatleri
+        const taskTimes = task.repetitionTimes && task.repetitionTimes.length > 0
+          ? task.repetitionTimes.join(', ')
+          : '-';
+        
+        // Tarih bilgisi
+        let dateInfo = '-';
+        if (task.status === 'completed') {
+          dateInfo = task.fromDatabase && task.completionDate 
+            ? task.completionDate 
+            : (task.completedAt ? new Date(task.completedAt).toLocaleDateString('tr-TR') : '-');
+        } else if (task.status === 'missed') {
+          dateInfo = task.fromDatabase && task.missedDate 
+            ? task.missedDate 
+            : (task.missedAt ? new Date(task.missedAt).toLocaleDateString('tr-TR') : '-');
+        }
+        
+        // Tolerans bilgisi
+        const toleranceInfo = task.isRecurring ? `${task.startTolerance || 15} dk` : '-';
+        
+        // Satır ekleme
+        worksheet.addRow({
+          status: getStatusLabel(task.status),
+          name: task.name,
+          times: taskTimes,
+          date: dateInfo,
+          tolerance: toleranceInfo,
+          personnel: task.personnelName || 'Atanmamış',
+          description: task.description || ''
+        });
+      });
+      
+      // Zebrastripe (alternatif satır renklendirme)
+      worksheet.eachRow((row, rowNumber) => {
+        if (rowNumber > 1) { // başlığı atla
+          const fillColor = rowNumber % 2 === 0 ? 'FFF2F2F2' : 'FFFFFFFF';
+          row.eachCell(cell => {
+            cell.style = {
+              fill: { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: fillColor } },
+              border: {
+                top: { style: 'thin' as const },
+                left: { style: 'thin' as const },
+                bottom: { style: 'thin' as const },
+                right: { style: 'thin' as const }
+              }
+            };
+          });
+        }
+      });
+      
+      // Excel dosyasını oluştur ve indir
+      const buffer = await workbook.xlsx.writeBuffer();
+      const currentDate = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+      saveAs(new Blob([buffer]), `Görevler_${currentDate}.xlsx`);
+      
+    } catch (error) {
+      console.error('Excel dışa aktarma hatası:', error);
+      alert('Excel dosyası oluşturulurken bir hata oluştu.');
+    }
+  };
+
   return (
     <ScrollableContent>
       <HeaderContainer>
@@ -1189,6 +1290,16 @@ const Tasks: React.FC = () => {
               <ViewListIcon />
             </ToggleButton>
           </ToggleButtonGroup>
+          <Button
+            variant="outlined"
+            color="primary"
+            startIcon={<FileDownloadIcon />}
+            onClick={exportToExcel}
+            disabled={loading || filteredTasks.length === 0}
+            sx={{ borderRadius: 2 }}
+          >
+            İndir
+          </Button>
           <IconButton
             color="warning"
             onClick={() => setInfoModalOpen(true)}
