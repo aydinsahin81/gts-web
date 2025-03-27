@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -197,8 +197,9 @@ const TasksTable: React.FC<{
         <TableHead>
           <TableRow>
             <TableCell width="5%">Durum</TableCell>
-            <TableCell width="20%">Görev Adı</TableCell>
-            <TableCell width="35%">Görev Saatleri</TableCell>
+            <TableCell width="15%">Görev Adı</TableCell>
+            <TableCell width="25%">Görev Saatleri</TableCell>
+            <TableCell width="15%">Tarih</TableCell>
             <TableCell width="10%">Tolerans</TableCell>
             <TableCell width="10%">Personel</TableCell>
             <TableCell width="10%">Durum</TableCell>
@@ -238,6 +239,37 @@ const TasksTable: React.FC<{
                     ))}
                   </Box>
                 ) : (
+                  <Typography variant="body2" color="text.secondary">-</Typography>
+                )}
+              </TableCell>
+              <TableCell>
+                {task.status === 'completed' && (
+                  <Typography variant="body2" color="text.secondary">
+                    {task.fromDatabase && task.completionDate 
+                      ? `${task.completionDate}` 
+                      : (task.completedAt ? new Date(task.completedAt).toLocaleDateString('tr-TR', { 
+                          year: 'numeric', 
+                          month: 'short', 
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        }) : '-')}
+                  </Typography>
+                )}
+                {task.status === 'missed' && (
+                  <Typography variant="body2" color="text.secondary">
+                    {task.fromDatabase && task.missedDate 
+                      ? `${task.missedDate}` 
+                      : (task.missedAt ? new Date(task.missedAt).toLocaleDateString('tr-TR', { 
+                          year: 'numeric', 
+                          month: 'short', 
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        }) : '-')}
+                  </Typography>
+                )}
+                {task.status !== 'completed' && task.status !== 'missed' && (
                   <Typography variant="body2" color="text.secondary">-</Typography>
                 )}
               </TableCell>
@@ -282,7 +314,7 @@ const TasksTable: React.FC<{
               </TableCell>
               <TableCell align="right">
                 <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                  {task.isRecurring && task.completionType === 'qr' && (
+                  {task.isRecurring && task.completionType === 'qr' && !task.fromDatabase && (
                     <IconButton
                       size="small"
                       onClick={(e) => {
@@ -310,7 +342,7 @@ const TasksTable: React.FC<{
           ))}
           {tasks.length === 0 && (
             <TableRow>
-              <TableCell colSpan={7} align="center" sx={{ py: 3 }}>
+              <TableCell colSpan={8} align="center" sx={{ py: 3 }}>
                 <Typography color="text.secondary">
                   Görev bulunamadı
                 </Typography>
@@ -327,6 +359,8 @@ const Tasks: React.FC = () => {
   // State tanımlamaları
   const [loading, setLoading] = useState(true);
   const [tasks, setTasks] = useState<any[]>([]);
+  const [completedTasks, setCompletedTasks] = useState<any[]>([]);
+  const [missedTasks, setMissedTasks] = useState<any[]>([]);
   const [personnel, setPersonnel] = useState<any[]>([]);
   const [taskGroups, setTaskGroups] = useState<any[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -435,22 +469,42 @@ const Tasks: React.FC = () => {
   };
 
   // Filtrelenmiş görev listesini hesapla
-  const filteredTasks = tasks.filter(task => {
-    // Durum filtresini uygula
-    if (statusFilter !== 'all' && task.status !== statusFilter) {
-      return false;
+  const filteredTasks = useMemo(() => {
+    let result = [...tasks];
+    
+    // Durum filtresi uygulanıyor
+    if (statusFilter !== 'all') {
+      if (statusFilter === 'completed') {
+        // Ana görev listesindeki tamamlanan görevler + veritabanındaki tamamlanan görevler
+        result = [
+          ...result.filter(task => task.status === 'completed'),
+          ...completedTasks
+        ];
+      } else if (statusFilter === 'missed') {
+        // Ana görev listesindeki kaçırılan görevler + veritabanındaki kaçırılan görevler
+        result = [
+          ...result.filter(task => task.status === 'missed'),
+          ...missedTasks
+        ];
+      } else {
+        // Diğer durumlar için normal filtreleme
+        result = result.filter(task => task.status === statusFilter);
+      }
+    } else {
+      // "Tüm Görevler" seçiliyse sadece ana görev listesini göster
+      // CompletedTasks ve MissedTasks veritabanlarından gelenler dahil edilmez
     }
     
-    // Personel filtresini uygula
-    if (personnelFilter !== 'all' && task.personnelId !== personnelFilter) {
-      return false;
+    // Personel filtresi uygulanıyor
+    if (personnelFilter !== 'all') {
+      result = result.filter(task => task.personnelId === personnelFilter);
     }
     
-    return true;
-  });
+    return result;
+  }, [tasks, completedTasks, missedTasks, statusFilter, personnelFilter]);
 
   // Veri işleme fonksiyonu
-  const processData = (tasksData: any, personnelData: any) => {
+  const processData = (tasksData: any, personnelData: any, completedTasksData: any = null, missedTasksData: any = null) => {
     // Görev listesini hazırla
     const tasksList = tasksData ? Object.entries(tasksData)
       .filter(([key]) => key !== 'missedTasks') // missedTasks anahtarını filtrele
@@ -472,12 +526,117 @@ const Tasks: React.FC = () => {
           dailyRepetitions: data.dailyRepetitions || 1,
           startTolerance: data.startTolerance || 15,
           repetitionTimes: data.repetitionTimes || [],
+          completedAt: data.completedAt || null, // Tamamlanma tarihi
         };
       }) : [];
     
     // Görevleri oluşturulma tarihine göre sırala (yeniden eskiye)
     const sortedTasks = [...tasksList].sort((a, b) => b.createdAt - a.createdAt);
     setTasks(sortedTasks);
+    
+    // Veritabanından çekilen tamamlanan görevleri işle
+    if (completedTasksData) {
+      const completedTasksList: any[] = [];
+      
+      // completedTasks verilerini düz bir liste halinde dönüştür
+      Object.entries(completedTasksData).forEach(([taskId, taskDates]: [string, any]) => {
+        Object.entries(taskDates).forEach(([date, timeSlots]: [string, any]) => {
+          Object.entries(timeSlots).forEach(([time, taskData]: [string, any]) => {
+            // Görev bilgilerini bul
+            const originalTask = sortedTasks.find(t => t.id === taskId) || {
+              name: '',
+              description: '',
+              createdAt: Date.now(),
+              personnelId: '',
+              isRecurring: false,
+              completionType: 'button'
+            };
+            
+            // Personel bilgisini bul
+            const personnelId = taskData.completedBy || originalTask.personnelId || '';
+            const personnelInfo = personnelData[personnelId] || {};
+            
+            // Tarih ve saat formatını oluştur
+            const completionDate = new Date(`${date} ${time}`);
+            
+            completedTasksList.push({
+              id: `${taskId}_${date}_${time}`,
+              originalTaskId: taskId,
+              name: taskData.name || originalTask.name || 'İsimsiz Görev',
+              description: originalTask.description || '',
+              status: 'completed',
+              createdAt: originalTask.createdAt || Date.now(),
+              completedAt: completionDate.getTime(),
+              completionDate: date, // YYYY-MM-DD formatında
+              completionTime: time, // HH:MM:SS formatında
+              personnelId: personnelId,
+              personnelName: personnelInfo.name || 'Atanmamış',
+              isRecurring: originalTask.isRecurring || false,
+              completionType: originalTask.completionType || 'button',
+              repetitionTimes: [time], // Sadece bu tamamlanan saati göster
+              fromDatabase: true // Veritabanından geldiğini belirt
+            });
+          });
+        });
+      });
+      
+      // Tamamlanma tarihine göre sırala (yeniden eskiye)
+      setCompletedTasks(completedTasksList.sort((a, b) => b.completedAt - a.completedAt));
+    } else {
+      setCompletedTasks([]);
+    }
+    
+    // Veritabanından çekilen kaçırılmış görevleri işle
+    if (missedTasksData) {
+      const missedTasksList: any[] = [];
+      
+      // missedTasks verilerini düz bir liste halinde dönüştür
+      Object.entries(missedTasksData).forEach(([taskId, taskDates]: [string, any]) => {
+        Object.entries(taskDates).forEach(([date, timeSlots]: [string, any]) => {
+          Object.entries(timeSlots).forEach(([time, taskData]: [string, any]) => {
+            // Görev bilgilerini bul
+            const originalTask = sortedTasks.find(t => t.id === taskId) || {
+              name: '',
+              description: '',
+              createdAt: Date.now(),
+              personnelId: '',
+              isRecurring: false,
+              completionType: 'button'
+            };
+            
+            // Personel bilgisini bul
+            const personnelId = taskData.personnelId || originalTask.personnelId || '';
+            const personnelInfo = personnelData[personnelId] || {};
+            
+            // Tarih ve saat formatını oluştur
+            const missedDate = new Date(`${date} ${time}`);
+            
+            missedTasksList.push({
+              id: `${taskId}_${date}_${time}`,
+              originalTaskId: taskId,
+              name: taskData.name || originalTask.name || 'İsimsiz Görev',
+              description: originalTask.description || '',
+              status: 'missed',
+              createdAt: originalTask.createdAt || Date.now(),
+              missedAt: missedDate.getTime(),
+              missedDate: date, // YYYY-MM-DD formatında
+              missedTime: time, // HH:MM:SS formatında
+              personnelId: personnelId,
+              personnelName: personnelInfo.name || 'Atanmamış',
+              isRecurring: originalTask.isRecurring || false,
+              completionType: originalTask.completionType || 'button',
+              repetitionTimes: [time], // Sadece bu kaçırılan saati göster
+              fromDatabase: true // Veritabanından geldiğini belirt
+            });
+          });
+        });
+      });
+      
+      // Kaçırılma tarihine göre sırala (yeniden eskiye)
+      setMissedTasks(missedTasksList.sort((a, b) => b.missedAt - a.missedAt));
+    } else {
+      setMissedTasks([]);
+    }
     
     // Personel listesini hazırla
     const personnelList = personnelData ? Object.entries(personnelData).map(([id, data]: [string, any]) => ({
@@ -512,18 +671,24 @@ const Tasks: React.FC = () => {
           return;
         }
         
-        // Personel ve görevleri almak için referanslar oluştur
+        // Personel, görevleri, tamamlanan ve kaçırılan görevleri almak için referanslar oluştur
         const personnelRef = ref(database, `companies/${companyId}/personnel`);
         const tasksRef = ref(database, `companies/${companyId}/tasks`);
+        const completedTasksRef = ref(database, `companies/${companyId}/completedTasks`);
+        const missedTasksRef = ref(database, `companies/${companyId}/missedTasks`);
         const taskGroupsRef = ref(database, `companies/${companyId}/taskGroups`);
         
         // Başlangıç verilerini al
         const personnelSnapshot = await get(personnelRef);
         const tasksSnapshot = await get(tasksRef);
+        const completedTasksSnapshot = await get(completedTasksRef);
+        const missedTasksSnapshot = await get(missedTasksRef);
         const taskGroupsSnapshot = await get(taskGroupsRef);
         
         const personnelData = personnelSnapshot.exists() ? personnelSnapshot.val() : {};
         const tasksData = tasksSnapshot.exists() ? tasksSnapshot.val() : {};
+        const completedTasksData = completedTasksSnapshot.exists() ? completedTasksSnapshot.val() : {};
+        const missedTasksData = missedTasksSnapshot.exists() ? missedTasksSnapshot.val() : {};
         
         // Görev gruplarını işle
         if (taskGroupsSnapshot.exists()) {
@@ -539,7 +704,7 @@ const Tasks: React.FC = () => {
         }
         
         // Verileri işle
-        processData(tasksData, personnelData);
+        processData(tasksData, personnelData, completedTasksData, missedTasksData);
         
         // Realtime güncellemeleri dinle
         // Personel değişiklikleri
@@ -547,9 +712,15 @@ const Tasks: React.FC = () => {
           const personnelData = snapshot.exists() ? snapshot.val() : {};
           
           // Görev verilerini de al ve birlikte işle
-          get(tasksRef).then((tasksSnapshot) => {
+          Promise.all([
+            get(tasksRef),
+            get(completedTasksRef),
+            get(missedTasksRef)
+          ]).then(([tasksSnapshot, completedTasksSnapshot, missedTasksSnapshot]) => {
             const tasksData = tasksSnapshot.exists() ? tasksSnapshot.val() : {};
-            processData(tasksData, personnelData);
+            const completedTasksData = completedTasksSnapshot.exists() ? completedTasksSnapshot.val() : {};
+            const missedTasksData = missedTasksSnapshot.exists() ? missedTasksSnapshot.val() : {};
+            processData(tasksData, personnelData, completedTasksData, missedTasksData);
           });
         });
         
@@ -557,10 +728,50 @@ const Tasks: React.FC = () => {
         onValue(tasksRef, (snapshot) => {
           const tasksData = snapshot.exists() ? snapshot.val() : {};
           
-          // Personel verilerini de al ve birlikte işle
-          get(personnelRef).then((personnelSnapshot) => {
+          // Personel, tamamlanan ve kaçırılan görev verilerini de al ve birlikte işle
+          Promise.all([
+            get(personnelRef),
+            get(completedTasksRef),
+            get(missedTasksRef)
+          ]).then(([personnelSnapshot, completedTasksSnapshot, missedTasksSnapshot]) => {
             const personnelData = personnelSnapshot.exists() ? personnelSnapshot.val() : {};
-            processData(tasksData, personnelData);
+            const completedTasksData = completedTasksSnapshot.exists() ? completedTasksSnapshot.val() : {};
+            const missedTasksData = missedTasksSnapshot.exists() ? missedTasksSnapshot.val() : {};
+            processData(tasksData, personnelData, completedTasksData, missedTasksData);
+          });
+        });
+        
+        // Tamamlanan görevler değişiklikleri
+        onValue(completedTasksRef, (snapshot) => {
+          const completedTasksData = snapshot.exists() ? snapshot.val() : {};
+          
+          // Personel ve görev verilerini de al ve birlikte işle
+          Promise.all([
+            get(personnelRef),
+            get(tasksRef),
+            get(missedTasksRef)
+          ]).then(([personnelSnapshot, tasksSnapshot, missedTasksSnapshot]) => {
+            const personnelData = personnelSnapshot.exists() ? personnelSnapshot.val() : {};
+            const tasksData = tasksSnapshot.exists() ? tasksSnapshot.val() : {};
+            const missedTasksData = missedTasksSnapshot.exists() ? missedTasksSnapshot.val() : {};
+            processData(tasksData, personnelData, completedTasksData, missedTasksData);
+          });
+        });
+        
+        // Kaçırılan görevler değişiklikleri
+        onValue(missedTasksRef, (snapshot) => {
+          const missedTasksData = snapshot.exists() ? snapshot.val() : {};
+          
+          // Personel, görev ve tamamlanan görev verilerini de al ve birlikte işle
+          Promise.all([
+            get(personnelRef),
+            get(tasksRef),
+            get(completedTasksRef)
+          ]).then(([personnelSnapshot, tasksSnapshot, completedTasksSnapshot]) => {
+            const personnelData = personnelSnapshot.exists() ? personnelSnapshot.val() : {};
+            const tasksData = tasksSnapshot.exists() ? tasksSnapshot.val() : {};
+            const completedTasksData = completedTasksSnapshot.exists() ? completedTasksSnapshot.val() : {};
+            processData(tasksData, personnelData, completedTasksData, missedTasksData);
           });
         });
         
@@ -593,6 +804,8 @@ const Tasks: React.FC = () => {
       if (companyId) {
         off(ref(database, `companies/${companyId}/personnel`));
         off(ref(database, `companies/${companyId}/tasks`));
+        off(ref(database, `companies/${companyId}/completedTasks`));
+        off(ref(database, `companies/${companyId}/missedTasks`));
         off(ref(database, `companies/${companyId}/taskGroups`));
       }
     };
@@ -1107,6 +1320,43 @@ const Tasks: React.FC = () => {
                     {task.description || 'Açıklama yok'}
                   </Typography>
 
+                  {/* Tarih bilgisi göster */}
+                  {(task.status === 'completed' || task.status === 'missed') && (
+                    <Box sx={{ mb: 1.5 }}>
+                      <Typography 
+                        variant="caption" 
+                        color="text.secondary"
+                        sx={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'flex-end',
+                          fontStyle: 'italic'
+                        }}
+                      >
+                        {task.status === 'completed' ? 'Tamamlanma: ' : 'Kaçırılma: '}
+                        {task.fromDatabase && (task.completionDate || task.missedDate)
+                          ? `${task.status === 'completed' ? task.completionDate : task.missedDate}`
+                          : (task.status === 'completed' 
+                              ? (task.completedAt ? new Date(task.completedAt).toLocaleDateString('tr-TR', { 
+                                  year: 'numeric', 
+                                  month: 'short', 
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                }) : '-') 
+                              : (task.missedAt ? new Date(task.missedAt).toLocaleDateString('tr-TR', { 
+                                  year: 'numeric', 
+                                  month: 'short', 
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                }) : '-')
+                          )
+                        }
+                      </Typography>
+                    </Box>
+                  )}
+
                   {task.isRecurring && task.repetitionTimes && task.repetitionTimes.length > 0 && (
                     <Box sx={{ mb: 1.5 }}>
                       <Divider sx={{ my: 1 }} />
@@ -1154,7 +1404,7 @@ const Tasks: React.FC = () => {
                       </Typography>
                     )}
                     
-                    {task.isRecurring && task.completionType === 'qr' && (
+                    {task.isRecurring && task.completionType === 'qr' && !task.fromDatabase && (
                       <Button
                         size="small"
                         startIcon={<QrCodeIcon />}
