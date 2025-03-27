@@ -177,13 +177,15 @@ const PersonnelTable: React.FC<{
   onViewDetails: (id: string) => void,
   onDelete: (id: string) => void,
   onSendMessage: (id: string) => void,
-  showDeleted: boolean
+  showDeleted: boolean,
+  onRestore: (id: string) => void
 }> = ({ 
   personnel, 
   onViewDetails, 
   onDelete, 
   onSendMessage,
-  showDeleted
+  showDeleted,
+  onRestore
 }) => {
   return (
     <TableContainer component={Paper} sx={{ 
@@ -200,7 +202,7 @@ const PersonnelTable: React.FC<{
             <TableCell width="20%">Telefon</TableCell>
             <TableCell width="25%">E-posta</TableCell>
             {!showDeleted && <TableCell width="10%">Durum</TableCell>}
-            {!showDeleted && <TableCell width="15%" align="right">İşlemler</TableCell>}
+            <TableCell width="15%" align="right">İşlemler</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -248,33 +250,45 @@ const PersonnelTable: React.FC<{
                   />
                 </TableCell>
               )}
-              {!showDeleted && (
-                <TableCell align="right">
-                  <Tooltip title="Detaylar">
+              <TableCell align="right">
+                {showDeleted ? (
+                  <Tooltip title="İşe Geri Al">
                     <IconButton 
                       size="small" 
-                      onClick={() => onViewDetails(person.id)}
-                      sx={{ color: 'primary.main', p: 0.5 }}
+                      onClick={() => onRestore(person.id)}
+                      sx={{ color: 'success.main', p: 0.5 }}
                     >
-                      <PersonIcon fontSize="small" />
+                      <PersonAddIcon fontSize="small" />
                     </IconButton>
                   </Tooltip>
-                  <Tooltip title="Mesaj Gönder">
-                    <IconButton 
-                      size="small" 
-                      onClick={() => onSendMessage(person.id)}
-                      sx={{ color: 'success.main', p: 0.5, ml: 0.5 }}
-                    >
-                      <EmailIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                </TableCell>
-              )}
+                ) : (
+                  <>
+                    <Tooltip title="Detaylar">
+                      <IconButton 
+                        size="small" 
+                        onClick={() => onViewDetails(person.id)}
+                        sx={{ color: 'primary.main', p: 0.5 }}
+                      >
+                        <PersonIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Mesaj Gönder">
+                      <IconButton 
+                        size="small" 
+                        onClick={() => onSendMessage(person.id)}
+                        sx={{ color: 'success.main', p: 0.5, ml: 0.5 }}
+                      >
+                        <EmailIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </>
+                )}
+              </TableCell>
             </TableRow>
           ))}
           {personnel.length === 0 && (
             <TableRow>
-              <TableCell colSpan={showDeleted ? 3 : 5} align="center" sx={{ py: 3 }}>
+              <TableCell colSpan={showDeleted ? 4 : 5} align="center" sx={{ py: 3 }}>
                 <Typography color="text.secondary">
                   {showDeleted ? "Silinen personel bulunmuyor" : "Personel bulunamadı"}
                 </Typography>
@@ -860,9 +874,29 @@ const Personnel: React.FC = () => {
       // Kullanıcı bulundu
       const userData = userSnapshot.val();
       
-      // Kullanıcı zaten bir şirkete bağlı mı kontrol et
-      if (userData.companyId) {
-        throw new Error('Bu kullanıcı zaten bir şirkete bağlı');
+      // Personel zaten şirkette mi kontrol et
+      const personnelSnapshot = await get(ref(database, `companies/${companyId}/personnel/${employeeId}`));
+      
+      if (personnelSnapshot.exists()) {
+        const personnelData = personnelSnapshot.val();
+        
+        // Personel silinmiş mi kontrol et
+        if (personnelData.isDeleted) {
+          // Silinen personeli geri al
+          await update(ref(database, `companies/${companyId}/personnel/${employeeId}`), {
+            isDeleted: null,
+            deletedAt: null
+          });
+          
+          // Kullanıcı bilgilerini güncelle
+          await update(ref(database, `users/${employeeId}`), {
+            companyId: companyId
+          });
+          
+          return;
+        }
+        
+        throw new Error('Bu kullanıcı zaten şirkette aktif olarak çalışıyor');
       }
       
       // Personeli ekle
@@ -955,6 +989,41 @@ const Personnel: React.FC = () => {
   const handleSendMessage = (personnelId: string) => {
     // Personelin adını ve ID'sini mesaj sayfasına parametre olarak gönder
     navigate(`/messages?personnelId=${personnelId}`);
+  };
+
+  // İşe Geri Alma fonksiyonu
+  const handleRestorePersonnel = async (personnelId: string) => {
+    if (!companyId) return;
+    
+    try {
+      setLoading(true);
+      
+      // Personeli geri al
+      await update(ref(database, `companies/${companyId}/personnel/${personnelId}`), {
+        isDeleted: null,
+        deletedAt: null
+      });
+      
+      // Kullanıcı bilgilerini güncelle
+      await update(ref(database, `users/${personnelId}`), {
+        companyId: companyId
+      });
+      
+      // Başarı mesajı
+      setSnackbarMessage('Personel başarıyla işe geri alındı');
+      setSnackbarSeverity('success');
+      setSnackbarOpen(true);
+      
+      // Listeyi güncelle
+      setPersonnel(prev => prev.filter(p => p.id !== personnelId));
+    } catch (error) {
+      console.error('Personel geri alınırken hata:', error);
+      setSnackbarMessage('Personel geri alınırken bir hata oluştu');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -1110,6 +1179,23 @@ const Personnel: React.FC = () => {
                         </Typography>
                       </Box>
                     )}
+                    
+                    {showDeleted && (
+                      <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
+                        <Button
+                          variant="contained"
+                          color="success"
+                          size="small"
+                          startIcon={<PersonAddIcon />}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRestorePersonnel(person.id);
+                          }}
+                        >
+                          İşe Geri Al
+                        </Button>
+                      </Box>
+                    )}
                   </Box>
                 </CardContent>
               </PersonnelCard>
@@ -1135,6 +1221,7 @@ const Personnel: React.FC = () => {
           }}
           onSendMessage={handleSendMessage}
           showDeleted={showDeleted}
+          onRestore={handleRestorePersonnel}
         />
       )}
       
