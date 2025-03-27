@@ -537,7 +537,7 @@ const Reports: React.FC = () => {
     
     const dates = Array.from({ length: 7 }, (_, index) => {
       const date = new Date(today);
-      date.setDate(today.getDate() + index - 3); // 3 gün öncesinden başla
+      date.setDate(today.getDate() - (6 - index)); // 6 gün öncesinden başla, bugün en sona
       return date;
     });
     
@@ -680,10 +680,48 @@ const Reports: React.FC = () => {
   return (
     <ScrollableContent>
       <Container maxWidth="lg">
-        <Typography variant="h4" component="h1" fontWeight="bold" color="primary" gutterBottom>
-          Raporlar
-        </Typography>
-        
+        {/* Üst Kısım - Görev Seçici */}
+        <TaskSelector>
+          <Typography variant="subtitle1" fontWeight="bold" color="primary.main" gutterBottom>
+            Görev Seçiniz
+          </Typography>
+          
+          <FormControl fullWidth size="small">
+            <InputLabel id="task-select-label">Görev seçiniz</InputLabel>
+            <Select
+              labelId="task-select-label"
+              value={selectedTask?.id || ''}
+              onChange={handleTaskChange}
+              label="Görev seçiniz"
+            >
+              {taskList.map((task) => (
+                <MenuItem key={task.id} value={task.id}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                    <IconButton size="small" sx={{ mr: 1, color: 'primary.main' }}>
+                      {task.isRecurring ? <RepeatIcon /> : <AssignmentIcon />}
+                    </IconButton>
+                    <Typography variant="body2" sx={{ flexGrow: 1 }}>
+                      {task.name}
+                    </Typography>
+                    <Chip
+                      label={getStatusText(task.status)}
+                      size="small"
+                      sx={{
+                        backgroundColor: getStatusColor(task.status) + '20',
+                        color: getStatusColor(task.status),
+                        fontWeight: 'medium',
+                        height: 20,
+                        fontSize: 11,
+                      }}
+                    />
+                  </Box>
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </TaskSelector>
+
+        {/* Alt Kısım - Rapor İçeriği */}
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
             <CircularProgress />
@@ -709,46 +747,6 @@ const Reports: React.FC = () => {
           </Box>
         ) : (
           <>
-            {/* Görev Seçme Bölümü */}
-            <TaskSelector>
-              <Typography variant="h6" fontWeight="bold" color="primary.main" gutterBottom>
-                Lütfen Raporlamak İstediğiniz Görevi Seçiniz
-              </Typography>
-              
-              <FormControl fullWidth>
-                <InputLabel id="task-select-label">Görev seçiniz</InputLabel>
-                <Select
-                  labelId="task-select-label"
-                  value={selectedTask?.id || ''}
-                  onChange={handleTaskChange}
-                  label="Görev seçiniz"
-                >
-                  {taskList.map((task) => (
-                    <MenuItem key={task.id} value={task.id}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-                        <IconButton size="small" sx={{ mr: 1, color: 'primary.main' }}>
-                          {task.isRecurring ? <RepeatIcon /> : <AssignmentIcon />}
-                        </IconButton>
-                        <Typography variant="body1" sx={{ flexGrow: 1 }}>
-                          {task.name}
-                        </Typography>
-                        <Chip
-                          label={getStatusText(task.status)}
-                          size="small"
-                          sx={{
-                            backgroundColor: getStatusColor(task.status) + '20',
-                            color: getStatusColor(task.status),
-                            fontWeight: 'medium',
-                          }}
-                        />
-                      </Box>
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </TaskSelector>
-            
-            {/* Rapor İçeriği Bölümü */}
             {selectedTask ? (
               <ReportContent>
                 {/* Görev Başlık ve Açıklama */}
