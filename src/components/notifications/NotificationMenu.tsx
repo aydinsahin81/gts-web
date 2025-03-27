@@ -105,34 +105,36 @@ const NotificationMenu: React.FC = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [personnel, setPersonnel] = useState<Personnel[]>([]);
   const [companyId, setCompanyId] = useState<string | null>(null);
-  const [lastSeenReadStatus, setLastSeenReadStatus] = useState<{[id: string]: string[]}>({});
+  const [viewedNotifications, setViewedNotifications] = useState<Set<string>>(() => {
+    // localStorage'dan okundu bildirimleri al
+    const saved = localStorage.getItem('viewedNotifications');
+    return saved ? new Set(JSON.parse(saved)) : new Set();
+  });
   const [newReadNotifications, setNewReadNotifications] = useState<string[]>([]);
   const { currentUser } = useAuth();
+  
+  // Okundu bildirimleri localStorage'a kaydet
+  useEffect(() => {
+    localStorage.setItem('viewedNotifications', JSON.stringify(Array.from(viewedNotifications)));
+  }, [viewedNotifications]);
+  
+  // Bildirime tıklandığında okundu olarak işaretle
+  const handleNotificationClick = (notificationId: string) => {
+    setViewedNotifications(prev => {
+      const newSet = new Set(prev);
+      newSet.add(notificationId);
+      return newSet;
+    });
+  };
   
   // Menüyü açma/kapama
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
-    // Menü açıldığında bildirimleri yükle
     loadNotifications();
-    
-    // Menü açıldığında, şu anki tüm okunma durumlarını gördüğümüzü kaydedelim
-    // Böylece yönetici bildirimleri görene kadar yeni okunma durumları bildirimde kalacak
-    const currentNotifications = [...notifications];
-    const currentReadStatuses: {[id: string]: string[]} = {};
-    
-    currentNotifications.forEach(notification => {
-      if (notification.read && notification.read.length > 0) {
-        currentReadStatuses[notification.id] = [...notification.read];
-      }
-    });
-    
-    setLastSeenReadStatus(currentReadStatuses);
-    setNewReadNotifications([]); // Bildirimleri görmüş sayalım
   };
   
   const handleMenuClose = () => {
     setAnchorEl(null);
-    // Menü kapatıldığında yeni okunma durumlarını gördüğümüzü varsayalım
     setNewReadNotifications([]);
   };
   
@@ -164,14 +166,14 @@ const NotificationMenu: React.FC = () => {
     
     setLoading(true);
     try {
-      // Son 20 bildirimi getir
       const recentNotifications = await NotificationService.getRecentNotifications(companyId, 20);
       setNotifications(recentNotifications);
       
-      // Başarılı gönderilen ve henüz okunmamış bildirimler
+      // Sadece görülmemiş bildirimleri say
       const newCount = recentNotifications.filter(n => {
-        // Bildirim gönderildi ve hiç kimse okumadı
-        return n.status === 'sent' && (!n.read || n.read.length === 0);
+        return n.status === 'sent' && 
+               (!n.read || n.read.length === 0) && 
+               !viewedNotifications.has(n.id);
       }).length;
       
       setUnreadCount(newCount);
@@ -180,28 +182,21 @@ const NotificationMenu: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentUser, companyId]);
+  }, [currentUser, companyId, viewedNotifications]);
   
   // Bildirimlerdeki değişiklikleri dinle
   const setupNotificationListener = useCallback((companyId: string) => {
-    // Bildirim koleksiyonunu dinle
     const notificationsRef = ref(database, `companies/${companyId}/notifications`);
     
-    // Bildirim değişikliklerini dinle
     onValue(notificationsRef, (snapshot) => {
       if (!snapshot.exists()) return;
       
-      // Tüm güncel bildirimleri al
       const notificationsData = snapshot.val();
       const notificationsList: Notification[] = [];
-      
-      // Yeni durumu hesapla
       let newUnreadCount = 0;
       const newReadNotificationsIds: string[] = [];
       
-      // Bildirimleri işle
       Object.entries(notificationsData).forEach(([id, data]: [string, any]) => {
-        // Bildirimi listeye ekle
         const notification = {
           id,
           ...data
@@ -209,55 +204,37 @@ const NotificationMenu: React.FC = () => {
         
         notificationsList.push(notification);
         
-        // Bildirim gönderildi ve hiç kimse okumadı mı?
-        if (notification.status === 'sent' && (!notification.read || notification.read.length === 0)) {
+        // Sadece görülmemiş bildirimleri say
+        if (notification.status === 'sent' && 
+            (!notification.read || notification.read.length === 0) && 
+            !viewedNotifications.has(id)) {
           newUnreadCount++;
         }
         
         // Okunma durumunu takip et
         if (notification.read && notification.read.length > 0) {
-          // Bu bildirim daha önce kaydedilmiş mi kontrol et
-          const previousRead = lastSeenReadStatus[id] || [];
-          
-          // Yeni okuyan kişi varsa (read dizisinde yeni eleman varsa)
-          if (notification.read.length > previousRead.length) {
-            // Yeni okuyan kişileri bul
-            const newReaders = notification.read.filter((readerId: string) => !previousRead.includes(readerId));
-            
-            if (newReaders.length > 0) {
-              // Yeni bildirim olarak işaretle
-              newReadNotificationsIds.push(id);
-              newUnreadCount++; // Okunma durumu değişimi de bir bildirim olarak sayılsın
-              
-              console.log(`Bildirim ${id} yeni okuyanlar:`, newReaders);
-            }
+          // Eğer bildirim daha önce görülmemişse ve yeni okuyanlar varsa
+          if (!viewedNotifications.has(id)) {
+            newReadNotificationsIds.push(id);
+            newUnreadCount++;
           }
         }
       });
       
-      // Bildirimleri tarihe göre sırala (en yeniler en üstte)
       notificationsList.sort((a, b) => b.createdAt - a.createdAt);
-      
-      // State'leri güncelle
-      setNotifications(notificationsList.slice(0, 20)); // Son 20 bildirimi al
+      setNotifications(notificationsList.slice(0, 20));
       setUnreadCount(newUnreadCount);
       
-      // lastSeenReadStatus burada güncellenmiyor - sadece menü açıldığında güncelleniyor
-      // Bu sayede bildirimler yönetici tarafından görülene kadar kalıcı olarak kalacak
-      
-      // Mevcut yeni okunma durumları ile yeni gelen okunma durumlarını birleştir
       setNewReadNotifications(prevIds => {
         const allIds = new Set([...prevIds, ...newReadNotificationsIds]);
-        console.log('Toplam okunmuş yeni bildirimler:', allIds.size);
         return Array.from(allIds);
       });
     });
     
-    // Temizleme fonksiyonu
     return () => {
       off(notificationsRef);
     };
-  }, [lastSeenReadStatus]);
+  }, [viewedNotifications]);
   
   // Bildirim servisi başlatma ve dinleme
   useEffect(() => {
@@ -362,14 +339,16 @@ const NotificationMenu: React.FC = () => {
                 return (
                   <React.Fragment key={notification.id}>
                     <NotificationItem
+                      onClick={() => handleNotificationClick(notification.id)}
                       sx={{ 
                         borderLeft: '4px solid',
                         borderLeftColor: getStatusColor(notification.status),
                         backgroundColor: hasNewReadStatus 
-                          ? 'rgba(25, 118, 210, 0.05)' // Yeni okunma durumu için hafif mavi arka plan
+                          ? 'rgba(25, 118, 210, 0.05)'
                           : isReadByAnyone 
                             ? 'rgba(0, 200, 0, 0.05)' 
-                            : 'transparent'
+                            : 'transparent',
+                        cursor: 'pointer'
                       }}
                     >
                       <ListItemAvatar>
