@@ -46,7 +46,8 @@ import {
   TableBody,
   TableRow,
   TableCell,
-  InputAdornment
+  InputAdornment,
+  Autocomplete
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -1381,38 +1382,38 @@ const Tasks: React.FC = () => {
           </FormControl>
 
           <FormControl sx={{ minWidth: 200, flex: 1 }}>
-            <InputLabel>Personel</InputLabel>
-            <Select
-              value={personnelFilter}
-              label="Personel"
-              onChange={handlePersonnelFilterChange}
+            <Autocomplete
               size="small"
-            >
-              <MenuItem value="all">Tüm Personel</MenuItem>
-              {personnel
-                .filter(person => 
-                  personnelSearchTerm === '' || 
-                  person.name.toLowerCase().includes(personnelSearchTerm.toLowerCase())
-                )
-                .map((person) => (
-                  <MenuItem key={person.id} value={person.id}>
-                    {person.name}
-                  </MenuItem>
-                ))}
-            </Select>
-            <TextField
-              size="small"
-              placeholder="Personel Ara..."
-              value={personnelSearchTerm}
-              onChange={(e) => setPersonnelSearchTerm(e.target.value)}
-              sx={{ mt: 1 }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon fontSize="small" />
-                  </InputAdornment>
-                ),
+              options={personnel}
+              getOptionLabel={(option) => option.name || ''}
+              value={personnel.find(p => p.id === personnelFilter) || null}
+              onChange={(event, newValue) => {
+                setPersonnelFilter(newValue?.id || 'all');
               }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  placeholder="Personel Ara..."
+                  InputProps={{
+                    ...params.InputProps,
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon fontSize="small" />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              )}
+              renderOption={(props, option) => (
+                <MenuItem {...props}>
+                  {option.name}
+                </MenuItem>
+              )}
+              isOptionEqualToValue={(option, value) => option.id === value.id}
+              noOptionsText="Personel bulunamadı"
+              clearText="Tümünü Temizle"
+              openText="Aç"
+              closeText="Kapat"
             />
           </FormControl>
         </Box>
