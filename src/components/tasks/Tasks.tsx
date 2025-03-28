@@ -47,7 +47,9 @@ import {
   TableRow,
   TableCell,
   InputAdornment,
-  Autocomplete
+  Autocomplete,
+  Tabs,
+  Tab
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -76,7 +78,11 @@ import {
   Category as CategoryIcon,
   Info as InfoIcon,
   FileDownload as FileDownloadIcon,
-  Search as SearchIcon
+  Search as SearchIcon,
+  Today as TodayIcon,
+  DateRange as WeekIcon,
+  CalendarMonth as MonthIcon,
+  CalendarToday as YearIcon
 } from '@mui/icons-material';
 import { ref, get, onValue, off, remove, update, push, set } from 'firebase/database';
 import { database, auth } from '../../firebase';
@@ -397,6 +403,8 @@ const Tasks: React.FC = () => {
   const [selectedTaskForQr, setSelectedTaskForQr] = useState<any | null>(null);
   // Bilgi modalı state'i
   const [infoModalOpen, setInfoModalOpen] = useState(false);
+  // Görev tipi sekmesi state'i
+  const [taskType, setTaskType] = useState<string>('daily');
 
   // Görünüm modunu localStorage'dan yükle
   useEffect(() => {
@@ -1387,6 +1395,11 @@ const Tasks: React.FC = () => {
     }
   };
 
+  // Görev tipini değiştir
+  const handleTaskTypeChange = (event: React.SyntheticEvent, newValue: string) => {
+    setTaskType(newValue);
+  };
+
   return (
     <ScrollableContent>
       <HeaderContainer>
@@ -1452,53 +1465,73 @@ const Tasks: React.FC = () => {
         </Box>
       </HeaderContainer>
 
-      <FilterContainer>
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-          <FormControl sx={{ minWidth: 200, flex: 1 }}>
-            <InputLabel>Durum</InputLabel>
-            <Select
-              value={statusFilter}
-              label="Durum"
-              onChange={handleStatusFilterChange}
-              size="small"
-            >
-              {statusOptions.map((option) => (
-                <MenuItem key={option.value} value={option.value}>
-                  {option.label}
-                </MenuItem>
-              ))}
-            </Select>
-            <TextField
-              size="small"
-              placeholder="Görev Ara..."
-              value={taskSearchTerm}
-              onChange={(e) => setTaskSearchTerm(e.target.value)}
-              sx={{ mt: 1 }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon fontSize="small" />
-                  </InputAdornment>
-                ),
-              }}
-            />
-          </FormControl>
+      {/* Görev Tipi Sekmeleri */}
+      <Box sx={{ mb: 3 }}>
+        <Tabs 
+          value={taskType} 
+          onChange={handleTaskTypeChange} 
+          variant="fullWidth"
+          sx={{ 
+            borderBottom: 1, 
+            borderColor: 'divider',
+            '& .MuiTab-root': {
+              py: 1.5
+            }
+          }}
+        >
+          <Tab 
+            value="daily" 
+            label="Günlük Görevler" 
+            icon={<TodayIcon />} 
+            iconPosition="start"
+          />
+          <Tab 
+            value="weekly" 
+            label="Haftalık Görevler" 
+            icon={<WeekIcon />} 
+            iconPosition="start"
+          />
+          <Tab 
+            value="monthly" 
+            label="Aylık Görevler" 
+            icon={<MonthIcon />} 
+            iconPosition="start"
+          />
+          <Tab 
+            value="yearly" 
+            label="Yıllık Görevler" 
+            icon={<YearIcon />} 
+            iconPosition="start"
+          />
+        </Tabs>
+      </Box>
 
-          <FormControl sx={{ minWidth: 200, flex: 1 }}>
-            <Autocomplete
-              size="small"
-              options={personnel}
-              getOptionLabel={(option) => option.name || ''}
-              value={personnel.find(p => p.id === personnelFilter) || null}
-              onChange={(event, newValue) => {
-                setPersonnelFilter(newValue?.id || 'all');
-              }}
-              renderInput={(params) => (
+      {/* Günlük Görevler İçeriği */}
+      {taskType === 'daily' && (
+        <>
+          <FilterContainer>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+              <FormControl sx={{ minWidth: 200, flex: 1 }}>
+                <InputLabel>Durum</InputLabel>
+                <Select
+                  value={statusFilter}
+                  label="Durum"
+                  onChange={handleStatusFilterChange}
+                  size="small"
+                >
+                  {statusOptions.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </Select>
                 <TextField
-                  {...params}
-                  placeholder="Personel Ara..."
+                  size="small"
+                  placeholder="Görev Ara..."
+                  value={taskSearchTerm}
+                  onChange={(e) => setTaskSearchTerm(e.target.value)}
+                  sx={{ mt: 1 }}
                   InputProps={{
-                    ...params.InputProps,
                     startAdornment: (
                       <InputAdornment position="start">
                         <SearchIcon fontSize="small" />
@@ -1506,220 +1539,291 @@ const Tasks: React.FC = () => {
                     ),
                   }}
                 />
-              )}
-              renderOption={(props, option) => (
-                <MenuItem {...props}>
-                  {option.name}
-                </MenuItem>
-              )}
-              isOptionEqualToValue={(option, value) => option.id === value.id}
-              noOptionsText="Personel bulunamadı"
-              clearText="Tümünü Temizle"
-              openText="Aç"
-              closeText="Kapat"
-            />
-          </FormControl>
-        </Box>
-      </FilterContainer>
+              </FormControl>
 
-      {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
-          <CircularProgress />
-        </Box>
-      ) : tasks.length === 0 ? (
-        <Box sx={{ textAlign: 'center', my: 8 }}>
-          <AssignmentIcon sx={{ fontSize: 60, color: 'primary.light', mb: 2 }} />
-          <Typography variant="h6" color="textSecondary">
-            {
-              statusFilter === 'all' && personnelFilter === 'all'
-                ? 'Henüz hiç görev eklenmemiş'
-                : 'Filtrelere uygun görev bulunamadı'
-            }
-          </Typography>
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<AddIcon />}
-            onClick={() => setAddTaskModalOpen(true)}
-            sx={{ mt: 2 }}
-          >
-            Yeni Görev Ekle
-          </Button>
-        </Box>
-      ) : viewMode === 'card' ? (
-        <Grid container spacing={3}>
-          {filteredTasks.map((task) => (
-            <Grid item xs={12} sm={6} md={3} key={task.id}>
-              <TaskCard 
-                onClick={() => handleShowTaskDetail(task)}
-                sx={{
-                  cursor: statusFilter === 'completed' || statusFilter === 'missed' ? 'default' : 'pointer',
-                  '&:hover': {
-                    boxShadow: statusFilter === 'completed' || statusFilter === 'missed' 
-                      ? '0 4px 12px rgba(0,0,0,0.05)' // Orijinal gölge
-                      : '0 6px 16px rgba(0,0,0,0.1)' // Hover durumunda daha belirgin gölge
-                  }
-                }}
-              >
-                <CardContent sx={{ display: 'flex', flexDirection: 'column', height: '100%', p: 2 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                    <Avatar
-                      sx={{
-                        bgcolor: `${getStatusColor(task.status)}20`,
-                        color: getStatusColor(task.status),
-                        mr: 1,
+              <FormControl sx={{ minWidth: 200, flex: 1 }}>
+                <Autocomplete
+                  size="small"
+                  options={personnel}
+                  getOptionLabel={(option) => option.name || ''}
+                  value={personnel.find(p => p.id === personnelFilter) || null}
+                  onChange={(event, newValue) => {
+                    setPersonnelFilter(newValue?.id || 'all');
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      placeholder="Personel Ara..."
+                      InputProps={{
+                        ...params.InputProps,
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <SearchIcon fontSize="small" />
+                          </InputAdornment>
+                        ),
                       }}
-                    >
-                      {getStatusIcon(task.status)}
-                    </Avatar>
-                    <Box>
-                      <Typography variant="subtitle1" fontWeight="bold" noWrap>
-                        {task.name}
-                      </Typography>
-                      <Chip
-                        label={getStatusLabel(task.status)}
-                        size="small"
-                        sx={{
-                          bgcolor: `${getStatusColor(task.status)}20`,
-                          color: getStatusColor(task.status),
-                          fontWeight: 'medium',
-                          height: 20,
-                          fontSize: 11,
-                        }}
-                      />
-                    </Box>
-                  </Box>
+                    />
+                  )}
+                  renderOption={(props, option) => (
+                    <MenuItem {...props}>
+                      {option.name}
+                    </MenuItem>
+                  )}
+                  isOptionEqualToValue={(option, value) => option.id === value.id}
+                  noOptionsText="Personel bulunamadı"
+                  clearText="Tümünü Temizle"
+                  openText="Aç"
+                  closeText="Kapat"
+                />
+              </FormControl>
+            </Box>
+          </FilterContainer>
 
-                  <Divider sx={{ mb: 1.5 }} />
-
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
+          {loading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : tasks.length === 0 ? (
+            <Box sx={{ textAlign: 'center', my: 8 }}>
+              <AssignmentIcon sx={{ fontSize: 60, color: 'primary.light', mb: 2 }} />
+              <Typography variant="h6" color="textSecondary">
+                {
+                  statusFilter === 'all' && personnelFilter === 'all'
+                    ? 'Henüz hiç görev eklenmemiş'
+                    : 'Filtrelere uygun görev bulunamadı'
+                }
+              </Typography>
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<AddIcon />}
+                onClick={() => setAddTaskModalOpen(true)}
+                sx={{ mt: 2 }}
+              >
+                Yeni Görev Ekle
+              </Button>
+            </Box>
+          ) : viewMode === 'card' ? (
+            <Grid container spacing={3}>
+              {filteredTasks.map((task) => (
+                <Grid item xs={12} sm={6} md={3} key={task.id}>
+                  <TaskCard 
+                    onClick={() => handleShowTaskDetail(task)}
                     sx={{
-                      mb: 1.5,
-                      display: '-webkit-box',
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: 'vertical',
-                      overflow: 'hidden',
-                      flexGrow: 1,
+                      cursor: statusFilter === 'completed' || statusFilter === 'missed' ? 'default' : 'pointer',
+                      '&:hover': {
+                        boxShadow: statusFilter === 'completed' || statusFilter === 'missed' 
+                          ? '0 4px 12px rgba(0,0,0,0.05)' // Orijinal gölge
+                          : '0 6px 16px rgba(0,0,0,0.1)' // Hover durumunda daha belirgin gölge
+                      }
                     }}
                   >
-                    {task.description || 'Açıklama yok'}
-                  </Typography>
-
-                  {/* Tarih bilgisi göster */}
-                  {(task.status === 'completed' || task.status === 'missed') && (
-                    <Box sx={{ mb: 1.5 }}>
-                      <Typography 
-                        variant="caption" 
-                        color="text.secondary"
-                        sx={{ 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          justifyContent: 'flex-end',
-                          fontStyle: 'italic'
-                        }}
-                      >
-                        {task.status === 'completed' ? 'Tamamlanma: ' : 'Kaçırılma: '}
-                        {task.fromDatabase && (task.completionDate || task.missedDate)
-                          ? `${task.status === 'completed' ? task.completionDate : task.missedDate}`
-                          : (task.status === 'completed' 
-                              ? (task.completedAt ? new Date(task.completedAt).toLocaleDateString('tr-TR', { 
-                                  year: 'numeric', 
-                                  month: 'short', 
-                                  day: 'numeric',
-                                  hour: '2-digit',
-                                  minute: '2-digit'
-                                }) : '-') 
-                              : (task.missedAt ? new Date(task.missedAt).toLocaleDateString('tr-TR', { 
-                                  year: 'numeric', 
-                                  month: 'short', 
-                                  day: 'numeric',
-                                  hour: '2-digit',
-                                  minute: '2-digit'
-                                }) : '-')
-                          )
-                        }
-                      </Typography>
-                    </Box>
-                  )}
-
-                  {task.isRecurring && task.repetitionTimes && task.repetitionTimes.length > 0 && (
-                    <Box sx={{ mb: 1.5 }}>
-                      <Divider sx={{ my: 1 }} />
-                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
-                        <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center' }}>
-                          <Chip 
-                            label={`${task.startTolerance || 15} dk tolerans`}
+                    <CardContent sx={{ display: 'flex', flexDirection: 'column', height: '100%', p: 2 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                        <Avatar
+                          sx={{
+                            bgcolor: `${getStatusColor(task.status)}20`,
+                            color: getStatusColor(task.status),
+                            mr: 1,
+                          }}
+                        >
+                          {getStatusIcon(task.status)}
+                        </Avatar>
+                        <Box>
+                          <Typography variant="subtitle1" fontWeight="bold" noWrap>
+                            {task.name}
+                          </Typography>
+                          <Chip
+                            label={getStatusLabel(task.status)}
                             size="small"
-                            sx={{ 
-                              mr: 1,
-                              height: 18, 
-                              fontSize: '0.65rem', 
-                              bgcolor: 'primary.50', 
-                              color: 'primary.main',
-                              '& .MuiChip-label': { px: 1 }
+                            sx={{
+                              bgcolor: `${getStatusColor(task.status)}20`,
+                              color: getStatusColor(task.status),
+                              fontWeight: 'medium',
+                              height: 20,
+                              fontSize: 11,
                             }}
                           />
-                          Tekrar saatleri:
-                        </Typography>
+                        </Box>
                       </Box>
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
-                        {task.repetitionTimes.map((time: string, index: number) => (
-                          <TaskTimeChip
-                            key={index}
-                            label={time}
-                            size="small"
-                            status={getTaskTimeColor(task, time)}
-                          />
-                        ))}
-                      </Box>
-                    </Box>
-                  )}
 
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    {task.personnelName ? (
-                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        <PersonIcon fontSize="small" sx={{ color: 'text.secondary', mr: 0.5 }} />
-                        <Typography variant="body2" color="text.secondary" noWrap>
-                          {task.personnelName}
-                        </Typography>
-                      </Box>
-                    ) : (
-                      <Typography variant="body2" color="error" fontStyle="italic">
-                        Personel atanmamış
-                      </Typography>
-                    )}
-                    
-                    {task.isRecurring && task.completionType === 'qr' && !task.fromDatabase && statusFilter !== 'completed' && statusFilter !== 'missed' && (
-                      <Button
-                        size="small"
-                        startIcon={<QrCodeIcon />}
-                        variant="outlined"
-                        color="primary"
-                        onClick={(e) => handleOpenQrPrintModal(task, e)}
-                        sx={{ ml: 'auto', minWidth: 'auto', fontSize: '0.75rem', py: 0.5 }}
+                      <Divider sx={{ mb: 1.5 }} />
+
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{
+                          mb: 1.5,
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden',
+                          flexGrow: 1,
+                        }}
                       >
-                        QR Yazdır
-                      </Button>
-                    )}
-                  </Box>
-                </CardContent>
-              </TaskCard>
+                        {task.description || 'Açıklama yok'}
+                      </Typography>
+
+                      {/* Tarih bilgisi göster */}
+                      {(task.status === 'completed' || task.status === 'missed') && (
+                        <Box sx={{ mb: 1.5 }}>
+                          <Typography 
+                            variant="caption" 
+                            color="text.secondary"
+                            sx={{ 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              justifyContent: 'flex-end',
+                              fontStyle: 'italic'
+                            }}
+                          >
+                            {task.status === 'completed' ? 'Tamamlanma: ' : 'Kaçırılma: '}
+                            {task.fromDatabase && (task.completionDate || task.missedDate)
+                              ? `${task.status === 'completed' ? task.completionDate : task.missedDate}`
+                              : (task.status === 'completed' 
+                                  ? (task.completedAt ? new Date(task.completedAt).toLocaleDateString('tr-TR', { 
+                                      year: 'numeric', 
+                                      month: 'short', 
+                                      day: 'numeric',
+                                      hour: '2-digit',
+                                      minute: '2-digit'
+                                    }) : '-') 
+                                  : (task.missedAt ? new Date(task.missedAt).toLocaleDateString('tr-TR', { 
+                                      year: 'numeric', 
+                                      month: 'short', 
+                                      day: 'numeric',
+                                      hour: '2-digit',
+                                      minute: '2-digit'
+                                    }) : '-')
+                              )
+                            }
+                          </Typography>
+                        </Box>
+                      )}
+
+                      {task.isRecurring && task.repetitionTimes && task.repetitionTimes.length > 0 && (
+                        <Box sx={{ mb: 1.5 }}>
+                          <Divider sx={{ my: 1 }} />
+                          <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center' }}>
+                              <Chip 
+                                label={`${task.startTolerance || 15} dk tolerans`}
+                                size="small"
+                                sx={{ 
+                                  mr: 1,
+                                  height: 18, 
+                                  fontSize: '0.65rem', 
+                                  bgcolor: 'primary.50', 
+                                  color: 'primary.main',
+                                  '& .MuiChip-label': { px: 1 }
+                                }}
+                              />
+                              Tekrar saatleri:
+                            </Typography>
+                          </Box>
+                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                            {task.repetitionTimes.map((time: string, index: number) => (
+                              <TaskTimeChip
+                                key={index}
+                                label={time}
+                                size="small"
+                                status={getTaskTimeColor(task, time)}
+                              />
+                            ))}
+                          </Box>
+                        </Box>
+                      )}
+
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        {task.personnelName ? (
+                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                            <PersonIcon fontSize="small" sx={{ color: 'text.secondary', mr: 0.5 }} />
+                            <Typography variant="body2" color="text.secondary" noWrap>
+                              {task.personnelName}
+                            </Typography>
+                          </Box>
+                        ) : (
+                          <Typography variant="body2" color="error" fontStyle="italic">
+                            Personel atanmamış
+                          </Typography>
+                        )}
+                        
+                        {task.isRecurring && task.completionType === 'qr' && !task.fromDatabase && statusFilter !== 'completed' && statusFilter !== 'missed' && (
+                          <Button
+                            size="small"
+                            startIcon={<QrCodeIcon />}
+                            variant="outlined"
+                            color="primary"
+                            onClick={(e) => handleOpenQrPrintModal(task, e)}
+                            sx={{ ml: 'auto', minWidth: 'auto', fontSize: '0.75rem', py: 0.5 }}
+                          >
+                            QR Yazdır
+                          </Button>
+                        )}
+                      </Box>
+                    </CardContent>
+                  </TaskCard>
+                </Grid>
+              ))}
             </Grid>
-          ))}
-        </Grid>
-      ) : (
-        <TasksTable 
-          tasks={filteredTasks}
-          statusFilter={statusFilter}
-          onShowTaskDetail={handleShowTaskDetail}
-          onOpenQrPrintModal={handleOpenQrPrintModal}
-          getStatusColor={getStatusColor}
-          getStatusIcon={getStatusIcon}
-          getStatusLabel={getStatusLabel}
-          getTaskTimeColor={getTaskTimeColor}
-        />
+          ) : (
+            <TasksTable 
+              tasks={filteredTasks}
+              statusFilter={statusFilter}
+              onShowTaskDetail={handleShowTaskDetail}
+              onOpenQrPrintModal={handleOpenQrPrintModal}
+              getStatusColor={getStatusColor}
+              getStatusIcon={getStatusIcon}
+              getStatusLabel={getStatusLabel}
+              getTaskTimeColor={getTaskTimeColor}
+            />
+          )}
+        </>
+      )}
+
+      {/* Haftalık Görevler İçeriği */}
+      {taskType === 'weekly' && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
+          <Paper sx={{ p: 4, textAlign: 'center', maxWidth: 500 }}>
+            <WeekIcon sx={{ fontSize: 60, color: 'primary.main', mb: 2 }} />
+            <Typography variant="h5" gutterBottom>
+              Haftalık Görevler
+            </Typography>
+            <Typography variant="body1" color="text.secondary" paragraph>
+              Bu bölüm yakında eklenecektir.
+            </Typography>
+          </Paper>
+        </Box>
+      )}
+
+      {/* Aylık Görevler İçeriği */}
+      {taskType === 'monthly' && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
+          <Paper sx={{ p: 4, textAlign: 'center', maxWidth: 500 }}>
+            <MonthIcon sx={{ fontSize: 60, color: 'primary.main', mb: 2 }} />
+            <Typography variant="h5" gutterBottom>
+              Aylık Görevler
+            </Typography>
+            <Typography variant="body1" color="text.secondary" paragraph>
+              Bu bölüm yakında eklenecektir.
+            </Typography>
+          </Paper>
+        </Box>
+      )}
+
+      {/* Yıllık Görevler İçeriği */}
+      {taskType === 'yearly' && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
+          <Paper sx={{ p: 4, textAlign: 'center', maxWidth: 500 }}>
+            <YearIcon sx={{ fontSize: 60, color: 'primary.main', mb: 2 }} />
+            <Typography variant="h5" gutterBottom>
+              Yıllık Görevler
+            </Typography>
+            <Typography variant="body1" color="text.secondary" paragraph>
+              Bu bölüm yakında eklenecektir.
+            </Typography>
+          </Paper>
+        </Box>
       )}
 
       {/* Görev Detay Modalı */}
