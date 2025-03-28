@@ -1783,47 +1783,263 @@ const Tasks: React.FC = () => {
 
       {/* Haftalık Görevler İçeriği */}
       {taskType === 'weekly' && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
-          <Paper sx={{ p: 4, textAlign: 'center', maxWidth: 500 }}>
-            <WeekIcon sx={{ fontSize: 60, color: 'primary.main', mb: 2 }} />
-            <Typography variant="h5" gutterBottom>
-              Haftalık Görevler
-            </Typography>
-            <Typography variant="body1" color="text.secondary" paragraph>
-              Bu bölüm yakında eklenecektir.
-            </Typography>
-          </Paper>
-        </Box>
+        <>
+          <FilterContainer>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+              <FormControl sx={{ minWidth: 200, flex: 1 }}>
+                <InputLabel>Durum</InputLabel>
+                <Select
+                  value={statusFilter}
+                  label="Durum"
+                  onChange={handleStatusFilterChange}
+                  size="small"
+                >
+                  {statusOptions.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+                <TextField
+                  size="small"
+                  placeholder="Görev Ara..."
+                  value={taskSearchTerm}
+                  onChange={(e) => setTaskSearchTerm(e.target.value)}
+                  sx={{ mt: 1 }}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon fontSize="small" />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </FormControl>
+
+              <FormControl sx={{ minWidth: 200, flex: 1 }}>
+                <Autocomplete
+                  size="small"
+                  options={personnel}
+                  getOptionLabel={(option) => option.name || ''}
+                  value={personnel.find(p => p.id === personnelFilter) || null}
+                  onChange={(event, newValue) => {
+                    setPersonnelFilter(newValue?.id || 'all');
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      placeholder="Personel Ara..."
+                      InputProps={{
+                        ...params.InputProps,
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <SearchIcon fontSize="small" />
+                          </InputAdornment>
+                        ),
+                      }}
+                    />
+                  )}
+                  renderOption={(props, option) => (
+                    <MenuItem {...props}>
+                      {option.name}
+                    </MenuItem>
+                  )}
+                  isOptionEqualToValue={(option, value) => option.id === value.id}
+                  noOptionsText="Personel bulunamadı"
+                  clearText="Tümünü Temizle"
+                  openText="Aç"
+                  closeText="Kapat"
+                />
+              </FormControl>
+            </Box>
+          </FilterContainer>
+
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
+            <Paper sx={{ p: 4, textAlign: 'center', maxWidth: 500 }}>
+              <WeekIcon sx={{ fontSize: 60, color: 'primary.main', mb: 2 }} />
+              <Typography variant="h5" gutterBottom>
+                Haftalık Görevler
+              </Typography>
+              <Typography variant="body1" color="text.secondary" paragraph>
+                Bu bölüm yakında eklenecektir.
+              </Typography>
+            </Paper>
+          </Box>
+        </>
       )}
 
       {/* Aylık Görevler İçeriği */}
       {taskType === 'monthly' && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
-          <Paper sx={{ p: 4, textAlign: 'center', maxWidth: 500 }}>
-            <MonthIcon sx={{ fontSize: 60, color: 'primary.main', mb: 2 }} />
-            <Typography variant="h5" gutterBottom>
-              Aylık Görevler
-            </Typography>
-            <Typography variant="body1" color="text.secondary" paragraph>
-              Bu bölüm yakında eklenecektir.
-            </Typography>
-          </Paper>
-        </Box>
+        <>
+          <FilterContainer>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+              <FormControl sx={{ minWidth: 200, flex: 1 }}>
+                <InputLabel>Durum</InputLabel>
+                <Select
+                  value={statusFilter}
+                  label="Durum"
+                  onChange={handleStatusFilterChange}
+                  size="small"
+                >
+                  {statusOptions.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+                <TextField
+                  size="small"
+                  placeholder="Görev Ara..."
+                  value={taskSearchTerm}
+                  onChange={(e) => setTaskSearchTerm(e.target.value)}
+                  sx={{ mt: 1 }}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon fontSize="small" />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </FormControl>
+
+              <FormControl sx={{ minWidth: 200, flex: 1 }}>
+                <Autocomplete
+                  size="small"
+                  options={personnel}
+                  getOptionLabel={(option) => option.name || ''}
+                  value={personnel.find(p => p.id === personnelFilter) || null}
+                  onChange={(event, newValue) => {
+                    setPersonnelFilter(newValue?.id || 'all');
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      placeholder="Personel Ara..."
+                      InputProps={{
+                        ...params.InputProps,
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <SearchIcon fontSize="small" />
+                          </InputAdornment>
+                        ),
+                      }}
+                    />
+                  )}
+                  renderOption={(props, option) => (
+                    <MenuItem {...props}>
+                      {option.name}
+                    </MenuItem>
+                  )}
+                  isOptionEqualToValue={(option, value) => option.id === value.id}
+                  noOptionsText="Personel bulunamadı"
+                  clearText="Tümünü Temizle"
+                  openText="Aç"
+                  closeText="Kapat"
+                />
+              </FormControl>
+            </Box>
+          </FilterContainer>
+
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
+            <Paper sx={{ p: 4, textAlign: 'center', maxWidth: 500 }}>
+              <MonthIcon sx={{ fontSize: 60, color: 'primary.main', mb: 2 }} />
+              <Typography variant="h5" gutterBottom>
+                Aylık Görevler
+              </Typography>
+              <Typography variant="body1" color="text.secondary" paragraph>
+                Bu bölüm yakında eklenecektir.
+              </Typography>
+            </Paper>
+          </Box>
+        </>
       )}
 
       {/* Yıllık Görevler İçeriği */}
       {taskType === 'yearly' && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
-          <Paper sx={{ p: 4, textAlign: 'center', maxWidth: 500 }}>
-            <YearIcon sx={{ fontSize: 60, color: 'primary.main', mb: 2 }} />
-            <Typography variant="h5" gutterBottom>
-              Yıllık Görevler
-            </Typography>
-            <Typography variant="body1" color="text.secondary" paragraph>
-              Bu bölüm yakında eklenecektir.
-            </Typography>
-          </Paper>
-        </Box>
+        <>
+          <FilterContainer>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+              <FormControl sx={{ minWidth: 200, flex: 1 }}>
+                <InputLabel>Durum</InputLabel>
+                <Select
+                  value={statusFilter}
+                  label="Durum"
+                  onChange={handleStatusFilterChange}
+                  size="small"
+                >
+                  {statusOptions.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+                <TextField
+                  size="small"
+                  placeholder="Görev Ara..."
+                  value={taskSearchTerm}
+                  onChange={(e) => setTaskSearchTerm(e.target.value)}
+                  sx={{ mt: 1 }}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon fontSize="small" />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </FormControl>
+
+              <FormControl sx={{ minWidth: 200, flex: 1 }}>
+                <Autocomplete
+                  size="small"
+                  options={personnel}
+                  getOptionLabel={(option) => option.name || ''}
+                  value={personnel.find(p => p.id === personnelFilter) || null}
+                  onChange={(event, newValue) => {
+                    setPersonnelFilter(newValue?.id || 'all');
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      placeholder="Personel Ara..."
+                      InputProps={{
+                        ...params.InputProps,
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <SearchIcon fontSize="small" />
+                          </InputAdornment>
+                        ),
+                      }}
+                    />
+                  )}
+                  renderOption={(props, option) => (
+                    <MenuItem {...props}>
+                      {option.name}
+                    </MenuItem>
+                  )}
+                  isOptionEqualToValue={(option, value) => option.id === value.id}
+                  noOptionsText="Personel bulunamadı"
+                  clearText="Tümünü Temizle"
+                  openText="Aç"
+                  closeText="Kapat"
+                />
+              </FormControl>
+            </Box>
+          </FilterContainer>
+
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
+            <Paper sx={{ p: 4, textAlign: 'center', maxWidth: 500 }}>
+              <YearIcon sx={{ fontSize: 60, color: 'primary.main', mb: 2 }} />
+              <Typography variant="h5" gutterBottom>
+                Yıllık Görevler
+              </Typography>
+              <Typography variant="body1" color="text.secondary" paragraph>
+                Bu bölüm yakında eklenecektir.
+              </Typography>
+            </Paper>
+          </Box>
+        </>
       )}
 
       {/* Görev Detay Modalı */}
