@@ -4,8 +4,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import Login from './components/Login';
-// Register sayfasını yorum satırına alıyoruz çünkü artık kullanmayacağız
-// import Register from './components/Register';
+import Register from './components/Register';
 import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
 import './App.css';
@@ -85,6 +84,7 @@ const App: React.FC = () => {
         <Router>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
             
             {/* Private Routes */}
             <Route element={<PrivateRoute />}>

@@ -25,48 +25,47 @@ import EmployeeModal from './EmployeeModal';
 
 // Stil tanımlamaları
 const LoginContainer = styled(Box)(({ theme }) => ({
-  height: '100vh',
-  width: '100vw',
+  minHeight: '100vh',
+  width: '100%',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
   background: 'linear-gradient(to bottom, #0D47A1, #1976D2)',
-  position: 'absolute',
-  top: 0,
-  left: 0,
-  overflow: 'hidden',
+  position: 'relative',
+  padding: theme.spacing(4, 2),
+  overflow: 'auto',
 }));
 
 const LoginForm = styled(Paper)(({ theme }) => ({
-  padding: theme.spacing(4),
+  padding: theme.spacing(3, 2),
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
   borderRadius: 16,
-  maxWidth: 450,
-  width: '90%',
+  maxWidth: 400,
+  width: '100%',
   margin: '0 auto',
 }));
 
 const Logo = styled('img')({
-  width: 150,
-  height: 150,
-  borderRadius: 20,
-  marginBottom: 24,
+  width: 100,
+  height: 100,
+  borderRadius: 15,
+  marginBottom: 16,
   objectFit: 'cover',
 });
 
 const StyledTextField = styled(TextField)(({ theme }) => ({
-  marginBottom: theme.spacing(2),
+  marginBottom: theme.spacing(1.5),
   '& .MuiOutlinedInput-root': {
     borderRadius: 12,
   },
 }));
 
 const LoginButton = styled(Button)(({ theme }) => ({
-  marginTop: theme.spacing(2),
-  marginBottom: theme.spacing(2),
-  padding: theme.spacing(1.5),
+  marginTop: theme.spacing(1.5),
+  marginBottom: theme.spacing(1.5),
+  padding: theme.spacing(1.2),
   borderRadius: 12,
   fontWeight: 'bold',
   fontSize: 16,
@@ -78,10 +77,10 @@ const LoginButton = styled(Button)(({ theme }) => ({
 }));
 
 const StoreButton = styled(Button)(({ theme }) => ({
-  margin: theme.spacing(1),
-  padding: theme.spacing(1),
+  margin: theme.spacing(0.5),
+  padding: theme.spacing(0.8),
   borderRadius: 12,
-  fontSize: 14,
+  fontSize: 13,
   width: '45%',
   textTransform: 'none',
 }));
@@ -208,10 +207,10 @@ const Login: React.FC = () => {
         <Logo src="/assets/gtslogo.jpg" alt="GTS Logo" />
         
         <Typography 
-          variant="h4" 
+          variant="h5" 
           component="h1" 
           gutterBottom 
-          sx={{ fontWeight: 'bold', textAlign: 'center', mb: 4 }}
+          sx={{ fontWeight: 'bold', textAlign: 'center', mb: 2 }}
         >
           Görev Takip Sistemi
         </Typography>
@@ -226,10 +225,11 @@ const Login: React.FC = () => {
             autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            size="small"
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <EmailIcon />
+                  <EmailIcon fontSize="small" />
                 </InputAdornment>
               ),
             }}
@@ -245,10 +245,11 @@ const Login: React.FC = () => {
             autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            size="small"
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <LockIcon />
+                  <LockIcon fontSize="small" />
                 </InputAdornment>
               ),
             }}
@@ -260,32 +261,59 @@ const Login: React.FC = () => {
             variant="contained"
             color="primary"
             disabled={loading}
+            size="medium"
+            sx={{ py: 1 }}
           >
-            {loading ? <CircularProgress size={24} color="inherit" /> : 'Giriş Yap'}
+            {loading ? <CircularProgress size={20} color="inherit" /> : 'Giriş Yap'}
           </LoginButton>
+
+          <Button
+            fullWidth
+            variant="outlined"
+            color="primary"
+            sx={{ 
+              mt: 1.5, 
+              borderRadius: 3, 
+              py: 1,
+              fontWeight: 'bold',
+              fontSize: 15,
+              borderColor: '#0D47A1',
+              color: '#0D47A1',
+              '&:hover': {
+                borderColor: '#0A3C87',
+                backgroundColor: 'rgba(13, 71, 161, 0.04)',
+              }
+            }}
+            onClick={() => navigate('/register')}
+            size="medium"
+          >
+            Firma Kaydı Yapın
+          </Button>
 
           <Typography 
             variant="body2" 
             align="center" 
-            sx={{ mt: 2, mb: 2 }}
+            sx={{ mt: 1.5, mb: 1.5, fontSize: '0.8rem' }}
           >
-            Kayıt olmak için
+            Personel kaydı için uygulamamızı indirmeniz gerekiyor
           </Typography>
 
           <StoreButtonsContainer>
             <StoreButton
               variant="contained"
               color="success"
-              startIcon={<AndroidIcon />}
+              startIcon={<AndroidIcon fontSize="small" />}
               onClick={handleGooglePlayClick}
+              size="small"
             >
               Google Play
             </StoreButton>
             
             <StoreButton
               variant="contained"
-              startIcon={<AppleIcon />}
+              startIcon={<AppleIcon fontSize="small" />}
               disabled
+              size="small"
               sx={{
                 backgroundColor: '#A0A0A0',
                 '&:hover': {
