@@ -902,10 +902,14 @@ const Tasks: React.FC = () => {
     personnelId: string;
     completionType: string;
     isRecurring: boolean;
+    repeatType: string;
     dailyRepetitions: number;
     startTolerance: number;
     repetitionTimes: string[];
     groupId?: string;
+    weekDays?: number[];
+    monthDay?: number;
+    yearDate?: string;
   }) => {
     if (!companyId) {
       throw new Error('Şirket bilgisi bulunamadı');
@@ -933,10 +937,14 @@ const Tasks: React.FC = () => {
         startedAt: null;
         completedAt: null;
         isRecurring: boolean;
+        repeatType: string;
         dailyRepetitions: number;
         startTolerance: number;
         repetitionTimes: string[];
         groupId?: string;
+        weekDays?: number[];
+        monthDay?: number;
+        yearDate?: string;
       }
       
       const taskToSave: TaskData = {
@@ -949,10 +957,20 @@ const Tasks: React.FC = () => {
         startedAt: null,
         completedAt: null,
         isRecurring: taskData.isRecurring,
+        repeatType: taskData.repeatType || 'daily',
         dailyRepetitions: taskData.dailyRepetitions,
         startTolerance: taskData.startTolerance,
         repetitionTimes: taskData.repetitionTimes,
       };
+      
+      // Tekrar tipine göre ek alanları ekle
+      if (taskData.repeatType === 'weekly' && taskData.weekDays) {
+        taskToSave.weekDays = taskData.weekDays;
+      } else if (taskData.repeatType === 'monthly' && taskData.monthDay) {
+        taskToSave.monthDay = taskData.monthDay;
+      } else if (taskData.repeatType === 'yearly' && taskData.yearDate) {
+        taskToSave.yearDate = taskData.yearDate;
+      }
       
       // Eğer görev grubu seçildiyse bunu da ekle
       if (taskData.groupId) {
@@ -971,6 +989,91 @@ const Tasks: React.FC = () => {
       console.log('Personel görev durumu güncellendi');
     } catch (error) {
       console.error('Görev eklenirken hata:', error);
+      throw error;
+    }
+  };
+  
+  // Haftalık görev ekleme fonksiyonu
+  const handleAddWeeklyTask = async (taskData: {
+    name: string;
+    description: string;
+    personnelId: string;
+    completionType: string;
+    weekDays: {
+      day: number;
+      dailyRepetitions: number;
+      repetitionTimes: string[];
+    }[];
+    startTolerance: number;
+    groupId?: string;
+  }) => {
+    if (!companyId) {
+      throw new Error('Şirket bilgisi bulunamadı');
+    }
+
+    try {
+      console.log('Haftalık görev ekleme işlemi başladı:', taskData);
+      
+      // Firebase'de yeni haftalık görev referansı oluştur
+      const newTaskRef = ref(database, `companies/${companyId}/weeklyTasks`);
+      const newTaskKey = push(newTaskRef).key;
+      
+      if (!newTaskKey) {
+        throw new Error('Görev ID oluşturulamadı');
+      }
+      
+      // Ana görev verilerini hazırla
+      interface WeeklyTaskData {
+        name: string;
+        description: string;
+        personnelId: string;
+        status: string;
+        completionType: string;
+        createdAt: number;
+        startTolerance: number;
+        groupId?: string;
+      }
+      
+      const taskToSave: WeeklyTaskData = {
+        name: taskData.name,
+        description: taskData.description,
+        personnelId: taskData.personnelId,
+        status: 'pending', // Başlangıç durumu
+        completionType: taskData.completionType,
+        createdAt: Date.now(),
+        startTolerance: taskData.startTolerance,
+      };
+      
+      // Eğer görev grubu seçildiyse bunu da ekle
+      if (taskData.groupId) {
+        taskToSave.groupId = taskData.groupId;
+      }
+      
+      // Ana görevi kaydet
+      await set(ref(database, `companies/${companyId}/weeklyTasks/${newTaskKey}`), taskToSave);
+      console.log('Haftalık görev ana verisi eklendi');
+      
+      // Her bir gün için tekrarları kaydet
+      for (const dayData of taskData.weekDays) {
+        await set(
+          ref(database, `companies/${companyId}/weeklyTasks/${newTaskKey}/days/${dayData.day}`), 
+          {
+            dailyRepetitions: dayData.dailyRepetitions,
+            repetitionTimes: dayData.repetitionTimes
+          }
+        );
+      }
+      
+      console.log('Haftalık görev günleri başarıyla eklendi');
+      
+      // Personelin görev durumunu güncelle
+      await update(ref(database, `companies/${companyId}/personnel/${taskData.personnelId}`), {
+        hasTask: true
+      });
+      
+      console.log('Personel görev durumu güncellendi');
+    } catch (error) {
+      console.error('Haftalık görev eklenirken hata:', error);
       throw error;
     }
   };
@@ -1637,6 +1740,7 @@ const Tasks: React.FC = () => {
         open={addTaskModalOpen}
         onClose={() => setAddTaskModalOpen(false)}
         onAddTask={handleAddTask}
+        onAddWeeklyTask={handleAddWeeklyTask}
         personnel={personnel}
         taskGroups={taskGroups}
         companyId={companyId || ''}
