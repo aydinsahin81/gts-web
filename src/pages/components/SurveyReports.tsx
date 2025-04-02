@@ -27,6 +27,12 @@ interface Task {
   id: string;
   name: string;
   description: string;
+  personnelId?: string;
+}
+
+interface Personnel {
+  id: string;
+  name: string;
 }
 
 interface Survey {
@@ -59,6 +65,7 @@ interface ReportItem {
   createdAt: number;
   responseId: string;
   questionTitle: string;
+  personnelName: string;
 }
 
 const SurveyReports: React.FC = () => {
@@ -67,6 +74,9 @@ const SurveyReports: React.FC = () => {
   const [reportItems, setReportItems] = useState<ReportItem[]>([]);
   const [tasks, setTasks] = useState<Record<string, Task>>({});
   const [surveys, setSurveys] = useState<Record<string, Survey>>({});
+  const [personnelList, setPersonnelList] = useState<Record<string, Personnel>>({});
+  const [completedTasks, setCompletedTasks] = useState<any>({});
+  const [missedTasks, setMissedTasks] = useState<any>({});
   const [selectedTaskId, setSelectedTaskId] = useState<string>('');
   const [selectedSurveyId, setSelectedSurveyId] = useState<string>('');
   const [startDate, setStartDate] = useState<Date | null>(null);
@@ -92,6 +102,40 @@ const SurveyReports: React.FC = () => {
           return;
         }
 
+        // Personel bilgilerini yükle
+        const personnelRef = ref(database, `companies/${companyId}/personnel`);
+        onValue(personnelRef, (snapshot) => {
+          if (snapshot.exists()) {
+            const personnelData = snapshot.val();
+            const personnelObj: Record<string, Personnel> = {};
+            
+            Object.entries(personnelData).forEach(([id, data]: [string, any]) => {
+              personnelObj[id] = {
+                id,
+                name: data.name || `${data.firstName || ''} ${data.lastName || ''}`.trim() || 'İsimsiz Personel'
+              };
+            });
+            
+            setPersonnelList(personnelObj);
+          }
+        });
+
+        // Tamamlanan görevleri yükle
+        const completedTasksRef = ref(database, `companies/${companyId}/completedTasks`);
+        onValue(completedTasksRef, (snapshot) => {
+          if (snapshot.exists()) {
+            setCompletedTasks(snapshot.val());
+          }
+        });
+
+        // Tamamlanmayan görevleri yükle
+        const missedTasksRef = ref(database, `companies/${companyId}/missedTasks`);
+        onValue(missedTasksRef, (snapshot) => {
+          if (snapshot.exists()) {
+            setMissedTasks(snapshot.val());
+          }
+        });
+
         // Görevleri yükle ve nesne olarak sakla
         const tasksRef = ref(database, `companies/${companyId}/tasks`);
         onValue(tasksRef, (snapshot) => {
@@ -103,7 +147,8 @@ const SurveyReports: React.FC = () => {
               tasksObject[id] = {
                 id,
                 name: data.name || 'İsimsiz Görev',
-                description: data.description || ''
+                description: data.description || '',
+                personnelId: data.personnelId || ''
               };
             });
             
@@ -142,11 +187,17 @@ const SurveyReports: React.FC = () => {
               Object.entries(taskResponses).forEach(([responseId, response]: [string, any]) => {
                 if (!response.answers) return;
 
+                const responseDate = new Date(response.createdAt);
+                let personnelName = '';
+                
                 // Her anket cevabı için
                 Object.entries(response.answers).forEach(([surveyId, answerData]: [string, any]) => {
                   // Veriler yüklenirken task veya survey henüz mevcut olmayabilir
                   const taskName = tasks[taskId]?.name || 'Yükleniyor...';
                   const surveyTitle = surveys[surveyId]?.title || 'Yükleniyor...';
+                  
+                  // İlgili görevin sorumlu personelini bul
+                  personnelName = findPersonnelName(taskId, responseDate, tasks, completedTasks, missedTasks, personnelList);
                   
                   reportItemsList.push({
                     taskId,
@@ -157,7 +208,8 @@ const SurveyReports: React.FC = () => {
                     answerType: answerData.answerType,
                     createdAt: response.createdAt || 0,
                     responseId,
-                    questionTitle: answerData.questionTitle || ''
+                    questionTitle: answerData.questionTitle || '',
+                    personnelName: personnelName
                   });
                 });
               });
@@ -180,18 +232,117 @@ const SurveyReports: React.FC = () => {
     fetchData();
   }, [currentUser]);
 
+  // Personel adını bulma algoritması
+  const findPersonnelName = (
+    taskId: string, 
+    responseDate: Date, 
+    tasks: Record<string, Task>,
+    completedTasks: any,
+    missedTasks: any,
+    personnelList: Record<string, Personnel>
+  ): string => {
+    // Varsayılan değer
+    let personnelName = '';
+    
+    try {
+      // 1. Anket tarihinden önceki en son kaydedilen görevi bul
+      if (completedTasks[taskId]) {
+        let latestCompletionTime = 0;
+        let latestCompletionPersonnelId = '';
+
+        for (const dateKey in completedTasks[taskId]) {
+          for (const timeKey in completedTasks[taskId][dateKey]) {
+            const completionData = completedTasks[taskId][dateKey][timeKey];
+            const completionTime = completionData.completedAt;
+            
+            // Anket tarihinden önce ve şu ana kadar bulunan en son kayıttan daha yakın bir zaman ise
+            if (completionTime < responseDate.getTime() && completionTime > latestCompletionTime) {
+              latestCompletionTime = completionTime;
+              // Tamamlanan görevdeki personel bilgisi, varsa kullan
+              const task = tasks[taskId];
+              if (task && task.personnelId) {
+                latestCompletionPersonnelId = task.personnelId;
+              }
+            }
+          }
+        }
+
+        // En son bulunan görev kaydındaki personel bilgisini kullan
+        if (latestCompletionPersonnelId && personnelList[latestCompletionPersonnelId]) {
+          return personnelList[latestCompletionPersonnelId].name;
+        }
+      }
+
+      // 2. Tamamlanmayan görevlerde de kontrol et
+      if (missedTasks[taskId]) {
+        let latestMissedTime = 0;
+        let latestMissedPersonnelId = '';
+
+        for (const dateKey in missedTasks[taskId]) {
+          for (const timeKey in missedTasks[taskId][dateKey]) {
+            const missedData = missedTasks[taskId][dateKey][timeKey];
+            const missedTime = missedData.missedAt;
+            
+            // Anket tarihinden önce ve şu ana kadar bulunan en son kayıttan daha yakın bir zaman ise
+            if (missedTime < responseDate.getTime() && missedTime > latestMissedTime) {
+              latestMissedTime = missedTime;
+              // Tamamlanmayan görevdeki personel bilgisi, varsa kullan
+              const task = tasks[taskId];
+              if (task && task.personnelId) {
+                latestMissedPersonnelId = task.personnelId;
+              }
+            }
+          }
+        }
+
+        // En son bulunan görev kaydındaki personel bilgisini kullan
+        if (latestMissedPersonnelId && personnelList[latestMissedPersonnelId]) {
+          return personnelList[latestMissedPersonnelId].name;
+        }
+      }
+
+      // 3. Hiç görev kaydı bulunamadıysa, görevin kendisinde tanımlı personeli kullan
+      const task = tasks[taskId];
+      if (task && task.personnelId && personnelList[task.personnelId]) {
+        return personnelList[task.personnelId].name;
+      }
+      
+    } catch (error) {
+      console.error('Personel bilgisi bulunurken hata:', error);
+    }
+    
+    return personnelName || 'Bilinmeyen';
+  };
+
   // Tasks ve Surveys yüklendiğinde ReportItems'ları güncelle
   useEffect(() => {
-    if (reportItems.length > 0 && (Object.keys(tasks).length > 0 || Object.keys(surveys).length > 0)) {
+    if (reportItems.length > 0 && 
+        (Object.keys(tasks).length > 0 || 
+         Object.keys(surveys).length > 0 || 
+         Object.keys(personnelList).length > 0)) {
+      
       setReportItems(prevItems => 
-        prevItems.map(item => ({
-          ...item,
-          taskName: tasks[item.taskId]?.name || item.taskName,
-          surveyTitle: surveys[item.surveyId]?.title || item.surveyTitle
-        }))
+        prevItems.map(item => {
+          const responseDate = new Date(item.createdAt);
+          const personnelName = findPersonnelName(
+            item.taskId, 
+            responseDate, 
+            tasks, 
+            completedTasks, 
+            missedTasks, 
+            personnelList
+          );
+          
+          return {
+            ...item,
+            taskName: tasks[item.taskId]?.name || item.taskName,
+            surveyTitle: surveys[item.surveyId]?.title || item.surveyTitle,
+            personnelName: personnelName
+          };
+        })
       );
     }
-  }, [tasks, surveys]);
+  }, [tasks, surveys, personnelList, completedTasks, missedTasks]);
 
   // Filtreleme fonksiyonu
   const filteredReportItems = reportItems.filter(item => {
@@ -323,6 +474,7 @@ const SurveyReports: React.FC = () => {
             <TableHead>
               <TableRow>
                 <TableCell>Görev Adı</TableCell>
+                <TableCell>Personel</TableCell>
                 <TableCell>Anket Sorusu</TableCell>
                 <TableCell>Anket Cevabı</TableCell>
                 <TableCell>Cevap Tarihi</TableCell>
@@ -337,6 +489,13 @@ const SurveyReports: React.FC = () => {
                         <TableCell rowSpan={group.length}>
                           <Typography variant="body2">
                             {item.taskName}
+                          </Typography>
+                        </TableCell>
+                      )}
+                      {itemIndex === 0 && (
+                        <TableCell rowSpan={group.length}>
+                          <Typography variant="body2">
+                            {item.personnelName}
                           </Typography>
                         </TableCell>
                       )}
