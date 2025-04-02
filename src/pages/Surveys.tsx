@@ -33,7 +33,9 @@ import {
   FormControl,
   InputLabel,
   Select,
-  MenuItem
+  MenuItem,
+  Tabs,
+  Tab
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -42,9 +44,44 @@ import SaveIcon from '@mui/icons-material/Save';
 import CloseIcon from '@mui/icons-material/Close';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import QuestionModal from './components/QuestionModal';
+import SurveyReports from './components/SurveyReports';
 import { useAuth } from '../contexts/AuthContext';
 import { ref, get, onValue, remove, update, set, push } from 'firebase/database';
 import { database } from '../firebase';
+
+// TabPanel fonksiyonu
+interface TabPanelProps {
+  children?: React.ReactNode;
+  index: number;
+  value: number;
+}
+
+function TabPanel(props: TabPanelProps) {
+  const { children, value, index, ...other } = props;
+
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`survey-tabpanel-${index}`}
+      aria-labelledby={`survey-tab-${index}`}
+      {...other}
+    >
+      {value === index && (
+        <Box sx={{ pt: 3 }}>
+          {children}
+        </Box>
+      )}
+    </div>
+  );
+}
+
+function a11yProps(index: number) {
+  return {
+    id: `survey-tab-${index}`,
+    'aria-controls': `survey-tabpanel-${index}`,
+  };
+}
 
 interface AnswerItem {
   text: string;
@@ -102,6 +139,14 @@ const Surveys: React.FC = () => {
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
+  
+  // Tab state'i
+  const [tabValue, setTabValue] = useState(0);
+
+  // Tab değişimini yönet
+  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+    setTabValue(newValue);
+  };
 
   // Anketleri realtime olarak yükle
   useEffect(() => {
@@ -456,129 +501,148 @@ const Surveys: React.FC = () => {
   return (
     <Container maxWidth="xl">
       <Box sx={{ py: 4 }}>
-        <Grid container spacing={3}>
-          {/* Sol Taraf - Anket Listesi */}
-          <Grid item xs={12} md={6}>
-            <Paper sx={{ p: 3 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                <Typography variant="h5" component="h1">
-                  Anketler
-                </Typography>
-                <Button 
-                  variant="contained" 
-                  startIcon={<AddIcon />}
-                  onClick={handleOpenQuestionModal}
-                >
-                  Yeni Anket
-                </Button>
-              </Box>
+        {/* Tab Başlıkları */}
+        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+          <Tabs 
+            value={tabValue} 
+            onChange={handleTabChange} 
+            aria-label="anket yönetimi tabları"
+          >
+            <Tab label="Anketler" {...a11yProps(0)} />
+            <Tab label="Anket Raporları" {...a11yProps(1)} />
+          </Tabs>
+        </Box>
 
-              {loading ? (
-                <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-                  <CircularProgress />
+        {/* Tab İçerikleri */}
+        <TabPanel value={tabValue} index={0}>
+          <Grid container spacing={3}>
+            {/* Sol Taraf - Anket Listesi */}
+            <Grid item xs={12} md={6}>
+              <Paper sx={{ p: 3 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                  <Typography variant="h5" component="h1">
+                    Anketler
+                  </Typography>
+                  <Button 
+                    variant="contained" 
+                    startIcon={<AddIcon />}
+                    onClick={handleOpenQuestionModal}
+                  >
+                    Yeni Anket
+                  </Button>
                 </Box>
-              ) : surveys.length === 0 ? (
-                <Typography color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
-                  Henüz hiç anket eklenmemiş.
-                </Typography>
-              ) : (
-                <TableContainer>
-                  <Table size="medium">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Soru</TableCell>
-                        <TableCell>Cevaplar</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {surveys.map((survey) => (
-                        <TableRow 
-                          key={survey.id} 
-                          hover 
-                          onClick={() => handleRowClick(survey)}
-                          sx={{ cursor: 'pointer' }}
-                        >
-                          <TableCell>
-                            <Typography variant="body2">
-                              {survey.title}
-                            </Typography>
-                          </TableCell>
-                          <TableCell>
-                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                              {survey.answers.map((answer, index) => (
-                                <Chip
-                                  key={index}
-                                  label={answer.text}
-                                  size="small"
-                                  color={answer.type === 'positive' ? 'success' : answer.type === 'negative' ? 'error' : 'default'}
-                                />
-                              ))}
-                            </Box>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              )}
-            </Paper>
-          </Grid>
 
-          {/* Sağ Taraf - Görev Listesi */}
-          <Grid item xs={12} md={6}>
-            <Paper sx={{ p: 3, height: '100%' }}>
-              <Typography variant="h5" component="h2" gutterBottom>
-                Anket Görevleri
-              </Typography>
-              {loading ? (
-                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
-                  <CircularProgress />
-                </Box>
-              ) : (
-                <TableContainer>
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Görev Adı</TableCell>
-                        <TableCell>Anket Adı</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {surveys.map((survey) => (
-                        survey.tasks && survey.tasks.map((taskId) => {
-                          const task = tasks.find(t => t.id === taskId);
-                          return task ? (
-                            <TableRow key={`${survey.id}-${taskId}`}>
-                              <TableCell>
-                                <Typography variant="body2">
-                                  {task.name}
-                                </Typography>
-                              </TableCell>
-                              <TableCell>
-                                <Typography variant="body2" color="text.secondary">
-                                  {survey.title}
-                                </Typography>
-                              </TableCell>
-                            </TableRow>
-                          ) : null;
-                        })
-                      ))}
-                      {surveys.every(survey => !survey.tasks || survey.tasks.length === 0) && (
+                {loading ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+                    <CircularProgress />
+                  </Box>
+                ) : surveys.length === 0 ? (
+                  <Typography color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+                    Henüz hiç anket eklenmemiş.
+                  </Typography>
+                ) : (
+                  <TableContainer>
+                    <Table size="medium">
+                      <TableHead>
                         <TableRow>
-                          <TableCell colSpan={2}>
-                            <Typography variant="body2" color="text.secondary" align="center">
-                              Henüz hiçbir ankete görev eklenmemiş.
-                            </Typography>
-                          </TableCell>
+                          <TableCell>Soru</TableCell>
+                          <TableCell>Cevaplar</TableCell>
                         </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              )}
-            </Paper>
+                      </TableHead>
+                      <TableBody>
+                        {surveys.map((survey) => (
+                          <TableRow 
+                            key={survey.id} 
+                            hover 
+                            onClick={() => handleRowClick(survey)}
+                            sx={{ cursor: 'pointer' }}
+                          >
+                            <TableCell>
+                              <Typography variant="body2">
+                                {survey.title}
+                              </Typography>
+                            </TableCell>
+                            <TableCell>
+                              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                {survey.answers.map((answer, index) => (
+                                  <Chip
+                                    key={index}
+                                    label={answer.text}
+                                    size="small"
+                                    color={answer.type === 'positive' ? 'success' : answer.type === 'negative' ? 'error' : 'default'}
+                                  />
+                                ))}
+                              </Box>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                )}
+              </Paper>
+            </Grid>
+
+            {/* Sağ Taraf - Görev Listesi */}
+            <Grid item xs={12} md={6}>
+              <Paper sx={{ p: 3, height: '100%' }}>
+                <Typography variant="h5" component="h2" gutterBottom>
+                  Anket Görevleri
+                </Typography>
+                {loading ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
+                    <CircularProgress />
+                  </Box>
+                ) : (
+                  <TableContainer>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Görev Adı</TableCell>
+                          <TableCell>Anket Adı</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {surveys.map((survey) => (
+                          survey.tasks && survey.tasks.map((taskId) => {
+                            const task = tasks.find(t => t.id === taskId);
+                            return task ? (
+                              <TableRow key={`${survey.id}-${taskId}`}>
+                                <TableCell>
+                                  <Typography variant="body2">
+                                    {task.name}
+                                  </Typography>
+                                </TableCell>
+                                <TableCell>
+                                  <Typography variant="body2" color="text.secondary">
+                                    {survey.title}
+                                  </Typography>
+                                </TableCell>
+                              </TableRow>
+                            ) : null;
+                          })
+                        ))}
+                        {surveys.every(survey => !survey.tasks || survey.tasks.length === 0) && (
+                          <TableRow>
+                            <TableCell colSpan={2}>
+                              <Typography variant="body2" color="text.secondary" align="center">
+                                Henüz hiçbir ankete görev eklenmemiş.
+                              </Typography>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                )}
+              </Paper>
+            </Grid>
           </Grid>
-        </Grid>
+        </TabPanel>
+
+        <TabPanel value={tabValue} index={1}>
+          <SurveyReports />
+        </TabPanel>
       </Box>
 
       {/* Anket Ekleme Modalı */}
