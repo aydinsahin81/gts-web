@@ -500,7 +500,7 @@ const Surveys: React.FC = () => {
 
   return (
     <Container maxWidth="xl">
-      <Box sx={{ py: 4 }}>
+      <Box sx={{ pt: 1, pb: 3 }}>
         {/* Tab Başlıkları */}
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <Tabs 

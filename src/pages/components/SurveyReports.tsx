@@ -386,14 +386,14 @@ const SurveyReports: React.FC = () => {
   });
 
   return (
-    <Paper sx={{ p: 3 }}>
+    <Paper sx={{ p: { xs: 1, sm: 2, md: 3 }, overflowX: 'hidden' }}>
       <Typography variant="h5" component="h2" gutterBottom>
         Anket Raporları
       </Typography>
       <Divider sx={{ mb: 3 }} />
 
       {/* Filtre Bölümü */}
-      <Box sx={{ mb: 4 }}>
+      <Box sx={{ mb: { xs: 2, sm: 3, md: 4 } }}>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 2 }}>
           <FormControl fullWidth size="small">
             <InputLabel>Görev Filtrele</InputLabel>
@@ -469,15 +469,15 @@ const SurveyReports: React.FC = () => {
           Seçilen kriterlere uygun anket yanıtı bulunamadı.
         </Typography>
       ) : (
-        <TableContainer sx={{ maxHeight: 400, overflow: 'auto' }}>
-          <Table size="small" stickyHeader>
+        <TableContainer sx={{ maxHeight: { xs: 300, sm: 350, md: 400 }, overflow: 'auto', maxWidth: '100%' }}>
+          <Table size="small" stickyHeader sx={{ minWidth: { xs: 500, sm: 650 } }}>
             <TableHead>
               <TableRow>
-                <TableCell>Görev Adı</TableCell>
-                <TableCell>Personel</TableCell>
-                <TableCell>Anket Sorusu</TableCell>
-                <TableCell>Anket Cevabı</TableCell>
-                <TableCell>Cevap Tarihi</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 120, fontSize: { xs: '0.75rem', sm: '0.875rem' }, padding: { xs: 1, sm: 1.5 } }}>Görev Adı</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 120, fontSize: { xs: '0.75rem', sm: '0.875rem' }, padding: { xs: 1, sm: 1.5 } }}>Personel</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 150, fontSize: { xs: '0.75rem', sm: '0.875rem' }, padding: { xs: 1, sm: 1.5 } }}>Anket Sorusu</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 100, fontSize: { xs: '0.75rem', sm: '0.875rem' }, padding: { xs: 1, sm: 1.5 } }}>Anket Cevabı</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 120, fontSize: { xs: '0.75rem', sm: '0.875rem' }, padding: { xs: 1, sm: 1.5 } }}>Cevap Tarihi</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -486,25 +486,25 @@ const SurveyReports: React.FC = () => {
                   {group.map((item, itemIndex) => (
                     <TableRow key={`${item.responseId}-${item.surveyId}`}>
                       {itemIndex === 0 && (
-                        <TableCell rowSpan={group.length}>
-                          <Typography variant="body2">
+                        <TableCell rowSpan={group.length} sx={{ padding: { xs: 1, sm: 1.5 } }}>
+                          <Typography variant="body2" noWrap sx={{ maxWidth: { xs: 100, sm: 150 }, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {item.taskName}
                           </Typography>
                         </TableCell>
                       )}
                       {itemIndex === 0 && (
-                        <TableCell rowSpan={group.length}>
-                          <Typography variant="body2">
+                        <TableCell rowSpan={group.length} sx={{ padding: { xs: 1, sm: 1.5 } }}>
+                          <Typography variant="body2" noWrap sx={{ maxWidth: { xs: 100, sm: 150 }, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {item.personnelName}
                           </Typography>
                         </TableCell>
                       )}
-                      <TableCell>
-                        <Typography variant="body2">
+                      <TableCell sx={{ padding: { xs: 1, sm: 1.5 } }}>
+                        <Typography variant="body2" noWrap sx={{ maxWidth: { xs: 100, sm: 180 }, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {item.questionTitle}
                         </Typography>
                       </TableCell>
-                      <TableCell>
+                      <TableCell sx={{ padding: { xs: 1, sm: 1.5 } }}>
                         <Chip
                           label={item.answer}
                           size="small"
@@ -515,10 +515,11 @@ const SurveyReports: React.FC = () => {
                               ? 'error' 
                               : 'default'
                           }
+                          sx={{ maxWidth: { xs: 80, sm: 120 }, "& .MuiChip-label": { overflow: 'hidden', textOverflow: 'ellipsis' } }}
                         />
                       </TableCell>
-                      <TableCell>
-                        <Typography variant="body2">
+                      <TableCell sx={{ padding: { xs: 1, sm: 1.5 } }}>
+                        <Typography variant="body2" noWrap>
                           {new Date(item.createdAt).toLocaleString('tr-TR')}
                         </Typography>
                       </TableCell>
