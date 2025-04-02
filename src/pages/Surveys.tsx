@@ -29,7 +29,11 @@ import {
   CardContent,
   Tooltip,
   Checkbox,
-  ListItemSecondaryAction
+  ListItemSecondaryAction,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -42,7 +46,22 @@ import { useAuth } from '../contexts/AuthContext';
 import { ref, get, onValue, remove, update, set, push } from 'firebase/database';
 import { database } from '../firebase';
 
+interface AnswerItem {
+  text: string;
+  type: 'positive' | 'negative' | 'neutral';
+}
+
 interface Survey {
+  id: string;
+  title: string;
+  answers: AnswerItem[];
+  createdAt: number;
+  createdBy: string;
+  tasks?: string[];
+}
+
+// Eski format için geriye uyumluluk interface'i
+interface LegacySurvey {
   id: string;
   title: string;
   questions: {
@@ -60,7 +79,7 @@ interface Survey {
 interface EditingQuestion {
   id: string;
   title: string;
-  answers: string[];
+  answers: AnswerItem[];
 }
 
 interface Task {
@@ -102,10 +121,39 @@ const Surveys: React.FC = () => {
         const unsubscribe = onValue(surveysRef, (snapshot) => {
           if (snapshot.exists()) {
             const surveysData = snapshot.val();
-            const surveysList = Object.entries(surveysData).map(([id, data]: [string, any]) => ({
-              id,
-              ...data
-            }));
+            const surveysList = Object.entries(surveysData).map(([id, data]: [string, any]) => {
+              // Yeni format mı eski format mı kontrol et
+              if (data.answers) {
+                // Yeni format
+                return {
+                  id,
+                  ...data
+                };
+              } else if (data.questions) {
+                // Eski format - geriye uyumluluk için dönüştürme yap
+                const firstQuestionId = Object.keys(data.questions)[0];
+                const firstQuestion = data.questions[firstQuestionId];
+                
+                return {
+                  id,
+                  title: firstQuestion.title,
+                  answers: firstQuestion.answers,
+                  createdAt: data.createdAt,
+                  createdBy: firstQuestion.createdBy,
+                  tasks: data.tasks || []
+                };
+              } else {
+                // Hiçbir format uymuyor, boş bir Survey döndür
+                return {
+                  id,
+                  title: data.title || '',
+                  answers: [],
+                  createdAt: data.createdAt || Date.now(),
+                  createdBy: data.createdBy || '',
+                  tasks: data.tasks || []
+                };
+              }
+            });
             
             // En son oluşturulan anketler başta olacak şekilde sırala (en yeniden en eskiye)
             surveysList.sort((a, b) => {
@@ -113,6 +161,7 @@ const Surveys: React.FC = () => {
               const dateB = b.createdAt || 0;
               return dateB - dateA;
             });
+            
             setSurveys(surveysList);
           } else {
             setSurveys([]);
@@ -185,14 +234,17 @@ const Surveys: React.FC = () => {
 
   const handleEditMode = () => {
     if (selectedSurvey) {
-      const questions = Object.entries(selectedSurvey.questions).map(([id, question]) => ({
-        id,
-        title: question.title,
-        answers: [...question.answers]
-      }));
-      setEditingQuestions(questions);
+      setEditingQuestions([{
+        id: 'main',
+        title: selectedSurvey.title,
+        answers: [...selectedSurvey.answers]
+      }]);
       setIsEditing(true);
     }
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
   };
 
   const handleSaveChanges = async () => {
@@ -206,17 +258,22 @@ const Surveys: React.FC = () => {
       const companyId = userData.companyId;
       if (!companyId) return;
 
-      const updates: { [key: string]: any } = {};
-      editingQuestions.forEach(question => {
-        updates[`companies/${companyId}/surveys/${selectedSurvey.id}/questions/${question.id}`] = {
-          title: question.title,
-          answers: question.answers,
-          createdAt: selectedSurvey.questions[question.id].createdAt,
-          createdBy: selectedSurvey.questions[question.id].createdBy
-        };
-      });
+      const updatedQuestion = editingQuestions[0]; // Artık tek bir soru var
+      
+      const updates = {
+        [`companies/${companyId}/surveys/${selectedSurvey.id}/title`]: updatedQuestion.title,
+        [`companies/${companyId}/surveys/${selectedSurvey.id}/answers`]: updatedQuestion.answers
+      };
 
       await update(ref(database), updates);
+      
+      // Seçili anketin yerel durumunu güncelle
+      setSelectedSurvey({
+        ...selectedSurvey,
+        title: updatedQuestion.title,
+        answers: updatedQuestion.answers
+      });
+      
       setIsEditing(false);
     } catch (error) {
       console.error('Değişiklikler kaydedilirken hata:', error);
@@ -234,7 +291,26 @@ const Surveys: React.FC = () => {
       prev.map(q => {
         if (q.id === questionId) {
           const newAnswers = [...q.answers];
-          newAnswers[answerIndex] = newAnswer;
+          newAnswers[answerIndex] = { 
+            ...newAnswers[answerIndex], 
+            text: newAnswer 
+          };
+          return { ...q, answers: newAnswers };
+        }
+        return q;
+      })
+    );
+  };
+
+  const handleAnswerTypeChange = (questionId: string, answerIndex: number, newType: 'positive' | 'negative' | 'neutral') => {
+    setEditingQuestions(prev => 
+      prev.map(q => {
+        if (q.id === questionId) {
+          const newAnswers = [...q.answers];
+          newAnswers[answerIndex] = { 
+            ...newAnswers[answerIndex], 
+            type: newType 
+          };
           return { ...q, answers: newAnswers };
         }
         return q;
@@ -244,7 +320,10 @@ const Surveys: React.FC = () => {
 
   const handleAddAnswer = (questionId: string) => {
     setEditingQuestions(prev => 
-      prev.map(q => q.id === questionId ? { ...q, answers: [...q.answers, ''] } : q)
+      prev.map(q => q.id === questionId ? { 
+        ...q, 
+        answers: [...q.answers, { text: '', type: 'neutral' }] 
+      } : q)
     );
   };
 
@@ -252,7 +331,8 @@ const Surveys: React.FC = () => {
     setEditingQuestions(prev => 
       prev.map(q => {
         if (q.id === questionId) {
-          const newAnswers = q.answers.filter((_, index) => index !== answerIndex);
+          const newAnswers = [...q.answers];
+          newAnswers.splice(answerIndex, 1);
           return { ...q, answers: newAnswers };
         }
         return q;
@@ -344,92 +424,162 @@ const Surveys: React.FC = () => {
     }
   };
 
+  // Görev silme fonksiyonu
+  const handleDeleteTask = async (taskId: string) => {
+    if (!selectedSurvey || !currentUser) return;
+
+    try {
+      const userSnapshot = await get(ref(database, `users/${currentUser.uid}`));
+      if (!userSnapshot.exists()) return;
+
+      const userData = userSnapshot.val();
+      const companyId = userData.companyId;
+      if (!companyId) return;
+
+      // Görevi anketten kaldır
+      const updatedTasks = selectedSurvey.tasks?.filter(id => id !== taskId) || [];
+      const surveyRef = ref(database, `companies/${companyId}/surveys/${selectedSurvey.id}`);
+      await update(surveyRef, {
+        tasks: updatedTasks
+      });
+
+      // Seçili anketi güncelle
+      setSelectedSurvey(prev => prev ? {
+        ...prev,
+        tasks: updatedTasks
+      } : null);
+    } catch (error) {
+      console.error('Görev silinirken hata oluştu:', error);
+    }
+  };
+
   return (
-    <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
-      <Grid container spacing={3}>
-        {/* Sol Taraf - Anket Listesi */}
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 3, height: '100%' }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-              <Typography variant="h5" component="h2">
-                Anketler
-              </Typography>
-              <Button
-                variant="contained"
-                color="primary"
-                startIcon={<AddIcon />}
-                onClick={handleOpenQuestionModal}
-              >
-                Yeni Anket Ekle
-              </Button>
-            </Box>
-
-            {loading ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
-                <CircularProgress />
+    <Container maxWidth="xl">
+      <Box sx={{ py: 4 }}>
+        <Grid container spacing={3}>
+          {/* Sol Taraf - Anket Listesi */}
+          <Grid item xs={12} md={6}>
+            <Paper sx={{ p: 3 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                <Typography variant="h5" component="h1">
+                  Anketler
+                </Typography>
+                <Button 
+                  variant="contained" 
+                  startIcon={<AddIcon />}
+                  onClick={handleOpenQuestionModal}
+                >
+                  Yeni Anket
+                </Button>
               </Box>
-            ) : (
-              <TableContainer>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Soru</TableCell>
-                      <TableCell>Cevaplar</TableCell>
-                      <TableCell>Görevler</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {surveys.map((survey) => (
-                      <TableRow 
-                        key={survey.id} 
-                        hover 
-                        onClick={() => handleRowClick(survey)}
-                        sx={{ cursor: 'pointer' }}
-                      >
-                        <TableCell>
-                          <Typography variant="body2" noWrap>
-                            {survey.title}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                            {Object.values(survey.questions || {}).map((question: any, index: number) => (
-                              <Chip
-                                key={index}
-                                label={`${question.answers.length} Cevap`}
-                                size="small"
-                                color="primary"
-                                variant="outlined"
-                              />
-                            ))}
-                          </Box>
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="body2" color="text.secondary">
-                            -
-                          </Typography>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            )}
-          </Paper>
-        </Grid>
 
-        {/* Sağ Taraf - Boş Alan */}
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 3, height: '100%' }}>
-            <Typography variant="h5" component="h2" gutterBottom>
-              Sağ Alan
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Bu alan şu an için boş bırakılmıştır.
-            </Typography>
-          </Paper>
+              {loading ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+                  <CircularProgress />
+                </Box>
+              ) : surveys.length === 0 ? (
+                <Typography color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+                  Henüz hiç anket eklenmemiş.
+                </Typography>
+              ) : (
+                <TableContainer>
+                  <Table size="medium">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Soru</TableCell>
+                        <TableCell>Cevaplar</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {surveys.map((survey) => (
+                        <TableRow 
+                          key={survey.id} 
+                          hover 
+                          onClick={() => handleRowClick(survey)}
+                          sx={{ cursor: 'pointer' }}
+                        >
+                          <TableCell>
+                            <Typography variant="body2">
+                              {survey.title}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                              {survey.answers.map((answer, index) => (
+                                <Chip
+                                  key={index}
+                                  label={answer.text}
+                                  size="small"
+                                  color={answer.type === 'positive' ? 'success' : answer.type === 'negative' ? 'error' : 'default'}
+                                />
+                              ))}
+                            </Box>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+            </Paper>
+          </Grid>
+
+          {/* Sağ Taraf - Görev Listesi */}
+          <Grid item xs={12} md={6}>
+            <Paper sx={{ p: 3, height: '100%' }}>
+              <Typography variant="h5" component="h2" gutterBottom>
+                Anket Görevleri
+              </Typography>
+              {loading ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
+                  <CircularProgress />
+                </Box>
+              ) : (
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Görev Adı</TableCell>
+                        <TableCell>Anket Adı</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {surveys.map((survey) => (
+                        survey.tasks && survey.tasks.map((taskId) => {
+                          const task = tasks.find(t => t.id === taskId);
+                          return task ? (
+                            <TableRow key={`${survey.id}-${taskId}`}>
+                              <TableCell>
+                                <Typography variant="body2">
+                                  {task.name}
+                                </Typography>
+                              </TableCell>
+                              <TableCell>
+                                <Typography variant="body2" color="text.secondary">
+                                  {survey.title}
+                                </Typography>
+                              </TableCell>
+                            </TableRow>
+                          ) : null;
+                        })
+                      ))}
+                      {surveys.every(survey => !survey.tasks || survey.tasks.length === 0) && (
+                        <TableRow>
+                          <TableCell colSpan={2}>
+                            <Typography variant="body2" color="text.secondary" align="center">
+                              Henüz hiçbir ankete görev eklenmemiş.
+                            </Typography>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+            </Paper>
+          </Grid>
         </Grid>
-      </Grid>
+      </Box>
 
       {/* Anket Ekleme Modalı */}
       <QuestionModal
@@ -448,18 +598,11 @@ const Surveys: React.FC = () => {
           display: 'flex', 
           justifyContent: 'space-between', 
           alignItems: 'center',
-          borderBottom: '1px solid',
-          borderColor: 'divider',
-          pb: 2
+          pb: 1
         }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Typography variant="h6">Anket Detayları</Typography>
-            {selectedSurvey && (
-              <Typography variant="body2" color="text.secondary">
-                {new Date(selectedSurvey.createdAt).toLocaleDateString('tr-TR')}
-              </Typography>
-            )}
-          </Box>
+          <Typography variant="h6" component="div">
+            {selectedSurvey?.title}
+          </Typography>
           <Box>
             <Tooltip title="Görev Ekle">
               <IconButton 
@@ -474,44 +617,24 @@ const Surveys: React.FC = () => {
               <>
                 <Tooltip title="Düzenle">
                   <IconButton 
-                    color="primary" 
                     onClick={handleEditMode}
+                    color="primary"
                     sx={{ mr: 1 }}
                   >
                     <EditIcon />
                   </IconButton>
                 </Tooltip>
-                <Tooltip title="Sil">
+                <Tooltip title="Anketi Sil">
                   <IconButton 
-                    color="error" 
                     onClick={handleDeleteSurvey}
+                    color="error"
                     disabled={isDeleting}
                   >
                     <DeleteIcon />
                   </IconButton>
                 </Tooltip>
               </>
-            ) : (
-              <>
-                <Tooltip title="Kaydet">
-                  <IconButton 
-                    color="primary" 
-                    onClick={handleSaveChanges}
-                    sx={{ mr: 1 }}
-                  >
-                    <SaveIcon />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title="İptal">
-                  <IconButton 
-                    color="error" 
-                    onClick={() => setIsEditing(false)}
-                  >
-                    <CloseIcon />
-                  </IconButton>
-                </Tooltip>
-              </>
-            )}
+            ) : null}
           </Box>
         </DialogTitle>
         <DialogContent sx={{ mt: 2 }}>
@@ -524,81 +647,96 @@ const Surveys: React.FC = () => {
                 </Typography>
                 {isEditing ? (
                   // Düzenleme Modu
-                  editingQuestions.map((question, index) => (
-                    <Card key={question.id} variant="outlined" sx={{ mb: 2 }}>
-                      <CardContent>
-                        <Stack spacing={2}>
-                          <TextField
-                            label={`Soru ${index + 1}`}
-                            value={question.title}
-                            onChange={(e) => handleQuestionChange(question.id, e.target.value)}
-                            fullWidth
-                            size="small"
-                          />
-                          <Box>
-                            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                              Cevaplar:
-                            </Typography>
-                            <Stack spacing={1}>
-                              {question.answers.map((answer, answerIndex) => (
-                                <Box key={answerIndex} sx={{ display: 'flex', gap: 1 }}>
-                                  <TextField
-                                    value={answer}
-                                    onChange={(e) => handleAnswerChange(question.id, answerIndex, e.target.value)}
+                  <Card variant="outlined" sx={{ mb: 2 }}>
+                    <CardContent>
+                      <Stack spacing={2}>
+                        <TextField
+                          label="Soru"
+                          value={editingQuestions[0].title}
+                          onChange={(e) => handleQuestionChange(editingQuestions[0].id, e.target.value)}
+                          fullWidth
+                          size="small"
+                        />
+                        <Box>
+                          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                            Cevaplar:
+                          </Typography>
+                          <Stack spacing={1}>
+                            {editingQuestions[0].answers.map((answer, answerIndex) => (
+                              <Box key={answerIndex} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                                <TextField
+                                  value={answer.text}
+                                  onChange={(e) => handleAnswerChange(editingQuestions[0].id, answerIndex, e.target.value)}
+                                  size="small"
+                                  fullWidth
+                                />
+                                <FormControl sx={{ minWidth: 130 }}>
+                                  <InputLabel size="small">Durum</InputLabel>
+                                  <Select
+                                    value={answer.type}
+                                    label="Durum"
+                                    onChange={(e) => handleAnswerTypeChange(editingQuestions[0].id, answerIndex, e.target.value as 'positive' | 'negative' | 'neutral')}
                                     size="small"
-                                    fullWidth
-                                  />
-                                  <IconButton 
-                                    size="small" 
-                                    color="error"
-                                    onClick={() => handleRemoveAnswer(question.id, answerIndex)}
                                   >
-                                    <CloseIcon />
-                                  </IconButton>
-                                </Box>
-                              ))}
-                              <Button
-                                startIcon={<AddIcon />}
-                                onClick={() => handleAddAnswer(question.id)}
-                                size="small"
-                              >
-                                Cevap Ekle
-                              </Button>
-                            </Stack>
-                          </Box>
-                        </Stack>
-                      </CardContent>
-                    </Card>
-                  ))
+                                    <MenuItem value="positive">
+                                      <Chip label="Olumlu" color="success" size="small" />
+                                    </MenuItem>
+                                    <MenuItem value="negative">
+                                      <Chip label="Olumsuz" color="error" size="small" />
+                                    </MenuItem>
+                                    <MenuItem value="neutral">
+                                      <Chip label="Nötr" color="default" size="small" />
+                                    </MenuItem>
+                                  </Select>
+                                </FormControl>
+                                <IconButton 
+                                  size="small" 
+                                  color="error"
+                                  onClick={() => handleRemoveAnswer(editingQuestions[0].id, answerIndex)}
+                                  disabled={editingQuestions[0].answers.length <= 1}
+                                >
+                                  <CloseIcon />
+                                </IconButton>
+                              </Box>
+                            ))}
+                            <Button
+                              startIcon={<AddIcon />}
+                              onClick={() => handleAddAnswer(editingQuestions[0].id)}
+                              size="small"
+                            >
+                              Cevap Ekle
+                            </Button>
+                          </Stack>
+                        </Box>
+                      </Stack>
+                    </CardContent>
+                  </Card>
                 ) : (
                   // Görüntüleme Modu
-                  Object.entries(selectedSurvey.questions).map(([questionId, question], index) => (
-                    <Card key={questionId} variant="outlined" sx={{ mb: 2 }}>
-                      <CardContent>
-                        <Stack spacing={2}>
-                          <Typography variant="subtitle1">
-                            Soru {index + 1}: {question.title}
+                  <Card variant="outlined" sx={{ mb: 2 }}>
+                    <CardContent>
+                      <Stack spacing={2}>
+                        <Typography variant="subtitle1">
+                          {selectedSurvey?.title}
+                        </Typography>
+                        <Box>
+                          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                            Cevaplar:
                           </Typography>
-                          <Box>
-                            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                              Cevaplar:
-                            </Typography>
-                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                              {question.answers.map((answer, answerIndex) => (
-                                <Chip
-                                  key={answerIndex}
-                                  label={answer}
-                                  size="small"
-                                  color="primary"
-                                  variant="outlined"
-                                />
-                              ))}
-                            </Box>
+                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                            {selectedSurvey?.answers?.map((answer, index) => (
+                              <Chip
+                                key={index}
+                                label={answer.text}
+                                size="small"
+                                color={answer.type === 'positive' ? 'success' : answer.type === 'negative' ? 'error' : 'default'}
+                              />
+                            ))}
                           </Box>
-                        </Stack>
-                      </CardContent>
-                    </Card>
-                  ))
+                        </Box>
+                      </Stack>
+                    </CardContent>
+                  </Card>
                 )}
               </Box>
 
@@ -614,14 +752,25 @@ const Surveys: React.FC = () => {
                       return task ? (
                         <Card key={taskId} variant="outlined">
                           <CardContent>
-                            <Stack spacing={1}>
-                              <Typography variant="subtitle1">
-                                {task.name}
-                              </Typography>
-                              <Typography variant="body2" color="text.secondary">
-                                {task.description}
-                              </Typography>
-                            </Stack>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                              <Stack spacing={1} sx={{ flex: 1 }}>
+                                <Typography variant="subtitle1">
+                                  {task.name}
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                  {task.description}
+                                </Typography>
+                              </Stack>
+                              <Tooltip title="Görevi Sil">
+                                <IconButton 
+                                  size="small" 
+                                  color="error"
+                                  onClick={() => handleDeleteTask(taskId)}
+                                >
+                                  <DeleteIcon />
+                                </IconButton>
+                              </Tooltip>
+                            </Box>
                           </CardContent>
                         </Card>
                       ) : null;
@@ -636,10 +785,25 @@ const Surveys: React.FC = () => {
             </Stack>
           )}
         </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={handleCloseDetailModal} variant="outlined">
-            Kapat
-          </Button>
+        <DialogActions>
+          {isEditing ? (
+            <>
+              <Button onClick={handleCancelEdit} variant="outlined">
+                İptal
+              </Button>
+              <Button 
+                onClick={handleSaveChanges} 
+                variant="contained"
+                startIcon={<SaveIcon />}
+              >
+                Kaydet
+              </Button>
+            </>
+          ) : (
+            <Button onClick={handleCloseDetailModal} variant="outlined">
+              Kapat
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
 
