@@ -83,7 +83,7 @@ const SurveyReports: React.FC = () => {
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
   const [page, setPage] = useState(1);
-  const itemsPerPage = 20;
+  const itemsPerPage = 30;
 
   // Görevleri, anketleri ve cevapları yükle
   useEffect(() => {
@@ -393,34 +393,39 @@ const SurveyReports: React.FC = () => {
     groupedReports[key].push(item);
   });
 
-  // Sayfalama için grupları düzenle
+  // Grupları listeye dönüştür
   const groupedReportsList = Object.values(groupedReports);
-  const totalPages = Math.ceil(groupedReportsList.length / itemsPerPage);
-  const paginatedGroups = groupedReportsList.slice(
-    (page - 1) * itemsPerPage,
-    page * itemsPerPage
-  );
-
-  // Sayfa değiştiğinde en üste çıkma durumunu ele almak için
+  
+  // Toplam sayfa sayısını hesapla
+  const totalPages = Math.max(1, Math.ceil(groupedReportsList.length / itemsPerPage));
+  
+  // Geçerli sayfayı sınırla
   useEffect(() => {
-    if (groupedReportsList.length > 0 && page > Math.ceil(groupedReportsList.length / itemsPerPage)) {
+    if (page > totalPages) {
       setPage(1);
     }
-  }, [groupedReportsList.length]);
+  }, [totalPages, page]);
+  
+  // Sayfalandırılmış grupları al
+  const paginatedGroups = groupedReportsList.slice(
+    (page - 1) * itemsPerPage,
+    Math.min(page * itemsPerPage, groupedReportsList.length)
+  );
 
   return (
     <Paper sx={{ p: { xs: 1, sm: 2, md: 3 }, overflowX: 'hidden' }}>
-      <Typography variant="h5" component="h2" gutterBottom>
+      <Typography variant="h6" component="h2" sx={{ mb: 1 }}>
         Anket Raporları
       </Typography>
-      <Divider sx={{ mb: 3 }} />
+      <Divider sx={{ mb: 2 }} />
 
       {/* Filtre Bölümü */}
-      <Box sx={{ mb: { xs: 2, sm: 3, md: 4 } }}>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 2 }}>
+      <Box sx={{ mb: 2 }}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mb: 1.5 }}>
           <FormControl fullWidth size="small">
             <InputLabel>Görev Filtrele</InputLabel>
             <Select
+              margin="dense"
               value={selectedTaskId}
               label="Görev Filtrele"
               onChange={(e) => {
@@ -438,6 +443,7 @@ const SurveyReports: React.FC = () => {
           <FormControl fullWidth size="small">
             <InputLabel>Anket Filtrele</InputLabel>
             <Select
+              margin="dense"
               value={selectedSurveyId}
               label="Anket Filtrele"
               onChange={(e) => {
@@ -453,11 +459,12 @@ const SurveyReports: React.FC = () => {
           </FormControl>
         </Stack>
         
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
           <TextField
             label="Başlangıç Tarihi"
             type="date"
             size="small"
+            margin="dense"
             fullWidth
             InputLabelProps={{ shrink: true }}
             value={startDate ? startDate.toISOString().split('T')[0] : ''}
@@ -475,6 +482,7 @@ const SurveyReports: React.FC = () => {
             label="Bitiş Tarihi"
             type="date"
             size="small"
+            margin="dense"
             fullWidth
             InputLabelProps={{ shrink: true }}
             value={endDate ? endDate.toISOString().split('T')[0] : ''}
@@ -492,24 +500,24 @@ const SurveyReports: React.FC = () => {
 
       {/* Rapor Tablosu */}
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
           <CircularProgress />
         </Box>
       ) : groupedReportsList.length === 0 ? (
-        <Typography color="text.secondary" align="center" sx={{ py: 4 }}>
+        <Typography color="text.secondary" align="center" sx={{ py: 2 }}>
           Seçilen kriterlere uygun anket yanıtı bulunamadı.
         </Typography>
       ) : (
         <>
-          <TableContainer sx={{ maxHeight: { xs: 300, sm: 350, md: 400 }, overflow: 'auto', maxWidth: '100%' }}>
-            <Table size="small" stickyHeader sx={{ minWidth: { xs: 500, sm: 650 } }}>
+          <TableContainer sx={{ maxWidth: '100%' }}>
+            <Table size="small" sx={{ minWidth: { xs: 500, sm: 650 } }}>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 120, fontSize: { xs: '0.75rem', sm: '0.875rem' }, padding: { xs: 1, sm: 1.5 } }}>Görev Adı</TableCell>
-                  <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 120, fontSize: { xs: '0.75rem', sm: '0.875rem' }, padding: { xs: 1, sm: 1.5 } }}>Personel</TableCell>
-                  <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 150, fontSize: { xs: '0.75rem', sm: '0.875rem' }, padding: { xs: 1, sm: 1.5 } }}>Anket Sorusu</TableCell>
-                  <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 100, fontSize: { xs: '0.75rem', sm: '0.875rem' }, padding: { xs: 1, sm: 1.5 } }}>Anket Cevabı</TableCell>
-                  <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 120, fontSize: { xs: '0.75rem', sm: '0.875rem' }, padding: { xs: 1, sm: 1.5 } }}>Cevap Tarihi</TableCell>
+                  <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 100, fontSize: '0.75rem', padding: 0.5, fontWeight: 'bold' }}>Görev Adı</TableCell>
+                  <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 100, fontSize: '0.75rem', padding: 0.5, fontWeight: 'bold' }}>Personel</TableCell>
+                  <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 130, fontSize: '0.75rem', padding: 0.5, fontWeight: 'bold' }}>Anket Sorusu</TableCell>
+                  <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 80, fontSize: '0.75rem', padding: 0.5, fontWeight: 'bold' }}>Anket Cevabı</TableCell>
+                  <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 100, fontSize: '0.75rem', padding: 0.5, fontWeight: 'bold' }}>Cevap Tarihi</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -518,25 +526,25 @@ const SurveyReports: React.FC = () => {
                     {group.map((item, itemIndex) => (
                       <TableRow key={`${item.responseId}-${item.surveyId}`}>
                         {itemIndex === 0 && (
-                          <TableCell rowSpan={group.length} sx={{ padding: { xs: 1, sm: 1.5 } }}>
-                            <Typography variant="body2" noWrap sx={{ maxWidth: { xs: 100, sm: 150 }, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          <TableCell rowSpan={group.length} sx={{ padding: 0.5 }}>
+                            <Typography variant="body2" noWrap sx={{ maxWidth: { xs: 90, sm: 140 }, overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '0.75rem' }}>
                               {item.taskName}
                             </Typography>
                           </TableCell>
                         )}
                         {itemIndex === 0 && (
-                          <TableCell rowSpan={group.length} sx={{ padding: { xs: 1, sm: 1.5 } }}>
-                            <Typography variant="body2" noWrap sx={{ maxWidth: { xs: 100, sm: 150 }, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          <TableCell rowSpan={group.length} sx={{ padding: 0.5 }}>
+                            <Typography variant="body2" noWrap sx={{ maxWidth: { xs: 90, sm: 140 }, overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '0.75rem' }}>
                               {item.personnelName}
                             </Typography>
                           </TableCell>
                         )}
-                        <TableCell sx={{ padding: { xs: 1, sm: 1.5 } }}>
-                          <Typography variant="body2" noWrap sx={{ maxWidth: { xs: 100, sm: 180 }, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        <TableCell sx={{ padding: 0.5 }}>
+                          <Typography variant="body2" noWrap sx={{ maxWidth: { xs: 90, sm: 170 }, overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '0.75rem' }}>
                             {item.questionTitle}
                           </Typography>
                         </TableCell>
-                        <TableCell sx={{ padding: { xs: 1, sm: 1.5 } }}>
+                        <TableCell sx={{ padding: 0.5 }}>
                           <Chip
                             label={item.answer}
                             size="small"
@@ -547,11 +555,20 @@ const SurveyReports: React.FC = () => {
                                 ? 'error' 
                                 : 'default'
                             }
-                            sx={{ maxWidth: { xs: 80, sm: 120 }, "& .MuiChip-label": { overflow: 'hidden', textOverflow: 'ellipsis' } }}
+                            sx={{ 
+                              maxWidth: { xs: 65, sm: 100 }, 
+                              height: 20,
+                              "& .MuiChip-label": { 
+                                overflow: 'hidden', 
+                                textOverflow: 'ellipsis', 
+                                fontSize: '0.65rem',
+                                px: 0.75 
+                              } 
+                            }}
                           />
                         </TableCell>
-                        <TableCell sx={{ padding: { xs: 1, sm: 1.5 } }}>
-                          <Typography variant="body2" noWrap>
+                        <TableCell sx={{ padding: 0.5 }}>
+                          <Typography variant="body2" noWrap sx={{ fontSize: '0.75rem' }}>
                             {new Date(item.createdAt).toLocaleString('tr-TR')}
                           </Typography>
                         </TableCell>
@@ -562,25 +579,21 @@ const SurveyReports: React.FC = () => {
               </TableBody>
             </Table>
           </TableContainer>
-          
-          {/* Sayfalama Kontrolleri */}
-          {totalPages > 1 && (
-            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
-              <Pagination 
-                count={totalPages} 
-                page={page} 
-                onChange={handlePageChange} 
-                color="primary" 
-                size="medium"
-                showFirstButton 
-                showLastButton
-              />
-            </Box>
-          )}
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+            <Pagination
+              count={totalPages}
+              page={page}
+              onChange={handlePageChange}
+              color="primary"
+              size="small"
+              showFirstButton
+              showLastButton
+            />
+          </Box>
         </>
       )}
     </Paper>
   );
 };
 
-export default SurveyReports; 
+export default SurveyReports;

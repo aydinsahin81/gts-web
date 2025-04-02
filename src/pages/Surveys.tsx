@@ -35,7 +35,8 @@ import {
   Select,
   MenuItem,
   Tabs,
-  Tab
+  Tab,
+  styled
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -48,6 +49,27 @@ import SurveyReports from './components/SurveyReports';
 import { useAuth } from '../contexts/AuthContext';
 import { ref, get, onValue, remove, update, set, push } from 'firebase/database';
 import { database } from '../firebase';
+
+// Kaydırılabilir ana içerik için styled component
+const ScrollableContent = styled(Box)(({ theme }) => ({
+  padding: theme.spacing(3),
+  overflowY: 'auto',
+  height: 'calc(100vh - 64px)', // Header yüksekliğini çıkarıyoruz
+  '&::-webkit-scrollbar': {
+    width: '8px',
+  },
+  '&::-webkit-scrollbar-track': {
+    background: '#f1f1f1',
+    borderRadius: '4px',
+  },
+  '&::-webkit-scrollbar-thumb': {
+    background: '#888',
+    borderRadius: '4px',
+  },
+  '&::-webkit-scrollbar-thumb:hover': {
+    background: '#555',
+  },
+}));
 
 // TabPanel fonksiyonu
 interface TabPanelProps {
@@ -499,7 +521,7 @@ const Surveys: React.FC = () => {
   };
 
   return (
-    <Container maxWidth="xl">
+    <ScrollableContent>
       <Box sx={{ pt: 1, pb: 3 }}>
         {/* Tab Başlıkları */}
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
@@ -515,6 +537,31 @@ const Surveys: React.FC = () => {
 
         {/* Tab İçerikleri */}
         <TabPanel value={tabValue} index={0}>
+          {/* Sayfanın en üst kısmı - başlık ve kontroller */}
+          <Box sx={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            mb: 3, 
+            mt: 1,
+            backgroundColor: 'background.paper',
+            p: 2,
+            borderRadius: 2,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+          }}>
+            <Typography variant="h5" component="h1" fontWeight="bold" color="primary">
+              Anket Yönetimi
+            </Typography>
+            <Button 
+              variant="contained" 
+              startIcon={<AddIcon />}
+              onClick={handleOpenQuestionModal}
+              sx={{ borderRadius: 2 }}
+            >
+              Yeni Anket Ekle
+            </Button>
+          </Box>
+
           <Grid container spacing={3}>
             {/* Sol Taraf - Anket Listesi */}
             <Grid item xs={12} md={6}>
@@ -541,7 +588,10 @@ const Surveys: React.FC = () => {
                     Henüz hiç anket eklenmemiş.
                   </Typography>
                 ) : (
-                  <TableContainer>
+                  <TableContainer sx={{ 
+                    maxHeight: 'calc(100vh - 240px)', // Tablonun maksimum yüksekliği
+                    overflowY: 'auto'
+                  }}>
                     <Table size="medium">
                       <TableHead>
                         <TableRow>
@@ -594,8 +644,11 @@ const Surveys: React.FC = () => {
                     <CircularProgress />
                   </Box>
                 ) : (
-                  <TableContainer>
-                    <Table size="small">
+                  <TableContainer sx={{ 
+                    maxHeight: 'calc(100vh - 240px)',
+                    overflowY: 'auto'
+                  }}>
+                    <Table size="small" stickyHeader>
                       <TableHead>
                         <TableRow>
                           <TableCell>Görev Adı</TableCell>
@@ -701,7 +754,7 @@ const Surveys: React.FC = () => {
             ) : null}
           </Box>
         </DialogTitle>
-        <DialogContent sx={{ mt: 2 }}>
+        <DialogContent sx={{ mt: 2, maxHeight: '70vh', overflowY: 'auto' }}>
           {selectedSurvey && (
             <Stack spacing={3}>
               {/* Sorular Bölümü */}
@@ -881,7 +934,7 @@ const Surveys: React.FC = () => {
         <DialogTitle>
           Görev Seç
         </DialogTitle>
-        <DialogContent>
+        <DialogContent sx={{ maxHeight: '60vh', overflowY: 'auto' }}>
           <List>
             {tasks.map((task) => (
               <React.Fragment key={task.id}>
@@ -912,7 +965,7 @@ const Surveys: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
-    </Container>
+    </ScrollableContent>
   );
 };
 
