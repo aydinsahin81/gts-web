@@ -26,6 +26,7 @@ import AssessmentIcon from '@mui/icons-material/Assessment';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import MessageIcon from '@mui/icons-material/Message';
+import PollIcon from '@mui/icons-material/Poll';
 
 const SidebarContainer = styled(Box)<{ isCollapsed: boolean }>(({ theme, isCollapsed }) => ({
   width: isCollapsed ? 70 : 260,
@@ -219,6 +220,17 @@ const Sidebar: React.FC<SidebarProps> = ({ openMobile, onCloseMobile, onCollapse
             <MessageIcon />
           </ListItemIcon>
           {!isCollapsed && <ListItemText primary="Mesajlar" />}
+        </MenuItem>
+        
+        <MenuItem 
+          active={isActive('/surveys')} 
+          onClick={() => handleNavigation('/surveys')}
+          isCollapsed={isCollapsed}
+        >
+          <ListItemIcon sx={{ color: 'white', minWidth: 40 }}>
+            <PollIcon />
+          </ListItemIcon>
+          {!isCollapsed && <ListItemText primary="Anketler" />}
         </MenuItem>
         
         <MenuItem 
