@@ -16,6 +16,7 @@ import Profile from './components/profile/Profile';
 import Reports from './components/reports/Reports';
 import Messages from './components/messages/Messages';
 import Surveys from './pages/Surveys';
+import PublicSurvey from './pages/PublicSurvey';
 
 // Henüz oluşturulmamış diğer sayfalar için geçici bileşenler
 // const Reports = () => <div>Raporlar Sayfası</div>;
@@ -86,6 +87,9 @@ const App: React.FC = () => {
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            
+            {/* Public Routes */}
+            <Route path="/surveys/:taskId" element={<PublicSurvey />} />
             
             {/* Private Routes */}
             <Route element={<PrivateRoute />}>
