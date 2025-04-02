@@ -17,7 +17,8 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  TextField
+  TextField,
+  Pagination
 } from '@mui/material';
 import { ref, onValue, get } from 'firebase/database';
 import { database } from '../../firebase';
@@ -81,6 +82,8 @@ const SurveyReports: React.FC = () => {
   const [selectedSurveyId, setSelectedSurveyId] = useState<string>('');
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
+  const [page, setPage] = useState(1);
+  const itemsPerPage = 20;
 
   // Görevleri, anketleri ve cevapları yükle
   useEffect(() => {
@@ -375,6 +378,11 @@ const SurveyReports: React.FC = () => {
     return matchesTask && matchesSurvey && matchesDateRange;
   });
 
+  // Sayfa değiştirme işleyicisi
+  const handlePageChange = (event: React.ChangeEvent<unknown>, value: number) => {
+    setPage(value);
+  };
+
   // Anket cevaplarını göreve ve yanıt ID'sine göre grupla
   const groupedReports: { [key: string]: ReportItem[] } = {};
   filteredReportItems.forEach(item => {
@@ -384,6 +392,21 @@ const SurveyReports: React.FC = () => {
     }
     groupedReports[key].push(item);
   });
+
+  // Sayfalama için grupları düzenle
+  const groupedReportsList = Object.values(groupedReports);
+  const totalPages = Math.ceil(groupedReportsList.length / itemsPerPage);
+  const paginatedGroups = groupedReportsList.slice(
+    (page - 1) * itemsPerPage,
+    page * itemsPerPage
+  );
+
+  // Sayfa değiştiğinde en üste çıkma durumunu ele almak için
+  useEffect(() => {
+    if (groupedReportsList.length > 0 && page > Math.ceil(groupedReportsList.length / itemsPerPage)) {
+      setPage(1);
+    }
+  }, [groupedReportsList.length]);
 
   return (
     <Paper sx={{ p: { xs: 1, sm: 2, md: 3 }, overflowX: 'hidden' }}>
@@ -400,7 +423,10 @@ const SurveyReports: React.FC = () => {
             <Select
               value={selectedTaskId}
               label="Görev Filtrele"
-              onChange={(e) => setSelectedTaskId(e.target.value as string)}
+              onChange={(e) => {
+                setSelectedTaskId(e.target.value as string);
+                setPage(1); // Filtreleme değiştiğinde ilk sayfaya dön
+              }}
             >
               <MenuItem value="">Tümü</MenuItem>
               {Object.values(tasks).map(task => (
@@ -414,7 +440,10 @@ const SurveyReports: React.FC = () => {
             <Select
               value={selectedSurveyId}
               label="Anket Filtrele"
-              onChange={(e) => setSelectedSurveyId(e.target.value as string)}
+              onChange={(e) => {
+                setSelectedSurveyId(e.target.value as string);
+                setPage(1); // Filtreleme değiştiğinde ilk sayfaya dön
+              }}
             >
               <MenuItem value="">Tümü</MenuItem>
               {Object.values(surveys).map(survey => (
@@ -438,6 +467,7 @@ const SurveyReports: React.FC = () => {
               } else {
                 setStartDate(null);
               }
+              setPage(1); // Filtreleme değiştiğinde ilk sayfaya dön
             }}
           />
           
@@ -454,6 +484,7 @@ const SurveyReports: React.FC = () => {
               } else {
                 setEndDate(null);
               }
+              setPage(1); // Filtreleme değiştiğinde ilk sayfaya dön
             }}
           />
         </Stack>
@@ -464,72 +495,89 @@ const SurveyReports: React.FC = () => {
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
           <CircularProgress />
         </Box>
-      ) : Object.keys(groupedReports).length === 0 ? (
+      ) : groupedReportsList.length === 0 ? (
         <Typography color="text.secondary" align="center" sx={{ py: 4 }}>
           Seçilen kriterlere uygun anket yanıtı bulunamadı.
         </Typography>
       ) : (
-        <TableContainer sx={{ maxHeight: { xs: 300, sm: 350, md: 400 }, overflow: 'auto', maxWidth: '100%' }}>
-          <Table size="small" stickyHeader sx={{ minWidth: { xs: 500, sm: 650 } }}>
-            <TableHead>
-              <TableRow>
-                <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 120, fontSize: { xs: '0.75rem', sm: '0.875rem' }, padding: { xs: 1, sm: 1.5 } }}>Görev Adı</TableCell>
-                <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 120, fontSize: { xs: '0.75rem', sm: '0.875rem' }, padding: { xs: 1, sm: 1.5 } }}>Personel</TableCell>
-                <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 150, fontSize: { xs: '0.75rem', sm: '0.875rem' }, padding: { xs: 1, sm: 1.5 } }}>Anket Sorusu</TableCell>
-                <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 100, fontSize: { xs: '0.75rem', sm: '0.875rem' }, padding: { xs: 1, sm: 1.5 } }}>Anket Cevabı</TableCell>
-                <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 120, fontSize: { xs: '0.75rem', sm: '0.875rem' }, padding: { xs: 1, sm: 1.5 } }}>Cevap Tarihi</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {Object.values(groupedReports).map((group, groupIndex) => (
-                <React.Fragment key={`group-${groupIndex}`}>
-                  {group.map((item, itemIndex) => (
-                    <TableRow key={`${item.responseId}-${item.surveyId}`}>
-                      {itemIndex === 0 && (
-                        <TableCell rowSpan={group.length} sx={{ padding: { xs: 1, sm: 1.5 } }}>
-                          <Typography variant="body2" noWrap sx={{ maxWidth: { xs: 100, sm: 150 }, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {item.taskName}
+        <>
+          <TableContainer sx={{ maxHeight: { xs: 300, sm: 350, md: 400 }, overflow: 'auto', maxWidth: '100%' }}>
+            <Table size="small" stickyHeader sx={{ minWidth: { xs: 500, sm: 650 } }}>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 120, fontSize: { xs: '0.75rem', sm: '0.875rem' }, padding: { xs: 1, sm: 1.5 } }}>Görev Adı</TableCell>
+                  <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 120, fontSize: { xs: '0.75rem', sm: '0.875rem' }, padding: { xs: 1, sm: 1.5 } }}>Personel</TableCell>
+                  <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 150, fontSize: { xs: '0.75rem', sm: '0.875rem' }, padding: { xs: 1, sm: 1.5 } }}>Anket Sorusu</TableCell>
+                  <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 100, fontSize: { xs: '0.75rem', sm: '0.875rem' }, padding: { xs: 1, sm: 1.5 } }}>Anket Cevabı</TableCell>
+                  <TableCell sx={{ whiteSpace: 'nowrap', minWidth: 120, fontSize: { xs: '0.75rem', sm: '0.875rem' }, padding: { xs: 1, sm: 1.5 } }}>Cevap Tarihi</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {paginatedGroups.map((group, groupIndex) => (
+                  <React.Fragment key={`group-${groupIndex}`}>
+                    {group.map((item, itemIndex) => (
+                      <TableRow key={`${item.responseId}-${item.surveyId}`}>
+                        {itemIndex === 0 && (
+                          <TableCell rowSpan={group.length} sx={{ padding: { xs: 1, sm: 1.5 } }}>
+                            <Typography variant="body2" noWrap sx={{ maxWidth: { xs: 100, sm: 150 }, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {item.taskName}
+                            </Typography>
+                          </TableCell>
+                        )}
+                        {itemIndex === 0 && (
+                          <TableCell rowSpan={group.length} sx={{ padding: { xs: 1, sm: 1.5 } }}>
+                            <Typography variant="body2" noWrap sx={{ maxWidth: { xs: 100, sm: 150 }, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {item.personnelName}
+                            </Typography>
+                          </TableCell>
+                        )}
+                        <TableCell sx={{ padding: { xs: 1, sm: 1.5 } }}>
+                          <Typography variant="body2" noWrap sx={{ maxWidth: { xs: 100, sm: 180 }, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {item.questionTitle}
                           </Typography>
                         </TableCell>
-                      )}
-                      {itemIndex === 0 && (
-                        <TableCell rowSpan={group.length} sx={{ padding: { xs: 1, sm: 1.5 } }}>
-                          <Typography variant="body2" noWrap sx={{ maxWidth: { xs: 100, sm: 150 }, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {item.personnelName}
+                        <TableCell sx={{ padding: { xs: 1, sm: 1.5 } }}>
+                          <Chip
+                            label={item.answer}
+                            size="small"
+                            color={
+                              item.answerType === 'positive' 
+                                ? 'success' 
+                                : item.answerType === 'negative' 
+                                ? 'error' 
+                                : 'default'
+                            }
+                            sx={{ maxWidth: { xs: 80, sm: 120 }, "& .MuiChip-label": { overflow: 'hidden', textOverflow: 'ellipsis' } }}
+                          />
+                        </TableCell>
+                        <TableCell sx={{ padding: { xs: 1, sm: 1.5 } }}>
+                          <Typography variant="body2" noWrap>
+                            {new Date(item.createdAt).toLocaleString('tr-TR')}
                           </Typography>
                         </TableCell>
-                      )}
-                      <TableCell sx={{ padding: { xs: 1, sm: 1.5 } }}>
-                        <Typography variant="body2" noWrap sx={{ maxWidth: { xs: 100, sm: 180 }, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {item.questionTitle}
-                        </Typography>
-                      </TableCell>
-                      <TableCell sx={{ padding: { xs: 1, sm: 1.5 } }}>
-                        <Chip
-                          label={item.answer}
-                          size="small"
-                          color={
-                            item.answerType === 'positive' 
-                              ? 'success' 
-                              : item.answerType === 'negative' 
-                              ? 'error' 
-                              : 'default'
-                          }
-                          sx={{ maxWidth: { xs: 80, sm: 120 }, "& .MuiChip-label": { overflow: 'hidden', textOverflow: 'ellipsis' } }}
-                        />
-                      </TableCell>
-                      <TableCell sx={{ padding: { xs: 1, sm: 1.5 } }}>
-                        <Typography variant="body2" noWrap>
-                          {new Date(item.createdAt).toLocaleString('tr-TR')}
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </React.Fragment>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+                      </TableRow>
+                    ))}
+                  </React.Fragment>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          
+          {/* Sayfalama Kontrolleri */}
+          {totalPages > 1 && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+              <Pagination 
+                count={totalPages} 
+                page={page} 
+                onChange={handlePageChange} 
+                color="primary" 
+                size="medium"
+                showFirstButton 
+                showLastButton
+              />
+            </Box>
+          )}
+        </>
       )}
     </Paper>
   );
