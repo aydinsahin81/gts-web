@@ -517,84 +517,122 @@ const Surveys: React.FC = () => {
         <DialogContent sx={{ mt: 2 }}>
           {selectedSurvey && (
             <Stack spacing={3}>
-              {isEditing ? (
-                // Düzenleme Modu
-                editingQuestions.map((question, index) => (
-                  <Card key={question.id} variant="outlined">
-                    <CardContent>
-                      <Stack spacing={2}>
-                        <TextField
-                          label={`Soru ${index + 1}`}
-                          value={question.title}
-                          onChange={(e) => handleQuestionChange(question.id, e.target.value)}
-                          fullWidth
-                          size="small"
-                        />
-                        <Box>
-                          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                            Cevaplar:
-                          </Typography>
-                          <Stack spacing={1}>
-                            {question.answers.map((answer, answerIndex) => (
-                              <Box key={answerIndex} sx={{ display: 'flex', gap: 1 }}>
-                                <TextField
-                                  value={answer}
-                                  onChange={(e) => handleAnswerChange(question.id, answerIndex, e.target.value)}
-                                  size="small"
-                                  fullWidth
-                                />
-                                <IconButton 
-                                  size="small" 
-                                  color="error"
-                                  onClick={() => handleRemoveAnswer(question.id, answerIndex)}
-                                >
-                                  <CloseIcon />
-                                </IconButton>
-                              </Box>
-                            ))}
-                            <Button
-                              startIcon={<AddIcon />}
-                              onClick={() => handleAddAnswer(question.id)}
-                              size="small"
-                            >
-                              Cevap Ekle
-                            </Button>
-                          </Stack>
-                        </Box>
-                      </Stack>
-                    </CardContent>
-                  </Card>
-                ))
-              ) : (
-                // Görüntüleme Modu
-                Object.entries(selectedSurvey.questions).map(([questionId, question], index) => (
-                  <Card key={questionId} variant="outlined">
-                    <CardContent>
-                      <Stack spacing={2}>
-                        <Typography variant="subtitle1">
-                          Soru {index + 1}: {question.title}
-                        </Typography>
-                        <Box>
-                          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                            Cevaplar:
-                          </Typography>
-                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                            {question.answers.map((answer, answerIndex) => (
-                              <Chip
-                                key={answerIndex}
-                                label={answer}
+              {/* Sorular Bölümü */}
+              <Box>
+                <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'medium' }}>
+                  Sorular
+                </Typography>
+                {isEditing ? (
+                  // Düzenleme Modu
+                  editingQuestions.map((question, index) => (
+                    <Card key={question.id} variant="outlined" sx={{ mb: 2 }}>
+                      <CardContent>
+                        <Stack spacing={2}>
+                          <TextField
+                            label={`Soru ${index + 1}`}
+                            value={question.title}
+                            onChange={(e) => handleQuestionChange(question.id, e.target.value)}
+                            fullWidth
+                            size="small"
+                          />
+                          <Box>
+                            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                              Cevaplar:
+                            </Typography>
+                            <Stack spacing={1}>
+                              {question.answers.map((answer, answerIndex) => (
+                                <Box key={answerIndex} sx={{ display: 'flex', gap: 1 }}>
+                                  <TextField
+                                    value={answer}
+                                    onChange={(e) => handleAnswerChange(question.id, answerIndex, e.target.value)}
+                                    size="small"
+                                    fullWidth
+                                  />
+                                  <IconButton 
+                                    size="small" 
+                                    color="error"
+                                    onClick={() => handleRemoveAnswer(question.id, answerIndex)}
+                                  >
+                                    <CloseIcon />
+                                  </IconButton>
+                                </Box>
+                              ))}
+                              <Button
+                                startIcon={<AddIcon />}
+                                onClick={() => handleAddAnswer(question.id)}
                                 size="small"
-                                color="primary"
-                                variant="outlined"
-                              />
-                            ))}
+                              >
+                                Cevap Ekle
+                              </Button>
+                            </Stack>
                           </Box>
-                        </Box>
-                      </Stack>
-                    </CardContent>
-                  </Card>
-                ))
-              )}
+                        </Stack>
+                      </CardContent>
+                    </Card>
+                  ))
+                ) : (
+                  // Görüntüleme Modu
+                  Object.entries(selectedSurvey.questions).map(([questionId, question], index) => (
+                    <Card key={questionId} variant="outlined" sx={{ mb: 2 }}>
+                      <CardContent>
+                        <Stack spacing={2}>
+                          <Typography variant="subtitle1">
+                            Soru {index + 1}: {question.title}
+                          </Typography>
+                          <Box>
+                            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                              Cevaplar:
+                            </Typography>
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                              {question.answers.map((answer, answerIndex) => (
+                                <Chip
+                                  key={answerIndex}
+                                  label={answer}
+                                  size="small"
+                                  color="primary"
+                                  variant="outlined"
+                                />
+                              ))}
+                            </Box>
+                          </Box>
+                        </Stack>
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
+              </Box>
+
+              {/* Görevler Bölümü */}
+              <Box>
+                <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'medium' }}>
+                  Görevler
+                </Typography>
+                {selectedSurvey.tasks && selectedSurvey.tasks.length > 0 ? (
+                  <Stack spacing={1}>
+                    {selectedSurvey.tasks.map((taskId) => {
+                      const task = tasks.find(t => t.id === taskId);
+                      return task ? (
+                        <Card key={taskId} variant="outlined">
+                          <CardContent>
+                            <Stack spacing={1}>
+                              <Typography variant="subtitle1">
+                                {task.name}
+                              </Typography>
+                              <Typography variant="body2" color="text.secondary">
+                                {task.description}
+                              </Typography>
+                            </Stack>
+                          </CardContent>
+                        </Card>
+                      ) : null;
+                    })}
+                  </Stack>
+                ) : (
+                  <Typography variant="body2" color="text.secondary">
+                    Henüz görev eklenmemiş.
+                  </Typography>
+                )}
+              </Box>
             </Stack>
           )}
         </DialogContent>
