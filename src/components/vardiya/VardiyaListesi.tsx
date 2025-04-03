@@ -19,14 +19,31 @@ import {
   CircularProgress,
   Divider,
   Snackbar,
-  Alert
+  Alert,
+  Autocomplete,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemIcon,
+  Checkbox,
+  Chip
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import { ref, push, set, serverTimestamp, get } from 'firebase/database';
+import PersonIcon from '@mui/icons-material/Person';
+import SearchIcon from '@mui/icons-material/Search';
+import { ref, push, set, serverTimestamp, get, update } from 'firebase/database';
 import { database } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
+
+// Personel tipi
+interface Personnel {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+}
 
 const VardiyaListesi: React.FC = () => {
   const { currentUser, userDetails } = useAuth();
@@ -43,6 +60,15 @@ const VardiyaListesi: React.FC = () => {
   const [openSnackbar, setOpenSnackbar] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
+  
+  // Personel seçme modal state'leri
+  const [personnelModalOpen, setPersonnelModalOpen] = useState(false);
+  const [selectedVardiyaId, setSelectedVardiyaId] = useState<string | null>(null);
+  const [personnelList, setPersonnelList] = useState<Personnel[]>([]);
+  const [selectedPersonnel, setSelectedPersonnel] = useState<string[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [loadingPersonnel, setLoadingPersonnel] = useState(false);
+  const [filteredPersonnel, setFilteredPersonnel] = useState<Personnel[]>([]);
 
   // Vardiyaları veritabanından getir
   useEffect(() => {
@@ -60,7 +86,8 @@ const VardiyaListesi: React.FC = () => {
           const data = snapshot.val();
           const formattedShifts = Object.keys(data).map(key => ({
             id: key,
-            ...data[key]
+            ...data[key],
+            personnel: data[key].personnel ? Object.keys(data[key].personnel) : []
           }));
           
           setVardiyalar(formattedShifts);
@@ -76,6 +103,153 @@ const VardiyaListesi: React.FC = () => {
 
     fetchVardiyalar();
   }, [userDetails]);
+
+  // Personel listesini getir
+  const fetchPersonnel = async () => {
+    if (!userDetails?.companyId) return;
+    
+    setLoadingPersonnel(true);
+    try {
+      const personnelRef = ref(database, `companies/${userDetails.companyId}/personnel`);
+      const snapshot = await get(personnelRef);
+      
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        const personnelArray = Object.entries(data)
+          .filter(([_, personData]: [string, any]) => !personData.isDeleted) // Silinen personelleri filtreleme
+          .map(([id, personData]: [string, any]) => ({
+            id,
+            name: personData.name || 'İsimsiz Personel',
+            email: personData.email || '',
+            phone: personData.phone || ''
+          }));
+        
+        setPersonnelList(personnelArray);
+        setFilteredPersonnel(personnelArray);
+      } else {
+        setPersonnelList([]);
+        setFilteredPersonnel([]);
+      }
+    } catch (error) {
+      console.error("Personel listesi yüklenirken hata:", error);
+    } finally {
+      setLoadingPersonnel(false);
+    }
+  };
+
+  // Personel modalı açıldığında personel listesini getir
+  useEffect(() => {
+    if (personnelModalOpen) {
+      fetchPersonnel();
+    }
+  }, [personnelModalOpen]);
+
+  // Personel arama filtrelemesi
+  useEffect(() => {
+    if (!searchTerm.trim()) {
+      setFilteredPersonnel(personnelList);
+      return;
+    }
+    
+    const term = searchTerm.toLowerCase();
+    const filtered = personnelList.filter(person => 
+      person.name.toLowerCase().includes(term) || 
+      (person.email && person.email.toLowerCase().includes(term)) ||
+      (person.phone && person.phone.includes(term))
+    );
+    
+    setFilteredPersonnel(filtered);
+  }, [searchTerm, personnelList]);
+
+  // Personel seçme modalını açma işlevi
+  const handleOpenPersonnelModal = (vardiyaId: string) => {
+    setSelectedVardiyaId(vardiyaId);
+    
+    // Varsa mevcut seçili personelleri belirle
+    const vardiya = vardiyalar.find(v => v.id === vardiyaId);
+    if (vardiya && vardiya.personnel) {
+      setSelectedPersonnel(vardiya.personnel);
+    } else {
+      setSelectedPersonnel([]);
+    }
+    
+    setPersonnelModalOpen(true);
+  };
+
+  // Personel seçme modalını kapatma işlevi
+  const handleClosePersonnelModal = () => {
+    setPersonnelModalOpen(false);
+    setSelectedVardiyaId(null);
+    setSelectedPersonnel([]);
+    setSearchTerm('');
+  };
+
+  // Tüm personeli seçme/kaldırma işlevi
+  const handleToggleAll = () => {
+    if (selectedPersonnel.length === filteredPersonnel.length) {
+      setSelectedPersonnel([]);
+    } else {
+      setSelectedPersonnel(filteredPersonnel.map(p => p.id));
+    }
+  };
+
+  // Tek personel seçme/kaldırma işlevi
+  const handleTogglePersonnel = (id: string) => {
+    const selectedIndex = selectedPersonnel.indexOf(id);
+    let newSelected = [...selectedPersonnel];
+    
+    if (selectedIndex === -1) {
+      newSelected.push(id);
+    } else {
+      newSelected.splice(selectedIndex, 1);
+    }
+    
+    setSelectedPersonnel(newSelected);
+  };
+
+  // Personel kaydetme işlevi
+  const handleSavePersonnel = async () => {
+    if (!selectedVardiyaId || !userDetails?.companyId) return;
+    
+    setIsSubmitting(true);
+    try {
+      // Vardiya personel bölümünü güncelle
+      const personnelRef = ref(database, `companies/${userDetails.companyId}/shifts/${selectedVardiyaId}/personnel`);
+      
+      // Personel listesini hazırla (nesne olarak)
+      const personnelData: Record<string, boolean> = {};
+      selectedPersonnel.forEach(id => {
+        personnelData[id] = true;
+      });
+      
+      // Veritabanına kaydet
+      await set(personnelRef, personnelData);
+      
+      // Başarı mesajı
+      setSnackbarMessage('Personel atama başarıyla kaydedildi');
+      setSnackbarSeverity('success');
+      setOpenSnackbar(true);
+      
+      // Vardiyalar listesini güncelle
+      setVardiyalar(prevVardiyalar => 
+        prevVardiyalar.map(vardiya => 
+          vardiya.id === selectedVardiyaId
+            ? { ...vardiya, personnel: selectedPersonnel }
+            : vardiya
+        )
+      );
+      
+      // Modalı kapat
+      handleClosePersonnelModal();
+    } catch (error) {
+      console.error('Personel kaydedilirken hata:', error);
+      setSnackbarMessage('Personel kaydedilirken bir hata oluştu');
+      setSnackbarSeverity('error');
+      setOpenSnackbar(true);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handleClickOpen = () => {
     setOpen(true);
@@ -144,7 +318,8 @@ const VardiyaListesi: React.FC = () => {
           id: shiftId,
           ...shiftData,
           // serverTimestamp yerine şimdiki zamanı kullan
-          createdAt: Date.now()
+          createdAt: Date.now(),
+          personnel: []
         }
       ]);
       
@@ -171,6 +346,16 @@ const VardiyaListesi: React.FC = () => {
   // Snackbar kapatma
   const handleCloseSnackbar = () => {
     setOpenSnackbar(false);
+  };
+
+  // Vardiya kartında personel sayısını görüntüleme
+  const renderPersonnelCount = (vardiya: any) => {
+    const count = vardiya.personnel ? vardiya.personnel.length : 0;
+    return (
+      <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+        <strong>Personel:</strong> {count} kişi
+      </Typography>
+    );
   };
 
   return (
@@ -241,9 +426,29 @@ const VardiyaListesi: React.FC = () => {
                   flexDirection: 'column'
                 }}
               >
-                <Typography variant="h6" color="primary" gutterBottom>
-                  {vardiya.name}
-                </Typography>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                  <Typography variant="h6" color="primary" gutterBottom>
+                    {vardiya.name}
+                  </Typography>
+                  <IconButton 
+                    size="small" 
+                    color="primary" 
+                    onClick={() => handleOpenPersonnelModal(vardiya.id)}
+                    sx={{ 
+                      border: '1px solid', 
+                      borderColor: 'primary.main',
+                      borderRadius: '50%',
+                      padding: '4px',
+                      '&:hover': {
+                        backgroundColor: 'primary.main',
+                        color: 'white',
+                      }
+                    }}
+                  >
+                    <PersonIcon fontSize="small" />
+                    <AddIcon fontSize="small" sx={{ position: 'absolute', right: 0, bottom: 0, fontSize: 12, backgroundColor: 'white', borderRadius: '50%' }} />
+                  </IconButton>
+                </Box>
                 
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                   <AccessTimeIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />
@@ -265,9 +470,11 @@ const VardiyaListesi: React.FC = () => {
                   <strong>Geç Kalma Toleransı:</strong> {vardiya.lateTolerance} dk
                 </Typography>
                 
-                <Typography variant="body2">
+                <Typography variant="body2" sx={{ mb: 1 }}>
                   <strong>Erken Çıkma Toleransı:</strong> {vardiya.earlyExitTolerance} dk
                 </Typography>
+                
+                {renderPersonnelCount(vardiya)}
               </Paper>
             </Grid>
           ))}
@@ -399,6 +606,188 @@ const VardiyaListesi: React.FC = () => {
         </DialogActions>
       </Dialog>
 
+      {/* Personel Seçme Modal */}
+      <Dialog
+        open={personnelModalOpen}
+        onClose={handleClosePersonnelModal}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 2,
+            boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+            height: '70vh',
+            display: 'flex',
+            flexDirection: 'column'
+          }
+        }}
+      >
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1, py: 1.5 }}>
+          <Typography variant="h6" sx={{ fontSize: '1.1rem' }}>Vardiyaya Personel Ekle</Typography>
+          <IconButton edge="end" color="inherit" onClick={handleClosePersonnelModal} aria-label="close" size="small">
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        
+        <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
+          <Autocomplete
+            fullWidth
+            size="small"
+            options={personnelList}
+            getOptionLabel={(option) => option.name}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Personel Ara"
+                variant="outlined"
+                size="small"
+                InputProps={{
+                  ...params.InputProps,
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon fontSize="small" />
+                    </InputAdornment>
+                  )
+                }}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                value={searchTerm}
+              />
+            )}
+            onChange={(_, newValue) => {
+              if (newValue) {
+                setSearchTerm(newValue.name);
+              }
+            }}
+            noOptionsText="Personel bulunamadı"
+          />
+        </Box>
+        
+        <DialogContent dividers sx={{ p: 0, flexGrow: 1, overflow: 'auto' }}>
+          {loadingPersonnel ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+              <CircularProgress />
+            </Box>
+          ) : filteredPersonnel.length === 0 ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', p: 3 }}>
+              <Typography variant="body1" color="text.secondary">
+                Personel bulunamadı veya arama sonucu boş.
+              </Typography>
+            </Box>
+          ) : (
+            <>
+              <ListItem 
+                button 
+                onClick={handleToggleAll}
+                sx={{
+                  borderBottom: '1px solid',
+                  borderColor: 'divider',
+                  backgroundColor: 'action.hover',
+                  py: 0.5,
+                  minHeight: 40
+                }}
+                dense
+              >
+                <ListItemIcon sx={{ minWidth: 36 }}>
+                  <Checkbox
+                    edge="start"
+                    checked={selectedPersonnel.length === filteredPersonnel.length && filteredPersonnel.length > 0}
+                    indeterminate={selectedPersonnel.length > 0 && selectedPersonnel.length < filteredPersonnel.length}
+                    tabIndex={-1}
+                    disableRipple
+                    size="small"
+                  />
+                </ListItemIcon>
+                <ListItemText 
+                  primary="Tümünü Seç / Seçimi Kaldır" 
+                  primaryTypographyProps={{ fontWeight: 'bold', fontSize: '0.9rem' }}
+                />
+              </ListItem>
+              
+              <List disablePadding>
+                {filteredPersonnel.map((person) => {
+                  const isSelected = selectedPersonnel.indexOf(person.id) !== -1;
+                  
+                  return (
+                    <ListItem 
+                      key={person.id} 
+                      button 
+                      onClick={() => handleTogglePersonnel(person.id)}
+                      sx={{
+                        borderBottom: '1px solid',
+                        borderColor: 'divider',
+                        backgroundColor: isSelected ? 'action.selected' : 'inherit',
+                        py: 0.5,
+                        minHeight: 36
+                      }}
+                      dense
+                    >
+                      <ListItemIcon sx={{ minWidth: 36 }}>
+                        <Checkbox
+                          edge="start"
+                          checked={isSelected}
+                          tabIndex={-1}
+                          disableRipple
+                          size="small"
+                        />
+                      </ListItemIcon>
+                      <ListItemText 
+                        primary={person.name} 
+                        primaryTypographyProps={{ fontSize: '0.9rem' }}
+                      />
+                    </ListItem>
+                  );
+                })}
+              </List>
+            </>
+          )}
+        </DialogContent>
+        
+        <Box sx={{ p: 1.5, borderTop: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center' }}>
+          <Box sx={{ flexGrow: 1, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+            {selectedPersonnel.length > 0 && (
+              <Typography variant="body2" color="text.secondary" sx={{ mr: 1, alignSelf: 'center', fontSize: '0.85rem' }}>
+                Seçilen: {selectedPersonnel.length} personel
+              </Typography>
+            )}
+            {selectedPersonnel.slice(0, 5).map((id) => {
+              const person = personnelList.find(p => p.id === id);
+              return person ? (
+                <Chip 
+                  key={id} 
+                  label={person.name} 
+                  size="small" 
+                  onDelete={() => handleTogglePersonnel(id)}
+                  sx={{ height: 24, '& .MuiChip-label': { fontSize: '0.75rem' } }}
+                />
+              ) : null;
+            })}
+            {selectedPersonnel.length > 5 && (
+              <Chip 
+                label={`+${selectedPersonnel.length - 5} kişi daha`} 
+                size="small" 
+                variant="outlined"
+                sx={{ height: 24, '& .MuiChip-label': { fontSize: '0.75rem' } }}
+              />
+            )}
+          </Box>
+        </Box>
+        
+        <DialogActions sx={{ px: 2, py: 1.5 }}>
+          <Button onClick={handleClosePersonnelModal} disabled={isSubmitting} size="small">
+            İptal
+          </Button>
+          <Button 
+            onClick={handleSavePersonnel} 
+            variant="contained" 
+            color="primary"
+            disabled={isSubmitting}
+            size="small"
+          >
+            {isSubmitting ? 'Kaydediliyor...' : 'Kaydet'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* Bildirim Snackbar */}
       <Snackbar 
         open={openSnackbar} 
@@ -418,4 +807,4 @@ const VardiyaListesi: React.FC = () => {
   );
 };
 
-export default VardiyaListesi; 
+export default VardiyaListesi;
