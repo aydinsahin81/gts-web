@@ -184,7 +184,7 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
       type: 'qr' as const,
       position: { x: a5Dimensions.width / 2, y: a5Dimensions.height / 2 },
       size: qrSize,
-      content: `https://www.gts.mt-teknoloji.com/#/surveys/${task.id}`,
+      content: `https://gts.mt-teknoloji.com/#/surveys/${task.id}`,
       selected: false
     };
     
@@ -955,7 +955,7 @@ const QrPrintModal: React.FC<QrPrintModalProps> = ({ open, onClose, task }) => {
                       className={item.selected ? "no-print" : ""}
                     >
                       <QRCodeCanvas 
-                        value={`https://www.gts.mt-teknoloji.com/#/surveys/${task.id}`}
+                        value={`https://gts.mt-teknoloji.com/#/surveys/${task.id}`}
                         size={item.size || qrSize}
                         level="H" // Yüksek hata düzeltme seviyesi
                         includeMargin={true}
