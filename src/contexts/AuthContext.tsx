@@ -6,7 +6,20 @@ import {
   onAuthStateChanged,
   UserCredential
 } from 'firebase/auth';
-import { auth } from '../firebase';
+import { auth, database } from '../firebase';
+import { ref, get } from 'firebase/database';
+
+// User details tipini tanımla
+export interface UserDetails {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  companyId: string;
+  companyName: string;
+  role: string;
+  createdAt: number;
+}
 
 // Firebase User tipini genişlet
 interface User extends FirebaseUser {
@@ -15,6 +28,7 @@ interface User extends FirebaseUser {
 
 interface AuthContextType {
   currentUser: User | null;
+  userDetails: UserDetails | null;
   login: (email: string, password: string) => Promise<UserCredential>;
   logout: () => Promise<void>;
   loading: boolean;
@@ -32,6 +46,7 @@ interface AuthProviderProps {
 
 export function AuthProvider({ children }: AuthProviderProps) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [userDetails, setUserDetails] = useState<UserDetails | null>(null);
   const [loading, setLoading] = useState(true);
 
   async function login(email: string, password: string): Promise<UserCredential> {
@@ -42,9 +57,34 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return firebaseSignOut(auth);
   }
 
+  // Kullanıcı detaylarını getir
+  async function fetchUserDetails(user: User) {
+    try {
+      const userRef = ref(database, `users/${user.uid}`);
+      const snapshot = await get(userRef);
+      
+      if (snapshot.exists()) {
+        setUserDetails(snapshot.val() as UserDetails);
+      } else {
+        console.error("Kullanıcı detayları bulunamadı");
+        setUserDetails(null);
+      }
+    } catch (error) {
+      console.error("Kullanıcı detayları yüklenirken hata:", error);
+      setUserDetails(null);
+    }
+  }
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
+      
+      if (user) {
+        fetchUserDetails(user as User);
+      } else {
+        setUserDetails(null);
+      }
+      
       setLoading(false);
     });
 
@@ -53,6 +93,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const value = {
     currentUser,
+    userDetails,
     login,
     logout,
     loading
