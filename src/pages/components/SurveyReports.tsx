@@ -19,12 +19,15 @@ import {
   MenuItem,
   TextField,
   Pagination,
-  Button
+  Button,
+  InputAdornment
 } from '@mui/material';
 import { ref, onValue, get } from 'firebase/database';
 import { database } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import DownloadIcon from '@mui/icons-material/Download';
+import SearchIcon from '@mui/icons-material/Search';
+import Autocomplete from '@mui/material/Autocomplete';
 import * as ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 
@@ -537,39 +540,79 @@ const SurveyReports: React.FC = () => {
       <Box sx={{ mb: 2 }}>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mb: 1.5 }}>
           <FormControl fullWidth size="small">
-            <InputLabel>Görev Filtrele</InputLabel>
-            <Select
-              margin="dense"
-              value={selectedTaskId}
-              label="Görev Filtrele"
-              onChange={(e) => {
-                setSelectedTaskId(e.target.value as string);
+            <Autocomplete
+              size="small"
+              options={Object.values(tasks)}
+              getOptionLabel={(option) => option.name || ''}
+              value={selectedTaskId ? tasks[selectedTaskId] || null : null}
+              onChange={(event, newValue) => {
+                setSelectedTaskId(newValue?.id || '');
                 setPage(1); // Filtreleme değiştiğinde ilk sayfaya dön
               }}
-            >
-              <MenuItem value="">Tümü</MenuItem>
-              {Object.values(tasks).map(task => (
-                <MenuItem key={task.id} value={task.id}>{task.name}</MenuItem>
-              ))}
-            </Select>
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Görev Filtrele"
+                  margin="dense"
+                  InputProps={{
+                    ...params.InputProps,
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon fontSize="small" />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              )}
+              renderOption={(props, option) => (
+                <MenuItem {...props}>
+                  {option.name}
+                </MenuItem>
+              )}
+              isOptionEqualToValue={(option, value) => option.id === value?.id}
+              noOptionsText="Görev bulunamadı"
+              clearText="Tümünü Temizle"
+              openText="Aç"
+              closeText="Kapat"
+            />
           </FormControl>
           
           <FormControl fullWidth size="small">
-            <InputLabel>Anket Filtrele</InputLabel>
-            <Select
-              margin="dense"
-              value={selectedSurveyId}
-              label="Anket Filtrele"
-              onChange={(e) => {
-                setSelectedSurveyId(e.target.value as string);
+            <Autocomplete
+              size="small"
+              options={Object.values(surveys)}
+              getOptionLabel={(option) => option.title || ''}
+              value={selectedSurveyId ? surveys[selectedSurveyId] || null : null}
+              onChange={(event, newValue) => {
+                setSelectedSurveyId(newValue?.id || '');
                 setPage(1); // Filtreleme değiştiğinde ilk sayfaya dön
               }}
-            >
-              <MenuItem value="">Tümü</MenuItem>
-              {Object.values(surveys).map(survey => (
-                <MenuItem key={survey.id} value={survey.id}>{survey.title}</MenuItem>
-              ))}
-            </Select>
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Anket Filtrele"
+                  margin="dense"
+                  InputProps={{
+                    ...params.InputProps,
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon fontSize="small" />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              )}
+              renderOption={(props, option) => (
+                <MenuItem {...props}>
+                  {option.title}
+                </MenuItem>
+              )}
+              isOptionEqualToValue={(option, value) => option.id === value?.id}
+              noOptionsText="Anket bulunamadı"
+              clearText="Tümünü Temizle"
+              openText="Aç"
+              closeText="Kapat"
+            />
           </FormControl>
         </Stack>
         
