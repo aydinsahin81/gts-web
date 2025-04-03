@@ -113,10 +113,39 @@ const VardiyaListesi: React.FC = () => {
       const personnelRef = ref(database, `companies/${userDetails.companyId}/personnel`);
       const snapshot = await get(personnelRef);
       
+      // Tüm vardiyaları al ve atanmış personelleri bul
+      const shiftsRef = ref(database, `companies/${userDetails.companyId}/shifts`);
+      const shiftsSnapshot = await get(shiftsRef);
+      
+      // Tüm atanmış personelleri topla (mevcut vardiya hariç)
+      const assignedPersonnel = new Set<string>();
+      
+      if (shiftsSnapshot.exists()) {
+        const shiftsData = shiftsSnapshot.val();
+        
+        Object.entries(shiftsData).forEach(([shiftId, shiftData]: [string, any]) => {
+          // Mevcut seçili vardiyayı hariç tut (düzenleme durumunda)
+          if (shiftId !== selectedVardiyaId && shiftData.personnel) {
+            // Bu vardiyada atanmış tüm personelleri set'e ekle
+            Object.keys(shiftData.personnel).forEach(personId => {
+              assignedPersonnel.add(personId);
+            });
+          }
+        });
+      }
+      
+      console.log('Zaten atanmış personel sayısı:', assignedPersonnel.size);
+      
       if (snapshot.exists()) {
         const data = snapshot.val();
         const personnelArray = Object.entries(data)
-          .filter(([_, personData]: [string, any]) => !personData.isDeleted) // Silinen personelleri filtreleme
+          .filter(([id, personData]: [string, any]) => {
+            // Silinen personelleri filtrele
+            if (personData.isDeleted) return false;
+            
+            // Başka vardiyalara atanmış personelleri filtrele
+            return !assignedPersonnel.has(id);
+          })
           .map(([id, personData]: [string, any]) => ({
             id,
             name: personData.name || 'İsimsiz Personel',
@@ -660,6 +689,9 @@ const VardiyaListesi: React.FC = () => {
             }}
             noOptionsText="Personel bulunamadı"
           />
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5, fontSize: '0.75rem' }}>
+            Not: Zaten başka vardiyaya atanmış personeller burada listelenmez. Bir personel sadece bir vardiyada olabilir.
+          </Typography>
         </Box>
         
         <DialogContent dividers sx={{ p: 0, flexGrow: 1, overflow: 'auto' }}>
