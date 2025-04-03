@@ -26,14 +26,16 @@ import {
   ListItemText,
   ListItemIcon,
   Checkbox,
-  Chip
+  Chip,
+  Tooltip
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import PersonIcon from '@mui/icons-material/Person';
 import SearchIcon from '@mui/icons-material/Search';
-import { ref, push, set, serverTimestamp, get, update } from 'firebase/database';
+import DeleteIcon from '@mui/icons-material/Delete';
+import { ref, push, set, serverTimestamp, get, update, remove } from 'firebase/database';
 import { database } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -69,6 +71,12 @@ const VardiyaListesi: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [loadingPersonnel, setLoadingPersonnel] = useState(false);
   const [filteredPersonnel, setFilteredPersonnel] = useState<Personnel[]>([]);
+
+  // Vardiya silme için state'ler
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteVardiyaId, setDeleteVardiyaId] = useState<string | null>(null);
+  const [deleteVardiyaName, setDeleteVardiyaName] = useState('');
+  const [deleteErrorOpen, setDeleteErrorOpen] = useState(false);
 
   // Vardiyaları veritabanından getir
   useEffect(() => {
@@ -387,6 +395,61 @@ const VardiyaListesi: React.FC = () => {
     );
   };
 
+  // Vardiya silme fonksiyonları
+  const handleDeleteClick = (vardiya: any) => {
+    // Personel atanmış mı kontrol et
+    const hasPersonnel = vardiya.personnel && vardiya.personnel.length > 0;
+    
+    if (hasPersonnel) {
+      // Personel atanmışsa hata modalını göster
+      setDeleteErrorOpen(true);
+    } else {
+      // Personel yoksa silme onay modalını göster
+      setDeleteVardiyaId(vardiya.id);
+      setDeleteVardiyaName(vardiya.name);
+      setDeleteConfirmOpen(true);
+    }
+  };
+
+  const handleCloseDeleteError = () => {
+    setDeleteErrorOpen(false);
+  };
+
+  const handleCloseDeleteConfirm = () => {
+    setDeleteConfirmOpen(false);
+    setDeleteVardiyaId(null);
+    setDeleteVardiyaName('');
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteVardiyaId || !userDetails?.companyId) return;
+    
+    setIsSubmitting(true);
+    try {
+      // Vardiyayı veritabanından sil
+      const vardiyaRef = ref(database, `companies/${userDetails.companyId}/shifts/${deleteVardiyaId}`);
+      await remove(vardiyaRef);
+      
+      // Vardiyalar listesini güncelle
+      setVardiyalar(prevVardiyalar => prevVardiyalar.filter(v => v.id !== deleteVardiyaId));
+      
+      // Başarı mesajı
+      setSnackbarMessage('Vardiya başarıyla silindi');
+      setSnackbarSeverity('success');
+      setOpenSnackbar(true);
+      
+      // Modalı kapat
+      handleCloseDeleteConfirm();
+    } catch (error) {
+      console.error('Vardiya silinirken hata:', error);
+      setSnackbarMessage('Vardiya silinirken bir hata oluştu');
+      setSnackbarSeverity('error');
+      setOpenSnackbar(true);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
@@ -504,6 +567,33 @@ const VardiyaListesi: React.FC = () => {
                 </Typography>
                 
                 {renderPersonnelCount(vardiya)}
+                
+                <Box sx={{ mt: 'auto', pt: 1.5, display: 'flex', justifyContent: 'flex-end' }}>
+                  <Tooltip title={vardiya.personnel && vardiya.personnel.length > 0 ? 
+                    "Personel atanmış vardiyalar silinemez" : "Vardiyayı sil"}>
+                    <span>
+                      <IconButton 
+                        size="small" 
+                        color="error" 
+                        onClick={() => handleDeleteClick(vardiya)}
+                        sx={{ 
+                          border: '1px solid', 
+                          borderColor: 'error.main',
+                          borderRadius: '50%',
+                          padding: '4px',
+                          opacity: vardiya.personnel && vardiya.personnel.length > 0 ? 0.5 : 1,
+                          '&:hover': {
+                            backgroundColor: vardiya.personnel && vardiya.personnel.length > 0 ? 'inherit' : 'error.main',
+                            color: vardiya.personnel && vardiya.personnel.length > 0 ? 'error.main' : 'white',
+                          }
+                        }}
+                        disabled={vardiya.personnel && vardiya.personnel.length > 0}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                </Box>
               </Paper>
             </Grid>
           ))}
@@ -816,6 +906,65 @@ const VardiyaListesi: React.FC = () => {
             size="small"
           >
             {isSubmitting ? 'Kaydediliyor...' : 'Kaydet'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Silme Hata Modalı */}
+      <Dialog
+        open={deleteErrorOpen}
+        onClose={handleCloseDeleteError}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="h6">Vardiya Silinemez</Typography>
+          <IconButton edge="end" color="inherit" onClick={handleCloseDeleteError} aria-label="close">
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body1">
+            Personel atanmış vardiyalar silinemez. Lütfen önce vardiyadan tüm personeli kaldırınız.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDeleteError} variant="contained" color="primary">
+            Tamam
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Silme Onay Modalı */}
+      <Dialog
+        open={deleteConfirmOpen}
+        onClose={handleCloseDeleteConfirm}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="h6">Vardiya Silme Onayı</Typography>
+          <IconButton edge="end" color="inherit" onClick={handleCloseDeleteConfirm} aria-label="close">
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body1">
+            <strong>{deleteVardiyaName}</strong> vardiyasını silmek istediğinize emin misiniz? Bu işlem geri alınamaz.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDeleteConfirm} disabled={isSubmitting}>
+            İptal
+          </Button>
+          <Button 
+            onClick={handleConfirmDelete} 
+            variant="contained" 
+            color="error"
+            disabled={isSubmitting}
+            startIcon={isSubmitting ? <CircularProgress size={16} /> : <DeleteIcon />}
+          >
+            {isSubmitting ? 'Siliniyor...' : 'Evet, Sil'}
           </Button>
         </DialogActions>
       </Dialog>
