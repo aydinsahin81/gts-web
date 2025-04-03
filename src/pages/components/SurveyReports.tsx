@@ -80,6 +80,7 @@ const SurveyReports: React.FC = () => {
   const [missedTasks, setMissedTasks] = useState<any>({});
   const [selectedTaskId, setSelectedTaskId] = useState<string>('');
   const [selectedSurveyId, setSelectedSurveyId] = useState<string>('');
+  const [selectedAnswerType, setSelectedAnswerType] = useState<string>('');
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
   const [page, setPage] = useState(1);
@@ -352,6 +353,7 @@ const SurveyReports: React.FC = () => {
     let matchesTask = true;
     let matchesSurvey = true;
     let matchesDateRange = true;
+    let matchesAnswerType = true;
 
     if (selectedTaskId) {
       matchesTask = item.taskId === selectedTaskId;
@@ -359,6 +361,10 @@ const SurveyReports: React.FC = () => {
 
     if (selectedSurveyId) {
       matchesSurvey = item.surveyId === selectedSurveyId;
+    }
+
+    if (selectedAnswerType) {
+      matchesAnswerType = item.answerType === selectedAnswerType;
     }
 
     if (startDate) {
@@ -375,7 +381,7 @@ const SurveyReports: React.FC = () => {
       matchesDateRange = matchesDateRange && itemDate <= end;
     }
 
-    return matchesTask && matchesSurvey && matchesDateRange;
+    return matchesTask && matchesSurvey && matchesAnswerType && matchesDateRange;
   });
 
   // Sayfa değiştirme işleyicisi
@@ -495,6 +501,24 @@ const SurveyReports: React.FC = () => {
               setPage(1); // Filtreleme değiştiğinde ilk sayfaya dön
             }}
           />
+          
+          <FormControl fullWidth size="small">
+            <InputLabel>Cevap Tipi</InputLabel>
+            <Select
+              margin="dense"
+              value={selectedAnswerType}
+              label="Cevap Tipi"
+              onChange={(e) => {
+                setSelectedAnswerType(e.target.value as string);
+                setPage(1); // Filtreleme değiştiğinde ilk sayfaya dön
+              }}
+            >
+              <MenuItem value="">Tümü</MenuItem>
+              <MenuItem value="positive">Olumlu</MenuItem>
+              <MenuItem value="negative">Olumsuz</MenuItem>
+              <MenuItem value="neutral">Nötr</MenuItem>
+            </Select>
+          </FormControl>
         </Stack>
       </Box>
 
