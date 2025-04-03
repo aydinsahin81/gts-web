@@ -259,29 +259,47 @@ const Sidebar: React.FC<SidebarProps> = ({ openMobile, onCloseMobile, onCollapse
           rel="noopener noreferrer"
           style={{ textDecoration: 'none' }}
         >
-          <Typography 
-            variant="body2" 
-            sx={{ 
-              color: 'white',
-              opacity: 0.8,
-              mb: 0.5
-            }}
-          >
-            Powered by
-          </Typography>
-          <Typography 
-            variant="h6" 
-            sx={{ 
-              color: 'white',
-              fontWeight: 'bold',
-              '&:hover': {
-                color: theme.palette.primary.light,
-                transition: 'color 0.2s'
-              }
-            }}
-          >
-            AQUASOFT
-          </Typography>
+          {!isCollapsed ? (
+            <>
+              <Typography 
+                variant="body2" 
+                sx={{ 
+                  color: 'white',
+                  opacity: 0.8,
+                  mb: 0.5
+                }}
+              >
+                Powered by
+              </Typography>
+              <Typography 
+                variant="h6" 
+                sx={{ 
+                  color: 'white',
+                  fontWeight: 'bold',
+                  '&:hover': {
+                    color: theme.palette.primary.light,
+                    transition: 'color 0.2s'
+                  }
+                }}
+              >
+                AQUASOFT
+              </Typography>
+            </>
+          ) : (
+            <Typography 
+              variant="h5" 
+              sx={{ 
+                color: 'white',
+                fontWeight: 'bold',
+                '&:hover': {
+                  color: theme.palette.primary.light,
+                  transition: 'color 0.2s'
+                }
+              }}
+            >
+              A
+            </Typography>
+          )}
         </Link>
       </Box>
     </SidebarContainer>
