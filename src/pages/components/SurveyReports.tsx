@@ -187,13 +187,31 @@ const SurveyReports: React.FC = () => {
 
         // Anket cevaplarını yükle
         const answeredSurveysRef = ref(database, `companies/${companyId}/answeredSurveys`);
-        onValue(answeredSurveysRef, (snapshot) => {
+        onValue(answeredSurveysRef, async (snapshot) => {
           if (snapshot.exists()) {
             const answeredData = snapshot.val();
             const reportItemsList: ReportItem[] = [];
 
             // Her görev için cevapları kontrol et
-            Object.entries(answeredData).forEach(([taskId, taskResponses]: [string, any]) => {
+            for (const [taskId, taskResponses] of Object.entries<any>(answeredData)) {
+              // Görev bilgisini doğrudan al
+              let taskName = 'Yükleniyor...';
+              // Eğer tasks nesnesinde görev adı varsa, hemen kullan
+              if (tasks[taskId]?.name) {
+                taskName = tasks[taskId].name;
+              } else {
+                // Yoksa, doğrudan veritabanından al
+                try {
+                  const taskSnapshot = await get(ref(database, `companies/${companyId}/tasks/${taskId}`));
+                  if (taskSnapshot.exists()) {
+                    const taskData = taskSnapshot.val();
+                    taskName = taskData.name || 'İsimsiz Görev';
+                  }
+                } catch (error) {
+                  console.error('Görev bilgisi alınırken hata:', error);
+                }
+              }
+
               // Her cevap için
               Object.entries(taskResponses).forEach(([responseId, response]: [string, any]) => {
                 if (!response.answers) return;
@@ -203,8 +221,7 @@ const SurveyReports: React.FC = () => {
                 
                 // Her anket cevabı için
                 Object.entries(response.answers).forEach(([surveyId, answerData]: [string, any]) => {
-                  // Veriler yüklenirken task veya survey henüz mevcut olmayabilir
-                  const taskName = tasks[taskId]?.name || 'Yükleniyor...';
+                  // Veriler yüklenirken survey henüz mevcut olmayabilir
                   const surveyTitle = surveys[surveyId]?.title || 'Yükleniyor...';
                   
                   // İlgili görevin sorumlu personelini bul
@@ -224,7 +241,7 @@ const SurveyReports: React.FC = () => {
                   });
                 });
               });
-            });
+            }
 
             // Raporları tarihe göre sırala (en yeniden en eskiye)
             reportItemsList.sort((a, b) => b.createdAt - a.createdAt);
@@ -316,6 +333,18 @@ const SurveyReports: React.FC = () => {
       const task = tasks[taskId];
       if (task && task.personnelId && personnelList[task.personnelId]) {
         return personnelList[task.personnelId].name;
+      }
+      
+      // 4. Görevin kendisini tekrar kontrol et ve debug bilgisi yazdır
+      if (task) {
+        console.log('Görev var ama personel bulunamadı:', taskId, task.name, task.personnelId);
+        if (task.personnelId) {
+          console.log('Personel ID var ama listede bulunamadı:', task.personnelId);
+          // Personel ID varsa ama listede yoksa, bu durumu loglayalım
+          return 'Personel listede yok';
+        }
+      } else {
+        console.log('Görev bulunamadı:', taskId);
       }
       
     } catch (error) {
