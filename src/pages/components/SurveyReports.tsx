@@ -18,11 +18,15 @@ import {
   Select,
   MenuItem,
   TextField,
-  Pagination
+  Pagination,
+  Button
 } from '@mui/material';
 import { ref, onValue, get } from 'firebase/database';
 import { database } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
+import DownloadIcon from '@mui/icons-material/Download';
+import * as ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
 
 interface Task {
   id: string;
@@ -418,11 +422,115 @@ const SurveyReports: React.FC = () => {
     Math.min(page * itemsPerPage, groupedReportsList.length)
   );
 
+  // Excel dışa aktarma fonksiyonu
+  const exportToExcel = async () => {
+    try {
+      // Excel workbook oluştur
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Anket Raporları');
+      
+      // Sütun başlıklarını tanımla
+      worksheet.columns = [
+        { header: 'Görev Adı', key: 'taskName', width: 30 },
+        { header: 'Personel', key: 'personnelName', width: 20 },
+        { header: 'Anket Sorusu', key: 'questionTitle', width: 40 },
+        { header: 'Anket Cevabı', key: 'answer', width: 30 },
+        { header: 'Cevap Tipi', key: 'answerType', width: 15 },
+        { header: 'Cevap Tarihi', key: 'createdAt', width: 20 }
+      ];
+      
+      // Stil tanımlamaları
+      const headerStyle = {
+        font: { bold: true, color: { argb: 'FFFFFFFF' } },
+        fill: { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FF4F81BD' } },
+        border: {
+          top: { style: 'thin' as const },
+          left: { style: 'thin' as const },
+          bottom: { style: 'thin' as const },
+          right: { style: 'thin' as const }
+        }
+      };
+      
+      // Başlık stilini uygula
+      worksheet.getRow(1).eachCell(cell => {
+        cell.style = headerStyle;
+      });
+      
+      // Filtrelenmiş rapor verilerini ekle
+      filteredReportItems.forEach(item => {
+        // Cevap tipini Türkçe olarak belirle
+        const answerTypeText = item.answerType === 'positive' 
+          ? 'Olumlu' 
+          : item.answerType === 'negative' 
+            ? 'Olumsuz' 
+            : 'Nötr';
+        
+        // Cevap tarihi
+        const createdAtDate = new Date(item.createdAt).toLocaleString('tr-TR', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+        
+        // Satır ekleme
+        worksheet.addRow({
+          taskName: item.taskName,
+          personnelName: item.personnelName,
+          questionTitle: item.questionTitle,
+          answer: item.answer,
+          answerType: answerTypeText,
+          createdAt: createdAtDate
+        });
+      });
+      
+      // Zebrastripe (alternatif satır renklendirme)
+      worksheet.eachRow((row, rowNumber) => {
+        if (rowNumber > 1) { // başlığı atla
+          const fillColor = rowNumber % 2 === 0 ? 'FFF2F2F2' : 'FFFFFFFF';
+          row.eachCell(cell => {
+            cell.style = {
+              fill: { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: fillColor } },
+              border: {
+                top: { style: 'thin' as const },
+                left: { style: 'thin' as const },
+                bottom: { style: 'thin' as const },
+                right: { style: 'thin' as const }
+              }
+            };
+          });
+        }
+      });
+      
+      // Excel dosyasını oluştur ve indir
+      const buffer = await workbook.xlsx.writeBuffer();
+      const currentDate = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+      saveAs(new Blob([buffer]), `Anket_Raporları_${currentDate}.xlsx`);
+      
+    } catch (error) {
+      console.error('Excel dışa aktarma hatası:', error);
+      alert('Excel dosyası oluşturulurken bir hata oluştu.');
+    }
+  };
+
   return (
     <Paper sx={{ p: { xs: 1, sm: 2, md: 3 }, overflowX: 'hidden' }}>
-      <Typography variant="h6" component="h2" sx={{ mb: 1 }}>
-        Anket Raporları
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+        <Typography variant="h6" component="h2">
+          Anket Raporları
+        </Typography>
+        <Button
+          variant="contained"
+          color="info"
+          startIcon={<DownloadIcon />}
+          onClick={exportToExcel}
+          disabled={loading || filteredReportItems.length === 0}
+          size="small"
+        >
+          Excel İndir
+        </Button>
+      </Box>
       <Divider sx={{ mb: 2 }} />
 
       {/* Filtre Bölümü */}

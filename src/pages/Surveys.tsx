@@ -44,11 +44,14 @@ import EditIcon from '@mui/icons-material/Edit';
 import SaveIcon from '@mui/icons-material/Save';
 import CloseIcon from '@mui/icons-material/Close';
 import AssignmentIcon from '@mui/icons-material/Assignment';
+import DownloadIcon from '@mui/icons-material/Download';
 import QuestionModal from './components/QuestionModal';
 import SurveyReports from './components/SurveyReports';
 import { useAuth } from '../contexts/AuthContext';
 import { ref, get, onValue, remove, update, set, push } from 'firebase/database';
 import { database } from '../firebase';
+import * as ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
 
 // Kaydırılabilir ana içerik için styled component
 const ScrollableContent = styled(Box)(({ theme }) => ({
@@ -520,6 +523,98 @@ const Surveys: React.FC = () => {
     }
   };
 
+  // Excel dışa aktarma fonksiyonu
+  const exportToExcel = async () => {
+    try {
+      // Excel workbook oluştur
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Anketler');
+      
+      // Sütun başlıklarını tanımla
+      worksheet.columns = [
+        { header: 'Anket Sorusu', key: 'title', width: 40 },
+        { header: 'Cevap Seçenekleri', key: 'answers', width: 50 },
+        { header: 'Oluşturulma Tarihi', key: 'createdAt', width: 20 },
+        { header: 'Bağlı Görevler', key: 'tasks', width: 30 }
+      ];
+      
+      // Stil tanımlamaları
+      const headerStyle = {
+        font: { bold: true, color: { argb: 'FFFFFFFF' } },
+        fill: { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FF4F81BD' } },
+        border: {
+          top: { style: 'thin' as const },
+          left: { style: 'thin' as const },
+          bottom: { style: 'thin' as const },
+          right: { style: 'thin' as const }
+        }
+      };
+      
+      // Başlık stilini uygula
+      worksheet.getRow(1).eachCell(cell => {
+        cell.style = headerStyle;
+      });
+      
+      // Anket verilerini ekle
+      surveys.forEach(survey => {
+        // Cevap metinlerini birleştir
+        const answersText = survey.answers.map(answer => {
+          return `${answer.text} (${answer.type === 'positive' ? 'Olumlu' : answer.type === 'negative' ? 'Olumsuz' : 'Nötr'})`;
+        }).join(', ');
+        
+        // Bağlı görevleri bul
+        const taskNames = survey.tasks && survey.tasks.length > 0 
+          ? survey.tasks.map(taskId => {
+              const task = tasks.find(t => t.id === taskId);
+              return task ? task.name : 'Bilinmeyen Görev';
+            }).join(', ')
+          : 'Görev yok';
+        
+        // Oluşturulma tarihi
+        const createdAtDate = new Date(survey.createdAt).toLocaleDateString('tr-TR', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        });
+        
+        // Satır ekleme
+        worksheet.addRow({
+          title: survey.title,
+          answers: answersText,
+          createdAt: createdAtDate,
+          tasks: taskNames
+        });
+      });
+      
+      // Zebrastripe (alternatif satır renklendirme)
+      worksheet.eachRow((row, rowNumber) => {
+        if (rowNumber > 1) { // başlığı atla
+          const fillColor = rowNumber % 2 === 0 ? 'FFF2F2F2' : 'FFFFFFFF';
+          row.eachCell(cell => {
+            cell.style = {
+              fill: { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: fillColor } },
+              border: {
+                top: { style: 'thin' as const },
+                left: { style: 'thin' as const },
+                bottom: { style: 'thin' as const },
+                right: { style: 'thin' as const }
+              }
+            };
+          });
+        }
+      });
+      
+      // Excel dosyasını oluştur ve indir
+      const buffer = await workbook.xlsx.writeBuffer();
+      const currentDate = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+      saveAs(new Blob([buffer]), `Anketler_${currentDate}.xlsx`);
+      
+    } catch (error) {
+      console.error('Excel dışa aktarma hatası:', error);
+      alert('Excel dosyası oluşturulurken bir hata oluştu.');
+    }
+  };
+
   return (
     <ScrollableContent>
       <Box sx={{ pt: 1, pb: 3 }}>
@@ -552,14 +647,25 @@ const Surveys: React.FC = () => {
             <Typography variant="h5" component="h1" fontWeight="bold" color="primary">
               Anket Yönetimi
             </Typography>
-            <Button 
-              variant="contained" 
-              startIcon={<AddIcon />}
-              onClick={handleOpenQuestionModal}
-              sx={{ borderRadius: 2 }}
-            >
-              Yeni Anket Ekle
-            </Button>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Button
+                variant="contained"
+                color="info"
+                startIcon={<DownloadIcon />}
+                onClick={exportToExcel}
+                disabled={loading || surveys.length === 0}
+              >
+                Excel İndir
+              </Button>
+              <Button 
+                variant="contained" 
+                startIcon={<AddIcon />}
+                onClick={handleOpenQuestionModal}
+                sx={{ borderRadius: 2 }}
+              >
+                Yeni Anket Ekle
+              </Button>
+            </Box>
           </Box>
 
           <Grid container spacing={3}>
