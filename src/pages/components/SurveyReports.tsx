@@ -96,7 +96,17 @@ const SurveyReports: React.FC = () => {
   // Görevleri, anketleri ve cevapları yükle
   useEffect(() => {
     if (!currentUser) return;
-
+    
+    // Verilerin yüklenme durumunu takip eden state'ler
+    let tasksLoaded = false;
+    let personnelLoaded = false;
+    let surveysLoaded = false;
+    
+    // Yüklenen veri nesneleri
+    let tasksData: Record<string, Task> = {};
+    let personnelData: Record<string, Personnel> = {};
+    let surveysData: Record<string, Survey> = {};
+    
     const fetchData = async () => {
       try {
         // Kullanıcı ve şirket bilgilerini al
@@ -112,155 +122,243 @@ const SurveyReports: React.FC = () => {
           setLoading(false);
           return;
         }
-
-        // Personel bilgilerini yükle
-        const personnelRef = ref(database, `companies/${companyId}/personnel`);
-        onValue(personnelRef, (snapshot) => {
-          if (snapshot.exists()) {
-            const personnelData = snapshot.val();
-            const personnelObj: Record<string, Personnel> = {};
-            
-            Object.entries(personnelData).forEach(([id, data]: [string, any]) => {
-              personnelObj[id] = {
-                id,
-                name: data.name || `${data.firstName || ''} ${data.lastName || ''}`.trim() || 'İsimsiz Personel'
-              };
-            });
-            
-            setPersonnelList(personnelObj);
-          }
+        
+        // Unsubscribe fonksiyonlarını saklayacak dizi
+        const unsubscribes: (() => void)[] = [];
+        
+        // Görev verilerini yükle (önce)
+        const tasksPromise = new Promise<void>((resolve) => {
+          const tasksRef = ref(database, `companies/${companyId}/tasks`);
+          const unsubscribe = onValue(tasksRef, (snapshot) => {
+            if (snapshot.exists()) {
+              const data = snapshot.val();
+              tasksData = {};
+              
+              Object.entries(data).forEach(([id, data]: [string, any]) => {
+                tasksData[id] = {
+                  id,
+                  name: data.name || 'İsimsiz Görev',
+                  description: data.description || '',
+                  personnelId: data.personnelId || ''
+                };
+              });
+              
+              setTasks(tasksData);
+              tasksLoaded = true;
+              console.log("Görev verileri yüklendi");
+            }
+            resolve();
+          });
+          unsubscribes.push(unsubscribe);
         });
-
-        // Tamamlanan görevleri yükle
+        
+        // Personel verilerini yükle (önce)
+        const personnelPromise = new Promise<void>((resolve) => {
+          const personnelRef = ref(database, `companies/${companyId}/personnel`);
+          const unsubscribe = onValue(personnelRef, (snapshot) => {
+            if (snapshot.exists()) {
+              const data = snapshot.val();
+              personnelData = {};
+              
+              Object.entries(data).forEach(([id, data]: [string, any]) => {
+                personnelData[id] = {
+                  id,
+                  name: data.name || `${data.firstName || ''} ${data.lastName || ''}`.trim() || 'İsimsiz Personel'
+                };
+              });
+              
+              setPersonnelList(personnelData);
+              personnelLoaded = true;
+              console.log("Personel verileri yüklendi");
+            }
+            resolve();
+          });
+          unsubscribes.push(unsubscribe);
+        });
+        
+        // Anket verilerini yükle (önce)
+        const surveysPromise = new Promise<void>((resolve) => {
+          const surveysRef = ref(database, `companies/${companyId}/surveys`);
+          const unsubscribe = onValue(surveysRef, (snapshot) => {
+            if (snapshot.exists()) {
+              const data = snapshot.val();
+              surveysData = {};
+              
+              Object.entries(data).forEach(([id, data]: [string, any]) => {
+                surveysData[id] = {
+                  id,
+                  title: data.title || 'İsimsiz Anket'
+                };
+              });
+              
+              setSurveys(surveysData);
+              surveysLoaded = true;
+              console.log("Anket verileri yüklendi");
+            }
+            resolve();
+          });
+          unsubscribes.push(unsubscribe);
+        });
+        
+        // Tüm ana veri yükleme işlemlerini tamamla
+        await Promise.all([tasksPromise, personnelPromise, surveysPromise]);
+        console.log("Tüm ana veriler yüklendi");
+        
+        // Yardımcı veriler (tamamlanmış ve tamamlanmamış görevler)
         const completedTasksRef = ref(database, `companies/${companyId}/completedTasks`);
-        onValue(completedTasksRef, (snapshot) => {
+        const unsubscribeCompleted = onValue(completedTasksRef, (snapshot) => {
           if (snapshot.exists()) {
             setCompletedTasks(snapshot.val());
           }
         });
-
-        // Tamamlanmayan görevleri yükle
+        unsubscribes.push(unsubscribeCompleted);
+        
         const missedTasksRef = ref(database, `companies/${companyId}/missedTasks`);
-        onValue(missedTasksRef, (snapshot) => {
+        const unsubscribeMissed = onValue(missedTasksRef, (snapshot) => {
           if (snapshot.exists()) {
             setMissedTasks(snapshot.val());
           }
         });
-
-        // Görevleri yükle ve nesne olarak sakla
-        const tasksRef = ref(database, `companies/${companyId}/tasks`);
-        onValue(tasksRef, (snapshot) => {
-          if (snapshot.exists()) {
-            const tasksData = snapshot.val();
-            const tasksObject: Record<string, Task> = {};
-            
-            Object.entries(tasksData).forEach(([id, data]: [string, any]) => {
-              tasksObject[id] = {
-                id,
-                name: data.name || 'İsimsiz Görev',
-                description: data.description || '',
-                personnelId: data.personnelId || ''
-              };
-            });
-            
-            setTasks(tasksObject);
-          }
-        });
-
-        // Anketleri yükle ve nesne olarak sakla
-        const surveysRef = ref(database, `companies/${companyId}/surveys`);
-        onValue(surveysRef, (snapshot) => {
-          if (snapshot.exists()) {
-            const surveysData = snapshot.val();
-            const surveysObject: Record<string, Survey> = {};
-            
-            Object.entries(surveysData).forEach(([id, data]: [string, any]) => {
-              surveysObject[id] = {
-                id,
-                title: data.title || 'İsimsiz Anket'
-              };
-            });
-            
-            setSurveys(surveysObject);
-          }
-        });
-
-        // Anket cevaplarını yükle
+        unsubscribes.push(unsubscribeMissed);
+        
+        // Ana veriler hazır olduğunda anket cevaplarını yükle
+        console.log("Anket cevapları yükleniyor...");
         const answeredSurveysRef = ref(database, `companies/${companyId}/answeredSurveys`);
-        onValue(answeredSurveysRef, async (snapshot) => {
-          if (snapshot.exists()) {
-            const answeredData = snapshot.val();
-            const reportItemsList: ReportItem[] = [];
-
-            // Her görev için cevapları kontrol et
-            for (const [taskId, taskResponses] of Object.entries<any>(answeredData)) {
-              // Görev bilgisini doğrudan al
-              let taskName = 'Yükleniyor...';
-              // Eğer tasks nesnesinde görev adı varsa, hemen kullan
-              if (tasks[taskId]?.name) {
-                taskName = tasks[taskId].name;
-              } else {
-                // Yoksa, doğrudan veritabanından al
-                try {
-                  const taskSnapshot = await get(ref(database, `companies/${companyId}/tasks/${taskId}`));
-                  if (taskSnapshot.exists()) {
-                    const taskData = taskSnapshot.val();
-                    taskName = taskData.name || 'İsimsiz Görev';
+        const unsubscribeAnswers = onValue(answeredSurveysRef, async (snapshot) => {
+          try {
+            if (snapshot.exists()) {
+              const answeredData = snapshot.val();
+              const reportItemsList: ReportItem[] = [];
+              
+              // Her görev için cevapları kontrol et
+              for (const [taskId, taskResponses] of Object.entries<any>(answeredData)) {
+                // Görev bilgisini al - önce local değişkenlerden
+                let taskName = 'İsimsiz Görev';
+                let task = tasksData[taskId];
+                
+                if (!task) {
+                  // Eğer local değişkenlerde yoksa veritabanından al
+                  try {
+                    const taskSnapshot = await get(ref(database, `companies/${companyId}/tasks/${taskId}`));
+                    if (taskSnapshot.exists()) {
+                      const taskData = taskSnapshot.val();
+                      taskName = taskData.name || 'İsimsiz Görev';
+                      // Task nesnesini oluştur
+                      task = {
+                        id: taskId,
+                        name: taskName,
+                        description: taskData.description || '',
+                        personnelId: taskData.personnelId || ''
+                      };
+                      // Tasks dizisine ekle
+                      tasksData[taskId] = task;
+                      setTasks({...tasksData});
+                    }
+                  } catch (error) {
+                    console.error('Görev bilgisi alınırken hata:', error);
                   }
-                } catch (error) {
-                  console.error('Görev bilgisi alınırken hata:', error);
+                } else {
+                  taskName = task.name;
+                }
+                
+                // Her cevap için
+                for (const [responseId, response] of Object.entries<any>(taskResponses)) {
+                  if (!response.answers) continue;
+                  
+                  const responseDate = new Date(response.createdAt);
+                  
+                  // Her anket cevabı için
+                  for (const [surveyId, answerData] of Object.entries<any>(response.answers)) {
+                    // Anket başlığını al - önce local değişkenlerden
+                    let surveyTitle = 'İsimsiz Anket';
+                    const survey = surveysData[surveyId];
+                    
+                    if (!survey) {
+                      // Eğer local değişkenlerde yoksa veritabanından al
+                      try {
+                        const surveySnapshot = await get(ref(database, `companies/${companyId}/surveys/${surveyId}`));
+                        if (surveySnapshot.exists()) {
+                          const surveyData = surveySnapshot.val();
+                          surveyTitle = surveyData.title || 'İsimsiz Anket';
+                          // Surveys dizisine ekle
+                          surveysData[surveyId] = {
+                            id: surveyId,
+                            title: surveyTitle
+                          };
+                          setSurveys({...surveysData});
+                        }
+                      } catch (error) {
+                        console.error('Anket bilgisi alınırken hata:', error);
+                      }
+                    } else {
+                      surveyTitle = survey.title;
+                    }
+                    
+                    // Personel bilgisini al
+                    let personnelName = 'Bilinmeyen';
+                    
+                    if (task && task.personnelId) {
+                      const personnel = personnelData[task.personnelId];
+                      if (personnel) {
+                        personnelName = personnel.name;
+                      } else {
+                        // Eğer local değişkenlerde yoksa veritabanından al
+                        try {
+                          const personnelSnapshot = await get(ref(database, `companies/${companyId}/personnel/${task.personnelId}`));
+                          if (personnelSnapshot.exists()) {
+                            const personnelData = personnelSnapshot.val();
+                            personnelName = personnelData.name || `${personnelData.firstName || ''} ${personnelData.lastName || ''}`.trim() || 'İsimsiz Personel';
+                          } else {
+                            personnelName = 'Personel Bulunamadı';
+                          }
+                        } catch (error) {
+                          console.error('Personel bilgisi alınırken hata:', error);
+                        }
+                      }
+                    }
+                    
+                    reportItemsList.push({
+                      taskId,
+                      taskName,
+                      surveyId,
+                      surveyTitle,
+                      answer: answerData.selectedAnswer,
+                      answerType: answerData.answerType,
+                      createdAt: response.createdAt || 0,
+                      responseId,
+                      questionTitle: answerData.questionTitle || '',
+                      personnelName: personnelName
+                    });
+                  }
                 }
               }
-
-              // Her cevap için
-              Object.entries(taskResponses).forEach(([responseId, response]: [string, any]) => {
-                if (!response.answers) return;
-
-                const responseDate = new Date(response.createdAt);
-                let personnelName = '';
-                
-                // Her anket cevabı için
-                Object.entries(response.answers).forEach(([surveyId, answerData]: [string, any]) => {
-                  // Veriler yüklenirken survey henüz mevcut olmayabilir
-                  const surveyTitle = surveys[surveyId]?.title || 'Yükleniyor...';
-                  
-                  // İlgili görevin sorumlu personelini bul
-                  personnelName = findPersonnelName(taskId, responseDate, tasks, completedTasks, missedTasks, personnelList);
-                  
-                  reportItemsList.push({
-                    taskId,
-                    taskName,
-                    surveyId,
-                    surveyTitle,
-                    answer: answerData.selectedAnswer,
-                    answerType: answerData.answerType,
-                    createdAt: response.createdAt || 0,
-                    responseId,
-                    questionTitle: answerData.questionTitle || '',
-                    personnelName: personnelName
-                  });
-                });
-              });
+              
+              // Raporları tarihe göre sırala (en yeniden en eskiye)
+              reportItemsList.sort((a, b) => b.createdAt - a.createdAt);
+              setReportItems(reportItemsList);
             }
-
-            // Raporları tarihe göre sırala (en yeniden en eskiye)
-            reportItemsList.sort((a, b) => b.createdAt - a.createdAt);
-            setReportItems(reportItemsList);
+          } catch (error) {
+            console.error('Anket cevapları işlenirken hata:', error);
+          } finally {
+            setLoading(false);
           }
-          
-          setLoading(false);
         });
-
+        unsubscribes.push(unsubscribeAnswers);
+        
+        // Temizleme fonksiyonu
+        return () => {
+          unsubscribes.forEach(unsubscribe => unsubscribe());
+        };
       } catch (error) {
         console.error('Rapor verileri yüklenirken hata:', error);
         setLoading(false);
       }
     };
-
+    
     fetchData();
   }, [currentUser]);
 
-  // Personel adını bulma algoritması
+  // Personel adını bulma algoritması - artık kullanılmıyor, doğrudan bağlantı kullanılıyor
   const findPersonnelName = (
     taskId: string, 
     responseDate: Date, 
@@ -269,120 +367,24 @@ const SurveyReports: React.FC = () => {
     missedTasks: any,
     personnelList: Record<string, Personnel>
   ): string => {
-    // Varsayılan değer
-    let personnelName = '';
-    
+    // Basitleştirilmiş yöntem: Sadece görevin kendisindeki personnelId'yi kullan
     try {
-      // 1. Anket tarihinden önceki en son kaydedilen görevi bul
-      if (completedTasks[taskId]) {
-        let latestCompletionTime = 0;
-        let latestCompletionPersonnelId = '';
-
-        for (const dateKey in completedTasks[taskId]) {
-          for (const timeKey in completedTasks[taskId][dateKey]) {
-            const completionData = completedTasks[taskId][dateKey][timeKey];
-            const completionTime = completionData.completedAt;
-            
-            // Anket tarihinden önce ve şu ana kadar bulunan en son kayıttan daha yakın bir zaman ise
-            if (completionTime < responseDate.getTime() && completionTime > latestCompletionTime) {
-              latestCompletionTime = completionTime;
-              // Tamamlanan görevdeki personel bilgisi, varsa kullan
-              const task = tasks[taskId];
-              if (task && task.personnelId) {
-                latestCompletionPersonnelId = task.personnelId;
-              }
-            }
-          }
-        }
-
-        // En son bulunan görev kaydındaki personel bilgisini kullan
-        if (latestCompletionPersonnelId && personnelList[latestCompletionPersonnelId]) {
-          return personnelList[latestCompletionPersonnelId].name;
-        }
-      }
-
-      // 2. Tamamlanmayan görevlerde de kontrol et
-      if (missedTasks[taskId]) {
-        let latestMissedTime = 0;
-        let latestMissedPersonnelId = '';
-
-        for (const dateKey in missedTasks[taskId]) {
-          for (const timeKey in missedTasks[taskId][dateKey]) {
-            const missedData = missedTasks[taskId][dateKey][timeKey];
-            const missedTime = missedData.missedAt;
-            
-            // Anket tarihinden önce ve şu ana kadar bulunan en son kayıttan daha yakın bir zaman ise
-            if (missedTime < responseDate.getTime() && missedTime > latestMissedTime) {
-              latestMissedTime = missedTime;
-              // Tamamlanmayan görevdeki personel bilgisi, varsa kullan
-              const task = tasks[taskId];
-              if (task && task.personnelId) {
-                latestMissedPersonnelId = task.personnelId;
-              }
-            }
-          }
-        }
-
-        // En son bulunan görev kaydındaki personel bilgisini kullan
-        if (latestMissedPersonnelId && personnelList[latestMissedPersonnelId]) {
-          return personnelList[latestMissedPersonnelId].name;
-        }
-      }
-
-      // 3. Hiç görev kaydı bulunamadıysa, görevin kendisinde tanımlı personeli kullan
+      // Görevi bul
       const task = tasks[taskId];
-      if (task && task.personnelId && personnelList[task.personnelId]) {
-        return personnelList[task.personnelId].name;
-      }
-      
-      // 4. Görevin kendisini tekrar kontrol et ve debug bilgisi yazdır
-      if (task) {
-        console.log('Görev var ama personel bulunamadı:', taskId, task.name, task.personnelId);
-        if (task.personnelId) {
-          console.log('Personel ID var ama listede bulunamadı:', task.personnelId);
-          // Personel ID varsa ama listede yoksa, bu durumu loglayalım
-          return 'Personel listede yok';
+      if (task && task.personnelId) {
+        // Personel ID'si varsa ve personel listesinde bulunuyorsa
+        if (personnelList[task.personnelId]) {
+          return personnelList[task.personnelId].name;
+        } else {
+          return 'Personel Listede Yok';
         }
-      } else {
-        console.log('Görev bulunamadı:', taskId);
       }
-      
     } catch (error) {
       console.error('Personel bilgisi bulunurken hata:', error);
     }
     
-    return personnelName || 'Bilinmeyen';
+    return 'Bilinmeyen';
   };
-
-  // Tasks ve Surveys yüklendiğinde ReportItems'ları güncelle
-  useEffect(() => {
-    if (reportItems.length > 0 && 
-        (Object.keys(tasks).length > 0 || 
-         Object.keys(surveys).length > 0 || 
-         Object.keys(personnelList).length > 0)) {
-      
-      setReportItems(prevItems => 
-        prevItems.map(item => {
-          const responseDate = new Date(item.createdAt);
-          const personnelName = findPersonnelName(
-            item.taskId, 
-            responseDate, 
-            tasks, 
-            completedTasks, 
-            missedTasks, 
-            personnelList
-          );
-          
-          return {
-            ...item,
-            taskName: tasks[item.taskId]?.name || item.taskName,
-            surveyTitle: surveys[item.surveyId]?.title || item.surveyTitle,
-            personnelName: personnelName
-          };
-        })
-      );
-    }
-  }, [tasks, surveys, personnelList, completedTasks, missedTasks]);
 
   // Filtreleme fonksiyonu
   const filteredReportItems = reportItems.filter(item => {
