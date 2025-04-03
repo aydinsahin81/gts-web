@@ -27,6 +27,7 @@ import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import MessageIcon from '@mui/icons-material/Message';
 import PollIcon from '@mui/icons-material/Poll';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
 
 const SidebarContainer = styled(Box)<{ isCollapsed: boolean }>(({ theme, isCollapsed }) => ({
   width: isCollapsed ? 70 : 260,
@@ -201,6 +202,17 @@ const Sidebar: React.FC<SidebarProps> = ({ openMobile, onCloseMobile, onCollapse
         </MenuItem>
         
         <MenuItem 
+          active={isActive('/shifts')} 
+          onClick={() => handleNavigation('/shifts')}
+          isCollapsed={isCollapsed}
+        >
+          <ListItemIcon sx={{ color: 'white', minWidth: 40 }}>
+            <AccessTimeIcon />
+          </ListItemIcon>
+          {!isCollapsed && <ListItemText primary="Vardiya" />}
+        </MenuItem>
+        
+        <MenuItem 
           active={isActive('/reports')} 
           onClick={() => handleNavigation('/reports')}
           isCollapsed={isCollapsed}
@@ -231,17 +243,6 @@ const Sidebar: React.FC<SidebarProps> = ({ openMobile, onCloseMobile, onCollapse
             <PollIcon />
           </ListItemIcon>
           {!isCollapsed && <ListItemText primary="Anketler" />}
-        </MenuItem>
-        
-        <MenuItem 
-          active={isActive('/profile')} 
-          onClick={() => handleNavigation('/profile')}
-          isCollapsed={isCollapsed}
-        >
-          <ListItemIcon sx={{ color: 'white', minWidth: 40 }}>
-            <AccountCircleIcon />
-          </ListItemIcon>
-          {!isCollapsed && <ListItemText primary="Profil" />}
         </MenuItem>
       </MenuContainer>
       

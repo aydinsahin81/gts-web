@@ -17,6 +17,7 @@ import Reports from './components/reports/Reports';
 import Messages from './components/messages/Messages';
 import Surveys from './pages/Surveys';
 import PublicSurvey from './pages/PublicSurvey';
+import ShiftsPage from './pages/Shifts';
 
 // Henüz oluşturulmamış diğer sayfalar için geçici bileşenler
 // const Reports = () => <div>Raporlar Sayfası</div>;
@@ -97,6 +98,7 @@ const App: React.FC = () => {
               <Route path="/dashboard" element={<MainLayout><Dashboard /></MainLayout>} />
               <Route path="/tasks" element={<MainLayout><Tasks /></MainLayout>} />
               <Route path="/personnel" element={<MainLayout><Personnel /></MainLayout>} />
+              <Route path="/shifts" element={<MainLayout><ShiftsPage /></MainLayout>} />
               <Route path="/reports" element={<MainLayout><Reports /></MainLayout>} />
               <Route path="/messages" element={<MainLayout><Messages /></MainLayout>} />
               <Route path="/surveys" element={<MainLayout><Surveys /></MainLayout>} />
