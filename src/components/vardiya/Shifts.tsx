@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { Box, Paper, Typography, Divider, Tabs, Tab, styled, Button } from '@mui/material';
+import { Box, Paper, Typography, Divider, Tabs, Tab, styled, Button, Dialog, DialogTitle, DialogContent, DialogActions, List, ListItem, ListItemIcon, ListItemText, Tooltip, IconButton } from '@mui/material';
 import PersonelListesi from './PersonelListesi';
 import VardiyaListesi from './VardiyaListesi';
 import GirisCikisRaporlari from './GirisCikisRaporlari';
 import ToplamSure from './ToplamSure';
-import { Download as DownloadIcon, QrCode as QrCodeIcon } from '@mui/icons-material';
+import { Download as DownloadIcon, QrCode as QrCodeIcon, Info as InfoIcon, Person as PersonIcon, Schedule as ScheduleIcon, AssignmentTurnedIn as ReportIcon, Timer as TimerIcon } from '@mui/icons-material';
 import * as ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { QRCodeCanvas } from 'qrcode.react';
@@ -67,10 +67,19 @@ const Shifts: React.FC = () => {
   const [value, setValue] = useState(0);
   const [exporting, setExporting] = useState(false);
   const [downloadingQr, setDownloadingQr] = useState(false);
+  const [infoModalOpen, setInfoModalOpen] = useState(false);
   const { userDetails } = useAuth();
 
   const handleChange = (event: React.SyntheticEvent, newValue: number) => {
     setValue(newValue);
+  };
+
+  const handleOpenInfoModal = () => {
+    setInfoModalOpen(true);
+  };
+
+  const handleCloseInfoModal = () => {
+    setInfoModalOpen(false);
   };
 
   // Geçerli sekmeye göre başlık belirleme
@@ -282,6 +291,15 @@ const Shifts: React.FC = () => {
           {getTabTitle()}
         </Typography>
         <Box sx={{ display: 'flex', gap: 2 }}>
+          <Tooltip title="Yardım ve Açıklamalar">
+            <IconButton 
+              color="primary" 
+              onClick={handleOpenInfoModal}
+              sx={{ mr: 1 }}
+            >
+              <InfoIcon />
+            </IconButton>
+          </Tooltip>
           <Button
             variant="contained"
             color="success"
@@ -328,6 +346,90 @@ const Shifts: React.FC = () => {
           </TabPanel>
         </ScrollableContent>
       </Box>
+
+      {/* Bilgi Modalı */}
+      <Dialog
+        open={infoModalOpen}
+        onClose={handleCloseInfoModal}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center' }}>
+          <InfoIcon sx={{ mr: 1, color: 'primary.main' }} />
+          Vardiya Yönetimi Hakkında Bilgiler
+        </DialogTitle>
+        <DialogContent dividers>
+          <Typography paragraph>
+            Vardiya Yönetimi modülü, şirketinizin personel vardiyalarını etkin bir şekilde yönetmenizi sağlayan bir dizi araç içerir.
+            Aşağıda her bir sekmede gerçekleştirebileceğiniz işlemler detaylı olarak açıklanmıştır:
+          </Typography>
+          
+          <List>
+            <ListItem>
+              <ListItemIcon>
+                <PersonIcon sx={{ color: 'primary.main' }} />
+              </ListItemIcon>
+              <ListItemText 
+                primary="Personel Listesi" 
+                secondary="Bu sekmede şirketinize kayıtlı tüm personelleri görüntüleyebilir, arayabilir, filtreleyebilir ve yönetebilirsiniz. Personel ekleme, düzenleme, silme ve vardiyaya atama işlemlerini bu sekme üzerinden gerçekleştirebilirsiniz. Ayrıca belirli bir vardiyaya göre personel filtresi uygulayabilirsiniz."
+              />
+            </ListItem>
+            
+            <Divider variant="inset" component="li" />
+            
+            <ListItem>
+              <ListItemIcon>
+                <ScheduleIcon sx={{ color: 'primary.main' }} />
+              </ListItemIcon>
+              <ListItemText 
+                primary="Vardiya Listesi" 
+                secondary="Bu sekmede şirketinize ait vardiyaları oluşturabilir, düzenleyebilir ve yönetebilirsiniz. Her vardiya için özel giriş-çıkış saatleri, gecikme toleransları ve izleme ayarları tanımlayabilirsiniz. Vardiyalara personel atama, kaldırma ve değiştirme işlemleri de bu sekme üzerinden yapılabilir. Vardiya detaylarını ve her vardiyada çalışan personel sayısını görüntüleyebilirsiniz."
+              />
+            </ListItem>
+            
+            <Divider variant="inset" component="li" />
+            
+            <ListItem>
+              <ListItemIcon>
+                <ReportIcon sx={{ color: 'primary.main' }} />
+              </ListItemIcon>
+              <ListItemText 
+                primary="Giriş Çıkış Raporları" 
+                secondary="Bu sekmede personelin vardiyalara giriş-çıkış kayıtlarını görüntüleyebilirsiniz. Hangi personelin hangi vardiyada çalıştığı, giriş-çıkış saatleri ve durum bilgisi (normal, geç geldi, erken çıktı, vb.) görüntülenebilir. Personel adı, vardiya veya durum tipine göre filtreleme yapabilirsiniz. Son 30 günlük kayıtlar otomatik olarak görüntülenir."
+              />
+            </ListItem>
+            
+            <Divider variant="inset" component="li" />
+            
+            <ListItem>
+              <ListItemIcon>
+                <TimerIcon sx={{ color: 'primary.main' }} />
+              </ListItemIcon>
+              <ListItemText 
+                primary="Toplam Süre" 
+                secondary="Bu sekmede personelin belirli bir tarih aralığında toplam çalışma sürelerini görüntüleyebilirsiniz. Personel bazlı veya tarih aralığı bazlı filtreler uygulayarak özel raporlar oluşturabilirsiniz. Toplam çalışma süresi, fazla mesai süreleri ve diğer istatistikler bu sekmede detaylı olarak görüntülenebilir."
+              />
+            </ListItem>
+          </List>
+          
+          <Typography variant="h6" sx={{ mt: 3, mb: 1 }}>
+            Ek Özellikler:
+          </Typography>
+          
+          <Typography paragraph>
+            <strong>Excel İndir:</strong> Aktif sekmedeki verileri Excel dosyası olarak indirmenizi sağlar. İndirilen dosya, görüntülenen verileri ve filtreleme ayarlarını içerir.
+          </Typography>
+          
+          <Typography paragraph>
+            <strong>QR İndir:</strong> Şirketinize özel QR kodu oluşturur ve indirir. Bu QR kodu, personel giriş-çıkışlarında kullanılan mobil uygulamaya bağlanmak için kullanılabilir.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseInfoModal} autoFocus>
+            Kapat
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Paper>
   );
 };
