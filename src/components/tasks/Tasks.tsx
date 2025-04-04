@@ -389,6 +389,7 @@ const Tasks: React.FC = () => {
   const [taskGroups, setTaskGroups] = useState<any[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [personnelFilter, setPersonnelFilter] = useState<string>('all');
+  const [groupFilter, setGroupFilter] = useState<string>('all'); // Yeni grup filtresi state'i
   const [personnelSearchTerm, setPersonnelSearchTerm] = useState<string>('');
   const [taskSearchTerm, setTaskSearchTerm] = useState<string>('');
   const [companyId, setCompanyId] = useState<string | null>(null);
@@ -496,6 +497,11 @@ const Tasks: React.FC = () => {
     setPersonnelFilter(event.target.value);
   };
 
+  // Grup filtresi için handler
+  const handleGroupFilterChange = (_event: React.SyntheticEvent, newValue: any) => {
+    setGroupFilter(newValue ? newValue.id : 'all');
+  };
+
   // Filtrelenmiş görev listesini hesapla
   const filteredTasks = useMemo(() => {
     let result = [...tasks];
@@ -536,8 +542,13 @@ const Tasks: React.FC = () => {
       );
     }
     
+    // Grup filtresi uygulanıyor
+    if (groupFilter !== 'all') {
+      result = result.filter(task => task.groupId === groupFilter);
+    }
+    
     return result;
-  }, [tasks, completedTasks, missedTasks, statusFilter, personnelFilter, taskSearchTerm]);
+  }, [tasks, completedTasks, missedTasks, statusFilter, personnelFilter, taskSearchTerm, groupFilter]);
 
   // Veri işleme fonksiyonu
   const processData = (tasksData: any, personnelData: any, completedTasksData: any = null, missedTasksData: any = null) => {
@@ -1572,6 +1583,40 @@ const Tasks: React.FC = () => {
                   )}
                   isOptionEqualToValue={(option, value) => option.id === value.id}
                   noOptionsText="Personel bulunamadı"
+                  clearText="Tümünü Temizle"
+                  openText="Aç"
+                  closeText="Kapat"
+                />
+                
+                {/* Grup Filtresi */}
+                <Autocomplete
+                  size="small"
+                  options={taskGroups}
+                  getOptionLabel={(option) => option.name || ''}
+                  value={taskGroups.find(g => g.id === groupFilter) || null}
+                  onChange={handleGroupFilterChange}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      placeholder="Grup Filtrele..."
+                      sx={{ mt: 1 }}
+                      InputProps={{
+                        ...params.InputProps,
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <CategoryIcon fontSize="small" />
+                          </InputAdornment>
+                        ),
+                      }}
+                    />
+                  )}
+                  renderOption={(props, option) => (
+                    <MenuItem {...props}>
+                      {option.name}
+                    </MenuItem>
+                  )}
+                  isOptionEqualToValue={(option, value) => option.id === value.id}
+                  noOptionsText="Grup bulunamadı"
                   clearText="Tümünü Temizle"
                   openText="Aç"
                   closeText="Kapat"
