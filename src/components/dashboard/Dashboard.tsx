@@ -1233,83 +1233,104 @@ const Dashboard: React.FC = () => {
         </Grid>
       </Grid>
       
-      {/* En Kötü Performanslı Personeller */}
+      {/* En Çok Görev Geciktiren ve Yapan Personeller */}
       <Grid container spacing={1} sx={{ mb: 2 }}>
-        <Grid item xs={12}>
+        <Grid item xs={12} md={6}>
           <StyledCard>
             <CardHeader 
               title="En Çok Görev Geciktiren Personeller" 
               titleTypographyProps={{ fontWeight: 'bold' }}
             />
             <Divider />
-            <CardContent sx={{ flexGrow: 1, overflow: 'auto', maxHeight: 250 }}>
+            <CardContent>
               {worstPerformers.length === 0 ? (
                 <Typography variant="body2" color="textSecondary" align="center" sx={{ py: 2 }}>
                   Henüz gecikmiş görev kaydı bulunmuyor
                 </Typography>
               ) : (
-                <Grid container spacing={1}>
-                  {worstPerformers.map((person, index) => (
-                    <Grid item xs={12} md={6} lg={4} key={person.id}>
-                      <Paper 
-                        elevation={0} 
-                        sx={{ 
-                          p: 1, 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          border: '1px solid',
-                          borderColor: theme.palette.divider,
-                          borderRadius: 1,
-                          position: 'relative',
-                          overflow: 'hidden',
-                          '&::before': {
-                            content: '""',
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            width: 3,
-                            height: '100%',
-                            bgcolor: '#F44336',
-                          }
-                        }}
-                      >
-                        <Box sx={{ mr: 1, position: 'relative' }}>
-                          <Avatar sx={{ width: 32, height: 32, bgcolor: index < 3 ? '#F44336' : theme.palette.grey[500] }}>
-                            <PersonIcon fontSize="small" />
-                          </Avatar>
-                          <Typography 
-                            variant="caption" 
-                            sx={{ 
-                              position: 'absolute', 
-                              top: -8, 
-                              right: -8, 
-                              bgcolor: index < 3 ? '#F44336' : theme.palette.grey[500], 
-                              color: 'white', 
-                              width: 16, 
-                              height: 16, 
-                              borderRadius: '50%', 
-                              display: 'flex', 
-                              alignItems: 'center', 
-                              justifyContent: 'center',
-                              fontWeight: 'bold',
-                              fontSize: 9
-                            }}
-                          >
-                            {index + 1}
-                          </Typography>
-                        </Box>
-                        <Box>
-                          <Typography variant="body2" fontWeight="medium" noWrap>
-                            {person.name}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {person.missedCount} gecikmiş görev
-                          </Typography>
-                        </Box>
-                      </Paper>
-                    </Grid>
-                  ))}
-                </Grid>
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Personel</TableCell>
+                        <TableCell>Geciken Görev Sayısı</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {worstPerformers.slice(0, 10).map((person, index) => (
+                        <TableRow key={person.id} hover>
+                          <TableCell>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              <Avatar sx={{ width: 24, height: 24, bgcolor: index < 3 ? '#F44336' : theme.palette.grey[500] }}>
+                                <PersonIcon fontSize="small" />
+                              </Avatar>
+                              <Typography variant="body2" noWrap>
+                                {person.name}
+                              </Typography>
+                            </Box>
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2" fontWeight="medium" color={index < 3 ? 'error' : 'inherit'}>
+                              {person.missedCount} görev
+                            </Typography>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+            </CardContent>
+          </StyledCard>
+        </Grid>
+        
+        <Grid item xs={12} md={6}>
+          <StyledCard>
+            <CardHeader 
+              title="En Çok Görev Yapan Personeller" 
+              titleTypographyProps={{ fontWeight: 'bold' }}
+            />
+            <Divider />
+            <CardContent>
+              {personnelPerformanceData.length === 0 ? (
+                <Typography variant="body2" color="textSecondary" align="center" sx={{ py: 2 }}>
+                  Henüz tamamlanan görev kaydı bulunmuyor
+                </Typography>
+              ) : (
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Personel</TableCell>
+                        <TableCell>Yapılan Görev Sayısı</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {personnelPerformanceData
+                        .sort((a, b) => b.completed - a.completed)
+                        .slice(0, 10)
+                        .map((person, index) => (
+                          <TableRow key={person.name} hover>
+                            <TableCell>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                <Avatar sx={{ width: 24, height: 24, bgcolor: index < 3 ? THEME_COLORS.completed : theme.palette.grey[500] }}>
+                                  <PersonIcon fontSize="small" />
+                                </Avatar>
+                                <Typography variant="body2" noWrap>
+                                  {person.name}
+                                </Typography>
+                              </Box>
+                            </TableCell>
+                            <TableCell>
+                              <Typography variant="body2" fontWeight="medium" color={index < 3 ? 'success.main' : 'inherit'}>
+                                {person.completed} görev
+                              </Typography>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
               )}
             </CardContent>
           </StyledCard>
