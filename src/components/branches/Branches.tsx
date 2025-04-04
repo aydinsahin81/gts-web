@@ -53,7 +53,7 @@ import {
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import { tr } from 'date-fns/locale';
-import { ref, set, push, get, onValue, off } from 'firebase/database';
+import { ref, set, push, get, onValue, off, update } from 'firebase/database';
 import { database, auth } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import BranchQRModal from './BranchQRModal';
@@ -140,6 +140,7 @@ const Branches: React.FC = () => {
   const [filterText, setFilterText] = useState('');
   const [filteredPersonnel, setFilteredPersonnel] = useState<any[]>([]);
   const [loadingPersonnel, setLoadingPersonnel] = useState(false);
+  const [savingManagers, setSavingManagers] = useState(false);
 
   // Form state değişkenleri
   const [branchForm, setBranchForm] = useState<{
@@ -439,9 +440,14 @@ const Branches: React.FC = () => {
       
       if (snapshot.exists()) {
         const personnelData = snapshot.val();
-        // Sadece görev atanmamış ve silinmemiş personelleri filtrele
+        // Görev atanmamış, role değeri "manager" olmayan ve silinmemiş personelleri filtrele
         const availablePersonnelList = Object.entries(personnelData)
-          .filter(([_, data]: [string, any]) => !data.hasTask && !data.isDeleted)
+          .filter(([_, data]: [string, any]) => {
+            const isNotDeleted = !data.isDeleted;
+            const isNotManager = data.role !== 'manager';
+            // hasTask kontrolü olmadan da olabilir, sadece manager değilse yönetici olabilir
+            return isNotDeleted && isNotManager;
+          })
           .map(([id, data]: [string, any]) => ({
             id,
             name: data.name || 'İsimsiz Personel',
@@ -495,15 +501,54 @@ const Branches: React.FC = () => {
     setFilteredPersonnel(filtered);
   }, [filterText, availablePersonnel]);
   
-  // Yönetici kaydetme işlemi (şimdilik sadece konsola yazdırma)
-  const handleSaveAdmins = () => {
-    console.log('Seçilen şubeye atanacak yöneticiler:', selectedPersonnel);
-    handleCloseAdminModal();
+  // Yönetici kaydetme işlemi
+  const handleSaveAdmins = async () => {
+    if (!selectedBranch || !companyId || selectedPersonnel.length === 0) return;
     
-    // Başarı mesajı gösterme
-    setSnackbarSeverity('success');
-    setSnackbarMessage('Yönetici ataması şimdilik işlevsel değil. Kaydetme işlemi daha sonra eklenecek.');
-    setSnackbarOpen(true);
+    try {
+      setSavingManagers(true);
+      
+      // Her seçilen personel için işlem yap
+      const updatePromises = selectedPersonnel.map(async (personnelId) => {
+        // 1. Şirket personel verisini güncelle
+        const personnelRef = ref(database, `companies/${companyId}/personnel/${personnelId}`);
+        await update(personnelRef, {
+          role: 'manager',
+          branchesId: selectedBranch.id
+        });
+        
+        // 2. Kullanıcı verisini güncelle
+        const userRef = ref(database, `users/${personnelId}`);
+        await update(userRef, {
+          role: 'manager',
+          branchesId: selectedBranch.id
+        });
+        
+        return personnelId;
+      });
+      
+      // Tüm güncellemeleri bekle
+      await Promise.all(updatePromises);
+      
+      // Başarı mesajı göster
+      setSnackbarSeverity('success');
+      setSnackbarMessage(`${selectedPersonnel.length} personel "${selectedBranch.name}" şubesi için yönetici olarak atandı.`);
+      setSnackbarOpen(true);
+      
+      // Modal'ı kapat
+      handleCloseAdminModal();
+      
+      // Personel listesini güncelle (görev atanmış oldukları için listeden çıkarılacaklar)
+      fetchAvailablePersonnel();
+      
+    } catch (error) {
+      console.error('Yönetici atama hatası:', error);
+      setSnackbarSeverity('error');
+      setSnackbarMessage('Yönetici atama işlemi sırasında bir hata oluştu.');
+      setSnackbarOpen(true);
+    } finally {
+      setSavingManagers(false);
+    }
   };
 
   return (
@@ -976,6 +1021,7 @@ const Branches: React.FC = () => {
           <Button 
             variant="outlined" 
             onClick={handleCloseAdminModal}
+            disabled={savingManagers}
           >
             İptal
           </Button>
@@ -983,10 +1029,10 @@ const Branches: React.FC = () => {
             variant="contained" 
             color="primary"
             onClick={handleSaveAdmins}
-            disabled={selectedPersonnel.length === 0}
-            startIcon={<PersonAddIcon />}
+            disabled={selectedPersonnel.length === 0 || savingManagers}
+            startIcon={savingManagers ? <CircularProgress size={20} /> : <PersonAddIcon />}
           >
-            Yönetici Olarak Ata
+            {savingManagers ? 'Kaydediliyor...' : 'Yönetici Olarak Ata'}
           </Button>
         </DialogActions>
       </Dialog>
