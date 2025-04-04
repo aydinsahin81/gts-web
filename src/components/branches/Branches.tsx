@@ -37,7 +37,8 @@ import {
   Email as EmailIcon,
   Public as PublicIcon,
   CalendarToday as CalendarIcon,
-  Download as DownloadIcon
+  Download as DownloadIcon,
+  QrCode2 as QrCode2Icon
 } from '@mui/icons-material';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
@@ -45,6 +46,7 @@ import { tr } from 'date-fns/locale';
 import { ref, set, push, get, onValue, off } from 'firebase/database';
 import { database, auth } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
+import BranchQRModal from './BranchQRModal';
 
 // Kaydırılabilir ana içerik için styled component
 const ScrollableContent = styled(Box)(({ theme }) => ({
@@ -116,6 +118,10 @@ const Branches: React.FC = () => {
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error' | 'info' | 'warning'>('success');
   const [exporting, setExporting] = useState(false);
+  
+  // QR Modal için state
+  const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [selectedBranch, setSelectedBranch] = useState<{id: string, name: string} | null>(null);
 
   // Form state değişkenleri
   const [branchForm, setBranchForm] = useState<{
@@ -380,6 +386,16 @@ const Branches: React.FC = () => {
     }, 1000);
   };
 
+  // QR Modal açma işlevi
+  const handleOpenQRModal = (branch: {id: string, name: string}) => {
+    setSelectedBranch(branch);
+    setQrModalOpen(true);
+  };
+
+  const handleCloseQRModal = () => {
+    setQrModalOpen(false);
+  };
+
   return (
     <Paper sx={{ p: 3, mt: 2, height: 'calc(100vh - 130px)', display: 'flex', flexDirection: 'column' }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -430,9 +446,18 @@ const Branches: React.FC = () => {
                         title={branch.basicInfo.name}
                         subheader={`Oluşturulma: ${new Date(branch.createdAt).toLocaleDateString('tr-TR')}`}
                         action={
-                          <IconButton aria-label="düzenle">
-                            <BusinessIcon />
-                          </IconButton>
+                          <Box sx={{ display: 'flex' }}>
+                            <IconButton 
+                              aria-label="QR kod" 
+                              color="primary"
+                              onClick={() => handleOpenQRModal({id: branch.id, name: branch.basicInfo.name})}
+                            >
+                              <QrCode2Icon />
+                            </IconButton>
+                            <IconButton aria-label="düzenle">
+                              <BusinessIcon />
+                            </IconButton>
+                          </Box>
                         }
                       />
                       <Divider />
@@ -680,6 +705,16 @@ const Branches: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+      
+      {/* Şube QR Modal */}
+      {selectedBranch && (
+        <BranchQRModal
+          open={qrModalOpen}
+          onClose={handleCloseQRModal}
+          branchId={selectedBranch.id}
+          branchName={selectedBranch.name}
+        />
+      )}
       
       {/* Bildirim Snackbar */}
       <Snackbar
