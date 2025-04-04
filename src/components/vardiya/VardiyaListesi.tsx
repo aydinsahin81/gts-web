@@ -450,6 +450,35 @@ const VardiyaListesi: React.FC = () => {
     }
   };
 
+  // Excel'e veri aktarma olayını dinle
+  useEffect(() => {
+    const handleExportToExcel = (event: CustomEvent) => {
+      const { worksheet } = event.detail;
+      
+      // Vardiya verilerini Excel'e ekle
+      vardiyalar.forEach(vardiya => {
+        const personnelCount = vardiya.personnel ? vardiya.personnel.length : 0;
+        
+        worksheet.addRow({
+          name: vardiya.name,
+          startTime: vardiya.startTime,
+          endTime: vardiya.endTime,
+          personnelCount: `${personnelCount} kişi`,
+          lateTolerance: `${vardiya.lateTolerance || 10} dk`,
+          earlyExitTolerance: `${vardiya.earlyExitTolerance || 10} dk`
+        });
+      });
+    };
+    
+    // Event listener'ı ekle
+    window.addEventListener('export-vardiya-to-excel', handleExportToExcel as EventListener);
+    
+    // Cleanup
+    return () => {
+      window.removeEventListener('export-vardiya-to-excel', handleExportToExcel as EventListener);
+    };
+  }, [vardiyalar]);
+
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>

@@ -1,8 +1,13 @@
 import React, { useState } from 'react';
-import { Box, Paper, Typography, Divider, Tabs, Tab, styled } from '@mui/material';
+import { Box, Paper, Typography, Divider, Tabs, Tab, styled, Button } from '@mui/material';
 import PersonelListesi from './PersonelListesi';
 import VardiyaListesi from './VardiyaListesi';
 import GirisCikisRaporlari from './GirisCikisRaporlari';
+import { Download as DownloadIcon, QrCode as QrCodeIcon } from '@mui/icons-material';
+import * as ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
+import { QRCodeCanvas } from 'qrcode.react';
+import { useAuth } from '../../contexts/AuthContext';
 
 // Kaydırılabilir ana içerik için styled component
 const ScrollableContent = styled(Box)(({ theme }) => ({
@@ -59,17 +64,227 @@ function a11yProps(index: number) {
 
 const Shifts: React.FC = () => {
   const [value, setValue] = useState(0);
+  const [exporting, setExporting] = useState(false);
+  const [downloadingQr, setDownloadingQr] = useState(false);
+  const { userDetails } = useAuth();
 
   const handleChange = (event: React.SyntheticEvent, newValue: number) => {
     setValue(newValue);
+  };
+
+  // Geçerli sekmeye göre başlık belirleme
+  const getTabTitle = () => {
+    switch (value) {
+      case 0:
+        return "Personel Listesi";
+      case 1:
+        return "Vardiya Listesi";
+      case 2:
+        return "Giriş Çıkış Raporları";
+      default:
+        return "Vardiya Yönetimi";
+    }
+  };
+
+  // Excel'e veri aktarma işlevi
+  const exportToExcel = async () => {
+    try {
+      setExporting(true);
+      
+      // Excel workbook oluştur
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet(getTabTitle());
+      
+      // Aktif sekmeye göre farklı sütun başlıkları ve veriler hazırla
+      if (value === 0) { // Personel Listesi
+        worksheet.columns = [
+          { header: 'Ad Soyad', key: 'name', width: 30 },
+          { header: 'Telefon', key: 'phone', width: 20 },
+          { header: 'E-posta', key: 'email', width: 30 },
+          { header: 'Vardiya', key: 'shift', width: 25 }
+        ];
+        
+        // Özel olarak veri ekleme işlemi için event oluşturup yayınlanacak
+        const event = new CustomEvent('export-personel-to-excel', { detail: { worksheet } });
+        window.dispatchEvent(event);
+      }
+      else if (value === 1) { // Vardiya Listesi
+        worksheet.columns = [
+          { header: 'Vardiya Adı', key: 'name', width: 30 },
+          { header: 'Giriş Saati', key: 'startTime', width: 15 },
+          { header: 'Çıkış Saati', key: 'endTime', width: 15 },
+          { header: 'Personel Sayısı', key: 'personnelCount', width: 15 },
+          { header: 'Geç Kalma Toleransı', key: 'lateTolerance', width: 20 },
+          { header: 'Erken Çıkma Toleransı', key: 'earlyExitTolerance', width: 20 }
+        ];
+        
+        // Özel olarak veri ekleme işlemi için event oluşturup yayınlanacak
+        const event = new CustomEvent('export-vardiya-to-excel', { detail: { worksheet } });
+        window.dispatchEvent(event);
+      }
+      else if (value === 2) { // Giriş Çıkış Raporları
+        worksheet.columns = [
+          { header: 'Personel', key: 'personnel', width: 30 },
+          { header: 'Vardiya', key: 'shift', width: 20 },
+          { header: 'Tarih', key: 'date', width: 15 },
+          { header: 'Giriş Saati', key: 'checkIn', width: 15 },
+          { header: 'Çıkış Saati', key: 'checkOut', width: 15 },
+          { header: 'Durum', key: 'status', width: 15 }
+        ];
+        
+        // Özel olarak veri ekleme işlemi için event oluşturup yayınlanacak
+        const event = new CustomEvent('export-report-to-excel', { detail: { worksheet } });
+        window.dispatchEvent(event);
+      }
+      
+      // Stil tanımlamaları
+      const headerStyle = {
+        font: { bold: true, color: { argb: 'FFFFFFFF' } },
+        fill: { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FF4F81BD' } },
+        border: {
+          top: { style: 'thin' as const },
+          left: { style: 'thin' as const },
+          bottom: { style: 'thin' as const },
+          right: { style: 'thin' as const }
+        }
+      };
+      
+      // Başlık stilini uygula
+      worksheet.getRow(1).eachCell(cell => {
+        cell.style = headerStyle;
+      });
+      
+      // Zebrastripe (alternatif satır renklendirme)
+      worksheet.eachRow((row, rowNumber) => {
+        if (rowNumber > 1) { // başlığı atla
+          const fillColor = rowNumber % 2 === 0 ? 'FFF2F2F2' : 'FFFFFFFF';
+          row.eachCell(cell => {
+            cell.style = {
+              fill: { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: fillColor } },
+              border: {
+                top: { style: 'thin' as const },
+                left: { style: 'thin' as const },
+                bottom: { style: 'thin' as const },
+                right: { style: 'thin' as const }
+              }
+            };
+          });
+        }
+      });
+      
+      // Excel dosyasını oluştur ve indir
+      setTimeout(async () => {
+        const buffer = await workbook.xlsx.writeBuffer();
+        const currentDate = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+        saveAs(new Blob([buffer]), `${getTabTitle()}_${currentDate}.xlsx`);
+        setExporting(false);
+      }, 500); // İlgili komponentın veri eklemesine zaman tanımak için küçük bir gecikme
+      
+    } catch (error) {
+      console.error('Excel dışa aktarma hatası:', error);
+      alert('Excel dosyası oluşturulurken bir hata oluştu.');
+      setExporting(false);
+    }
+  };
+
+  // QR kod indirme işlevi
+  const downloadQrCode = async () => {
+    if (!userDetails?.companyId) {
+      alert('Şirket ID bilgisi bulunamadı.');
+      return;
+    }
+
+    try {
+      setDownloadingQr(true);
+
+      // QR kod için canvas oluşturma
+      const qrCanvas = document.createElement('div');
+      qrCanvas.style.position = 'absolute';
+      qrCanvas.style.left = '-9999px';
+      document.body.appendChild(qrCanvas);
+
+      // QR kodunu oluştur
+      const qrCodeComponent = (
+        <QRCodeCanvas
+          value={userDetails.companyId}
+          size={512}
+          level="H" // Yüksek hata düzeltme seviyesi
+          includeMargin={true}
+          bgColor="#ffffff"
+          fgColor="#000000"
+        />
+      );
+
+      // QR kodunu DOM'a render et
+      const qrRoot = document.createElement('div');
+      qrRoot.style.width = '512px';
+      qrRoot.style.height = '512px';
+      qrRoot.style.backgroundColor = '#ffffff';
+      qrRoot.style.display = 'flex';
+      qrRoot.style.justifyContent = 'center';
+      qrRoot.style.alignItems = 'center';
+      qrCanvas.appendChild(qrRoot);
+
+      // QR kodunu render et ve export et
+      const ReactDOM = await import('react-dom/client');
+      const root = ReactDOM.createRoot(qrRoot);
+      root.render(qrCodeComponent);
+
+      // Render için kısa bir bekleme
+      setTimeout(() => {
+        // QR kod canvas'ını seç
+        const canvas = qrRoot.querySelector('canvas');
+        if (!canvas) {
+          alert('QR kod oluşturulamadı.');
+          document.body.removeChild(qrCanvas);
+          setDownloadingQr(false);
+          return;
+        }
+        
+        // Canvas'ı PNG olarak indir
+        const dataUrl = canvas.toDataURL('image/png');
+        const link = document.createElement('a');
+        link.download = `Şirket_QR_Kodu_${userDetails.companyId}.png`;
+        link.href = dataUrl;
+        link.click();
+        
+        // Temizlik
+        document.body.removeChild(qrCanvas);
+        setDownloadingQr(false);
+      }, 300);
+    } catch (error) {
+      console.error('QR kod indirme hatası:', error);
+      alert('QR kod oluşturulurken bir hata oluştu.');
+      setDownloadingQr(false);
+    }
   };
 
   return (
     <Paper sx={{ p: 3, mt: 2, height: 'calc(100vh - 130px)', display: 'flex', flexDirection: 'column' }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h5" component="h1">
-          Vardiya Yönetimi
+          {getTabTitle()}
         </Typography>
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <Button
+            variant="contained"
+            color="success"
+            startIcon={<QrCodeIcon />}
+            onClick={downloadQrCode}
+            disabled={downloadingQr || !userDetails?.companyId}
+          >
+            {downloadingQr ? 'İndiriliyor...' : 'QR İndir'}
+          </Button>
+          <Button
+            variant="contained"
+            color="info"
+            startIcon={<DownloadIcon />}
+            onClick={exportToExcel}
+            disabled={exporting}
+          >
+            {exporting ? 'İndiriliyor...' : 'Excel İndir'}
+          </Button>
+        </Box>
       </Box>
       <Divider sx={{ mb: 3 }} />
       

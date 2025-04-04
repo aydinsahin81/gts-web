@@ -178,6 +178,33 @@ const PersonelListesi: React.FC = () => {
     page * rowsPerPage,
     page * rowsPerPage + rowsPerPage
   );
+
+  // Excel'e veri aktarma olayını dinle
+  useEffect(() => {
+    const handleExportToExcel = (event: CustomEvent) => {
+      const { worksheet } = event.detail;
+      
+      // Filtrelenmiş personel verisini Excel'e ekle
+      filteredPersonnel.forEach(person => {
+        const shift = getPersonnelShift(person.id);
+        
+        worksheet.addRow({
+          name: person.name,
+          phone: person.phone || '-',
+          email: person.email || '-',
+          shift: shift ? `${shift.name} (${shift.startTime}-${shift.endTime})` : 'Vardiya Atanmamış'
+        });
+      });
+    };
+    
+    // Event listener'ı ekle
+    window.addEventListener('export-personel-to-excel', handleExportToExcel as EventListener);
+    
+    // Cleanup
+    return () => {
+      window.removeEventListener('export-personel-to-excel', handleExportToExcel as EventListener);
+    };
+  }, [filteredPersonnel]);
   
   return (
     <Box>
