@@ -106,7 +106,7 @@ const SurveyReports: React.FC = () => {
     let tasksData: Record<string, Task> = {};
     let personnelData: Record<string, Personnel> = {};
     let surveysData: Record<string, Survey> = {};
-    
+
     const fetchData = async () => {
       try {
         // Kullanıcı ve şirket bilgilerini al
@@ -122,7 +122,7 @@ const SurveyReports: React.FC = () => {
           setLoading(false);
           return;
         }
-        
+
         // Unsubscribe fonksiyonlarını saklayacak dizi
         const unsubscribes: (() => void)[] = [];
         
@@ -154,19 +154,19 @@ const SurveyReports: React.FC = () => {
         
         // Personel verilerini yükle (önce)
         const personnelPromise = new Promise<void>((resolve) => {
-          const personnelRef = ref(database, `companies/${companyId}/personnel`);
+        const personnelRef = ref(database, `companies/${companyId}/personnel`);
           const unsubscribe = onValue(personnelRef, (snapshot) => {
-            if (snapshot.exists()) {
+          if (snapshot.exists()) {
               const data = snapshot.val();
               personnelData = {};
-              
+            
               Object.entries(data).forEach(([id, data]: [string, any]) => {
                 personnelData[id] = {
-                  id,
-                  name: data.name || `${data.firstName || ''} ${data.lastName || ''}`.trim() || 'İsimsiz Personel'
-                };
-              });
-              
+                id,
+                name: data.name || `${data.firstName || ''} ${data.lastName || ''}`.trim() || 'İsimsiz Personel'
+              };
+            });
+            
               setPersonnelList(personnelData);
               personnelLoaded = true;
               console.log("Personel verileri yüklendi");
@@ -212,7 +212,7 @@ const SurveyReports: React.FC = () => {
           }
         });
         unsubscribes.push(unsubscribeCompleted);
-        
+
         const missedTasksRef = ref(database, `companies/${companyId}/missedTasks`);
         const unsubscribeMissed = onValue(missedTasksRef, (snapshot) => {
           if (snapshot.exists()) {
@@ -226,11 +226,11 @@ const SurveyReports: React.FC = () => {
         const answeredSurveysRef = ref(database, `companies/${companyId}/answeredSurveys`);
         const unsubscribeAnswers = onValue(answeredSurveysRef, async (snapshot) => {
           try {
-            if (snapshot.exists()) {
-              const answeredData = snapshot.val();
-              const reportItemsList: ReportItem[] = [];
-              
-              // Her görev için cevapları kontrol et
+          if (snapshot.exists()) {
+            const answeredData = snapshot.val();
+            const reportItemsList: ReportItem[] = [];
+
+            // Her görev için cevapları kontrol et
               for (const [taskId, taskResponses] of Object.entries<any>(answeredData)) {
                 // Görev bilgisini al - önce local değişkenlerden
                 let taskName = 'İsimsiz Görev';
@@ -316,35 +316,35 @@ const SurveyReports: React.FC = () => {
                         }
                       }
                     }
-                    
-                    reportItemsList.push({
-                      taskId,
-                      taskName,
-                      surveyId,
-                      surveyTitle,
-                      answer: answerData.selectedAnswer,
-                      answerType: answerData.answerType,
-                      createdAt: response.createdAt || 0,
-                      responseId,
-                      questionTitle: answerData.questionTitle || '',
-                      personnelName: personnelName
-                    });
+                  
+                  reportItemsList.push({
+                    taskId,
+                    taskName,
+                    surveyId,
+                    surveyTitle,
+                    answer: answerData.selectedAnswer,
+                    answerType: answerData.answerType,
+                    createdAt: response.createdAt || 0,
+                    responseId,
+                    questionTitle: answerData.questionTitle || '',
+                    personnelName: personnelName
+                  });
                   }
                 }
               }
-              
-              // Raporları tarihe göre sırala (en yeniden en eskiye)
-              reportItemsList.sort((a, b) => b.createdAt - a.createdAt);
-              setReportItems(reportItemsList);
-            }
+
+            // Raporları tarihe göre sırala (en yeniden en eskiye)
+            reportItemsList.sort((a, b) => b.createdAt - a.createdAt);
+            setReportItems(reportItemsList);
+          }
           } catch (error) {
             console.error('Anket cevapları işlenirken hata:', error);
           } finally {
-            setLoading(false);
+          setLoading(false);
           }
         });
         unsubscribes.push(unsubscribeAnswers);
-        
+
         // Temizleme fonksiyonu
         return () => {
           unsubscribes.forEach(unsubscribe => unsubscribe());
@@ -354,7 +354,7 @@ const SurveyReports: React.FC = () => {
         setLoading(false);
       }
     };
-    
+
     fetchData();
   }, [currentUser]);
 
@@ -370,8 +370,8 @@ const SurveyReports: React.FC = () => {
     // Basitleştirilmiş yöntem: Sadece görevin kendisindeki personnelId'yi kullan
     try {
       // Görevi bul
-      const task = tasks[taskId];
-      if (task && task.personnelId) {
+              const task = tasks[taskId];
+              if (task && task.personnelId) {
         // Personel ID'si varsa ve personel listesinde bulunuyorsa
         if (personnelList[task.personnelId]) {
           return personnelList[task.personnelId].name;
@@ -552,8 +552,8 @@ const SurveyReports: React.FC = () => {
     <Paper sx={{ p: { xs: 1, sm: 2, md: 3 }, overflowX: 'hidden' }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
         <Typography variant="h6" component="h2">
-          Anket Raporları
-        </Typography>
+        Anket Raporları
+      </Typography>
         <Button
           variant="contained"
           color="info"
