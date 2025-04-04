@@ -26,7 +26,15 @@ import {
   CardContent,
   CardHeader,
   Tooltip,
-  styled
+  styled,
+  Checkbox,
+  ListItemText,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemButton,
+  Autocomplete,
+  Chip
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -38,7 +46,9 @@ import {
   Public as PublicIcon,
   CalendarToday as CalendarIcon,
   Download as DownloadIcon,
-  QrCode2 as QrCode2Icon
+  QrCode2 as QrCode2Icon,
+  PersonAdd as PersonAddIcon,
+  Search as SearchIcon
 } from '@mui/icons-material';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
@@ -122,6 +132,14 @@ const Branches: React.FC = () => {
   // QR Modal için state
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [selectedBranch, setSelectedBranch] = useState<{id: string, name: string} | null>(null);
+  
+  // Yönetici atama modalı için state
+  const [adminModalOpen, setAdminModalOpen] = useState(false);
+  const [availablePersonnel, setAvailablePersonnel] = useState<any[]>([]);
+  const [selectedPersonnel, setSelectedPersonnel] = useState<string[]>([]);
+  const [filterText, setFilterText] = useState('');
+  const [filteredPersonnel, setFilteredPersonnel] = useState<any[]>([]);
+  const [loadingPersonnel, setLoadingPersonnel] = useState(false);
 
   // Form state değişkenleri
   const [branchForm, setBranchForm] = useState<{
@@ -395,6 +413,98 @@ const Branches: React.FC = () => {
   const handleCloseQRModal = () => {
     setQrModalOpen(false);
   };
+  
+  // Yönetici atama modalı açma işlevi
+  const handleOpenAdminModal = (branch: {id: string, name: string}) => {
+    setSelectedBranch(branch);
+    setAdminModalOpen(true);
+    fetchAvailablePersonnel();
+  };
+
+  const handleCloseAdminModal = () => {
+    setAdminModalOpen(false);
+    setSelectedPersonnel([]);
+    setFilterText('');
+  };
+  
+  // Görev atanmamış personelleri getirme
+  const fetchAvailablePersonnel = async () => {
+    if (!companyId) return;
+    
+    setLoadingPersonnel(true);
+    
+    try {
+      const personnelRef = ref(database, `companies/${companyId}/personnel`);
+      const snapshot = await get(personnelRef);
+      
+      if (snapshot.exists()) {
+        const personnelData = snapshot.val();
+        // Sadece görev atanmamış ve silinmemiş personelleri filtrele
+        const availablePersonnelList = Object.entries(personnelData)
+          .filter(([_, data]: [string, any]) => !data.hasTask && !data.isDeleted)
+          .map(([id, data]: [string, any]) => ({
+            id,
+            name: data.name || 'İsimsiz Personel',
+            email: data.email || '',
+            phone: data.phone || ''
+          }));
+        
+        setAvailablePersonnel(availablePersonnelList);
+        setFilteredPersonnel(availablePersonnelList);
+      } else {
+        setAvailablePersonnel([]);
+        setFilteredPersonnel([]);
+      }
+    } catch (error) {
+      console.error('Personel verileri yüklenirken hata:', error);
+      setSnackbarSeverity('error');
+      setSnackbarMessage('Personel verileri yüklenirken bir hata oluştu.');
+      setSnackbarOpen(true);
+    } finally {
+      setLoadingPersonnel(false);
+    }
+  };
+  
+  // Personel checkbox değişimi
+  const handlePersonnelToggle = (personnelId: string) => {
+    const currentIndex = selectedPersonnel.indexOf(personnelId);
+    const newChecked = [...selectedPersonnel];
+
+    if (currentIndex === -1) {
+      newChecked.push(personnelId);
+    } else {
+      newChecked.splice(currentIndex, 1);
+    }
+
+    setSelectedPersonnel(newChecked);
+  };
+  
+  // Personel filtre işlemi
+  useEffect(() => {
+    if (!filterText) {
+      setFilteredPersonnel(availablePersonnel);
+      return;
+    }
+    
+    const filtered = availablePersonnel.filter(person => 
+      person.name.toLowerCase().includes(filterText.toLowerCase()) ||
+      (person.email && person.email.toLowerCase().includes(filterText.toLowerCase())) ||
+      (person.phone && person.phone.includes(filterText))
+    );
+    
+    setFilteredPersonnel(filtered);
+  }, [filterText, availablePersonnel]);
+  
+  // Yönetici kaydetme işlemi (şimdilik sadece konsola yazdırma)
+  const handleSaveAdmins = () => {
+    console.log('Seçilen şubeye atanacak yöneticiler:', selectedPersonnel);
+    handleCloseAdminModal();
+    
+    // Başarı mesajı gösterme
+    setSnackbarSeverity('success');
+    setSnackbarMessage('Yönetici ataması şimdilik işlevsel değil. Kaydetme işlemi daha sonra eklenecek.');
+    setSnackbarOpen(true);
+  };
 
   return (
     <Paper sx={{ p: 3, mt: 2, height: 'calc(100vh - 130px)', display: 'flex', flexDirection: 'column' }}>
@@ -447,13 +557,24 @@ const Branches: React.FC = () => {
                         subheader={`Oluşturulma: ${new Date(branch.createdAt).toLocaleDateString('tr-TR')}`}
                         action={
                           <Box sx={{ display: 'flex' }}>
-                            <IconButton 
-                              aria-label="QR kod" 
-                              color="primary"
-                              onClick={() => handleOpenQRModal({id: branch.id, name: branch.basicInfo.name})}
-                            >
-                              <QrCode2Icon />
-                            </IconButton>
+                            <Tooltip title="Şube QR Kodu">
+                              <IconButton 
+                                aria-label="QR kod" 
+                                color="primary"
+                                onClick={() => handleOpenQRModal({id: branch.id, name: branch.basicInfo.name})}
+                              >
+                                <QrCode2Icon />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Şube Yöneticisi Ata">
+                              <IconButton 
+                                aria-label="Yönetici Ata" 
+                                color="secondary"
+                                onClick={() => handleOpenAdminModal({id: branch.id, name: branch.basicInfo.name})}
+                              >
+                                <PersonAddIcon />
+                              </IconButton>
+                            </Tooltip>
                             <IconButton aria-label="düzenle">
                               <BusinessIcon />
                             </IconButton>
@@ -715,6 +836,160 @@ const Branches: React.FC = () => {
           branchName={selectedBranch.name}
         />
       )}
+      
+      {/* Şube Yöneticisi Atama Modal */}
+      <Dialog
+        open={adminModalOpen}
+        onClose={handleCloseAdminModal}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 2,
+            maxHeight: '80vh'
+          }
+        }}
+      >
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Typography variant="h6">
+              {selectedBranch ? `"${selectedBranch.name}" Şubesi İçin Yönetici Ata` : 'Yönetici Ata'}
+            </Typography>
+            <IconButton edge="end" color="inherit" onClick={handleCloseAdminModal} aria-label="kapat">
+              <CloseIcon />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        
+        <DialogContent dividers>
+          {loadingPersonnel ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : (
+            <Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Şubeye yönetici olarak atamak istediğiniz personelleri seçin. Sadece görev atanmamış personeller listelenmiştir.
+              </Typography>
+              
+              <Autocomplete
+                freeSolo
+                options={[]}
+                inputValue={filterText}
+                onInputChange={(_, newValue) => setFilterText(newValue)}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Personel Ara"
+                    variant="outlined"
+                    fullWidth
+                    margin="normal"
+                    InputProps={{
+                      ...params.InputProps,
+                      startAdornment: (
+                        <SearchIcon color="action" sx={{ ml: 1, mr: -0.5 }} />
+                      )
+                    }}
+                  />
+                )}
+              />
+              
+              <Box sx={{ mt: 2, maxHeight: '50vh', overflowY: 'auto' }}>
+                {filteredPersonnel.length > 0 ? (
+                  <List dense>
+                    {filteredPersonnel.map((person) => (
+                      <ListItemButton 
+                        key={person.id}
+                        onClick={() => handlePersonnelToggle(person.id)}
+                        sx={{ 
+                          borderRadius: 1,
+                          mb: 0.5,
+                          '&:hover': { bgcolor: 'action.hover' }
+                        }}
+                      >
+                        <ListItemIcon>
+                          <Checkbox
+                            edge="start"
+                            checked={selectedPersonnel.indexOf(person.id) !== -1}
+                            tabIndex={-1}
+                            disableRipple
+                            color="primary"
+                          />
+                        </ListItemIcon>
+                        <ListItemText 
+                          primary={person.name}
+                          secondary={
+                            <Box>
+                              {person.email && (
+                                <Typography variant="body2" component="span" sx={{ mr: 2 }}>
+                                  <EmailIcon fontSize="inherit" sx={{ mr: 0.5, verticalAlign: 'text-bottom' }} />
+                                  {person.email}
+                                </Typography>
+                              )}
+                              {person.phone && (
+                                <Typography variant="body2" component="span">
+                                  <PhoneIcon fontSize="inherit" sx={{ mr: 0.5, verticalAlign: 'text-bottom' }} />
+                                  {person.phone}
+                                </Typography>
+                              )}
+                            </Box>
+                          }
+                        />
+                      </ListItemButton>
+                    ))}
+                  </List>
+                ) : (
+                  <Typography variant="body1" color="text.secondary" align="center" sx={{ py: 4 }}>
+                    {filterText ? "Arama kriterine uygun personel bulunamadı" : "Atanabilecek personel bulunamadı"}
+                  </Typography>
+                )}
+              </Box>
+              
+              {selectedPersonnel.length > 0 && (
+                <Box sx={{ mt: 2, p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
+                  <Typography variant="subtitle2" color="primary" gutterBottom>
+                    Seçilen Personeller ({selectedPersonnel.length})
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                    {selectedPersonnel.map(id => {
+                      const person = availablePersonnel.find(p => p.id === id);
+                      return person ? (
+                        <Chip 
+                          key={id}
+                          label={person.name}
+                          variant="outlined"
+                          color="primary"
+                          size="small"
+                          onDelete={() => handlePersonnelToggle(id)}
+                          sx={{ m: 0.5 }}
+                        />
+                      ) : null;
+                    })}
+                  </Box>
+                </Box>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button 
+            variant="outlined" 
+            onClick={handleCloseAdminModal}
+          >
+            İptal
+          </Button>
+          <Button 
+            variant="contained" 
+            color="primary"
+            onClick={handleSaveAdmins}
+            disabled={selectedPersonnel.length === 0}
+            startIcon={<PersonAddIcon />}
+          >
+            Yönetici Olarak Ata
+          </Button>
+        </DialogActions>
+      </Dialog>
       
       {/* Bildirim Snackbar */}
       <Snackbar
