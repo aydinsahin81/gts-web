@@ -903,8 +903,8 @@ const Dashboard: React.FC = () => {
   
   return (
     <ScrollableContent>
+      {/* İstatistik Kartları */}
       <Grid container spacing={1} sx={{ mb: 2 }}>
-        {/* İstatistik Kartları */}
         <Grid item xs={12} sm={6} md={3}>
           <StatsCard 
             bgcolor={THEME_COLORS.personnel} 
@@ -1241,8 +1241,112 @@ const Dashboard: React.FC = () => {
         </Grid>
       </Grid>
       
-      {/* Harita bölümü aynı kalacak */}
-      <MapCard>
+      {/* En Çok Görev Geciktiren ve Yapan Personeller */}
+      <Grid container spacing={1} sx={{ mb: 2 }}>
+        <Grid item xs={12} md={6}>
+          <StyledCard>
+            <CardHeader 
+              title="En Çok Görev Geciktiren Personeller" 
+              titleTypographyProps={{ fontWeight: 'bold' }}
+            />
+            <Divider />
+            <CardContent>
+              {worstPerformers.length === 0 ? (
+                <Typography variant="body2" color="textSecondary" align="center" sx={{ py: 2 }}>
+                  Henüz gecikmiş görev kaydı bulunmuyor
+                </Typography>
+              ) : (
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Personel</TableCell>
+                        <TableCell>Geciken Görev Sayısı</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {worstPerformers.slice(0, 10).map((person, index) => (
+                        <TableRow key={person.id} hover>
+                          <TableCell>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              <Avatar sx={{ width: 24, height: 24, bgcolor: index < 3 ? '#F44336' : theme.palette.grey[500] }}>
+                                <PersonIcon fontSize="small" />
+                              </Avatar>
+                              <Typography variant="body2" noWrap>
+                                {person.name}
+                              </Typography>
+                            </Box>
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2" fontWeight="medium" color={index < 3 ? 'error' : 'inherit'}>
+                              {person.missedCount} görev
+                            </Typography>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+            </CardContent>
+          </StyledCard>
+        </Grid>
+        
+        <Grid item xs={12} md={6}>
+          <StyledCard>
+            <CardHeader 
+              title="En Çok Görev Yapan Personeller" 
+              titleTypographyProps={{ fontWeight: 'bold' }}
+            />
+            <Divider />
+            <CardContent>
+              {personnelPerformanceData.length === 0 ? (
+                <Typography variant="body2" color="textSecondary" align="center" sx={{ py: 2 }}>
+                  Henüz tamamlanan görev kaydı bulunmuyor
+                </Typography>
+              ) : (
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Personel</TableCell>
+                        <TableCell>Yapılan Görev Sayısı</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {personnelPerformanceData
+                        .sort((a, b) => b.completed - a.completed)
+                        .slice(0, 10)
+                        .map((person, index) => (
+                          <TableRow key={person.name} hover>
+                            <TableCell>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                <Avatar sx={{ width: 24, height: 24, bgcolor: index < 3 ? THEME_COLORS.completed : theme.palette.grey[500] }}>
+                                  <PersonIcon fontSize="small" />
+                                </Avatar>
+                                <Typography variant="body2" noWrap>
+                                  {person.name}
+                                </Typography>
+                              </Box>
+                            </TableCell>
+                            <TableCell>
+                              <Typography variant="body2" fontWeight="medium" color={index < 3 ? 'success.main' : 'inherit'}>
+                                {person.completed} görev
+                              </Typography>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+            </CardContent>
+          </StyledCard>
+        </Grid>
+      </Grid>
+      
+      {/* Harita bölümü sayfanın en altına taşındı */}
+      <MapCard sx={{ mb: 2 }}>
         <CardHeader 
           title="Görev Tamamlama Konumları" 
           titleTypographyProps={{ fontWeight: 'bold' }}
@@ -1458,110 +1562,6 @@ const Dashboard: React.FC = () => {
           )}
         </MapContainerWrapper>
       </MapCard>
-      
-      {/* En Çok Görev Geciktiren ve Yapan Personeller */}
-      <Grid container spacing={1} sx={{ mb: 2 }}>
-        <Grid item xs={12} md={6}>
-          <StyledCard>
-            <CardHeader 
-              title="En Çok Görev Geciktiren Personeller" 
-              titleTypographyProps={{ fontWeight: 'bold' }}
-            />
-            <Divider />
-            <CardContent>
-              {worstPerformers.length === 0 ? (
-                <Typography variant="body2" color="textSecondary" align="center" sx={{ py: 2 }}>
-                  Henüz gecikmiş görev kaydı bulunmuyor
-                </Typography>
-              ) : (
-                <TableContainer>
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Personel</TableCell>
-                        <TableCell>Geciken Görev Sayısı</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {worstPerformers.slice(0, 10).map((person, index) => (
-                        <TableRow key={person.id} hover>
-                          <TableCell>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                              <Avatar sx={{ width: 24, height: 24, bgcolor: index < 3 ? '#F44336' : theme.palette.grey[500] }}>
-                                <PersonIcon fontSize="small" />
-                              </Avatar>
-                              <Typography variant="body2" noWrap>
-                                {person.name}
-                              </Typography>
-                            </Box>
-                          </TableCell>
-                          <TableCell>
-                            <Typography variant="body2" fontWeight="medium" color={index < 3 ? 'error' : 'inherit'}>
-                              {person.missedCount} görev
-                            </Typography>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              )}
-            </CardContent>
-          </StyledCard>
-        </Grid>
-        
-        <Grid item xs={12} md={6}>
-          <StyledCard>
-            <CardHeader 
-              title="En Çok Görev Yapan Personeller" 
-              titleTypographyProps={{ fontWeight: 'bold' }}
-            />
-            <Divider />
-            <CardContent>
-              {personnelPerformanceData.length === 0 ? (
-                <Typography variant="body2" color="textSecondary" align="center" sx={{ py: 2 }}>
-                  Henüz tamamlanan görev kaydı bulunmuyor
-                </Typography>
-              ) : (
-                <TableContainer>
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Personel</TableCell>
-                        <TableCell>Yapılan Görev Sayısı</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {personnelPerformanceData
-                        .sort((a, b) => b.completed - a.completed)
-                        .slice(0, 10)
-                        .map((person, index) => (
-                          <TableRow key={person.name} hover>
-                            <TableCell>
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                <Avatar sx={{ width: 24, height: 24, bgcolor: index < 3 ? THEME_COLORS.completed : theme.palette.grey[500] }}>
-                                  <PersonIcon fontSize="small" />
-                                </Avatar>
-                                <Typography variant="body2" noWrap>
-                                  {person.name}
-                                </Typography>
-                              </Box>
-                            </TableCell>
-                            <TableCell>
-                              <Typography variant="body2" fontWeight="medium" color={index < 3 ? 'success.main' : 'inherit'}>
-                                {person.completed} görev
-                              </Typography>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              )}
-            </CardContent>
-          </StyledCard>
-        </Grid>
-      </Grid>
       
       {/* Modal Pencereler */}
       <MissedTasksModal 
