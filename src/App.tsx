@@ -18,6 +18,8 @@ import Messages from './components/messages/Messages';
 import Surveys from './pages/Surveys';
 import PublicSurvey from './pages/PublicSurvey';
 import ShiftsPage from './pages/Shifts';
+import BranchesPage from './pages/Branches';
+import CustomerScreenPage from './pages/CustomerScreen';
 
 // Henüz oluşturulmamış diğer sayfalar için geçici bileşenler
 // const Reports = () => <div>Raporlar Sayfası</div>;
@@ -102,6 +104,8 @@ const App: React.FC = () => {
               <Route path="/reports" element={<MainLayout><Reports /></MainLayout>} />
               <Route path="/messages" element={<MainLayout><Messages /></MainLayout>} />
               <Route path="/surveys" element={<MainLayout><Surveys /></MainLayout>} />
+              <Route path="/branches" element={<MainLayout><BranchesPage /></MainLayout>} />
+              <Route path="/customer-screen" element={<MainLayout><CustomerScreenPage /></MainLayout>} />
               <Route path="/profile" element={<MainLayout><Profile /></MainLayout>} />
             </Route>
             
