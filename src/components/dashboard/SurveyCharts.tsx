@@ -11,7 +11,16 @@ import {
   CircularProgress,
   styled,
   Avatar,
-  useTheme
+  useTheme,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemIcon
 } from '@mui/material';
 import { 
   BarChart, 
@@ -29,6 +38,10 @@ import { database } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import AssessmentIcon from '@mui/icons-material/Assessment';
+import ThumbUpIcon from '@mui/icons-material/ThumbUp';
+import ThumbsUpDownIcon from '@mui/icons-material/ThumbsUpDown';
+import ThumbDownIcon from '@mui/icons-material/ThumbDown';
+import ShowChartIcon from '@mui/icons-material/ShowChart';
 
 // Tema renkleri
 const SURVEY_COLORS = {
@@ -85,7 +98,8 @@ const SurveyCharts: React.FC = () => {
   const [surveyResponses, setSurveyResponses] = useState<SurveyResponse[]>([]);
   const [overallStatsData, setOverallStatsData] = useState<any[]>([]);
   const [trendData, setTrendData] = useState<any[]>([]);
-  const [infoModalOpen, setInfoModalOpen] = useState(false);
+  const [overallInfoModalOpen, setOverallInfoModalOpen] = useState(false);
+  const [trendInfoModalOpen, setTrendInfoModalOpen] = useState(false);
   const theme = useTheme();
 
   useEffect(() => {
@@ -275,6 +289,23 @@ const SurveyCharts: React.FC = () => {
     return null;
   };
 
+  // Modal açma/kapama fonksiyonları
+  const handleOpenOverallInfoModal = () => {
+    setOverallInfoModalOpen(true);
+  };
+
+  const handleCloseOverallInfoModal = () => {
+    setOverallInfoModalOpen(false);
+  };
+
+  const handleOpenTrendInfoModal = () => {
+    setTrendInfoModalOpen(true);
+  };
+
+  const handleCloseTrendInfoModal = () => {
+    setTrendInfoModalOpen(false);
+  };
+
   return (
     <Grid container spacing={1}>
       <Grid item xs={12} md={6}>
@@ -283,9 +314,9 @@ const SurveyCharts: React.FC = () => {
             <Typography variant="h6" fontWeight="bold">
               Genel Anket Memnuniyet Oranı
             </Typography>
-            <Avatar sx={{ bgcolor: SURVEY_COLORS.positive }}>
-              <AssessmentIcon />
-            </Avatar>
+            <IconButton onClick={handleOpenOverallInfoModal} size="small" color="primary">
+              <InfoOutlinedIcon />
+            </IconButton>
           </Box>
           <Divider sx={{ mb: 1 }} />
           
@@ -325,9 +356,9 @@ const SurveyCharts: React.FC = () => {
             <Typography variant="h6" fontWeight="bold">
               Son 1 Ay Memnuniyet Trendi
             </Typography>
-            <Avatar sx={{ bgcolor: SURVEY_COLORS.positive }}>
-              <AssessmentIcon />
-            </Avatar>
+            <IconButton onClick={handleOpenTrendInfoModal} size="small" color="primary">
+              <InfoOutlinedIcon />
+            </IconButton>
           </Box>
           <Divider sx={{ mb: 1 }} />
           
@@ -358,6 +389,123 @@ const SurveyCharts: React.FC = () => {
           )}
         </ChartContainer>
       </Grid>
+
+      {/* Genel Memnuniyet İnfo Modalı */}
+      <Dialog
+        open={overallInfoModalOpen}
+        onClose={handleCloseOverallInfoModal}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box display="flex" alignItems="center">
+            <AssessmentIcon sx={{ mr: 1, color: 'primary.main' }} />
+            Genel Anket Memnuniyet Oranı Hakkında
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Typography paragraph>
+            Bu grafik, müşteri memnuniyet anketlerindeki tüm cevapların dağılımını göstermektedir. 
+            Her bir çubuk, anket cevap tiplerinin sayısını temsil eder:
+          </Typography>
+          <List>
+            <ListItem>
+              <ListItemIcon>
+                <ThumbUpIcon sx={{ color: SURVEY_COLORS.positive }} />
+              </ListItemIcon>
+              <ListItemText 
+                primary="Olumlu" 
+                secondary="Müşterilerin olumlu değerlendirmeleri (örn. 'Evet', 'Memnunum', vb.)"
+              />
+            </ListItem>
+            <ListItem>
+              <ListItemIcon>
+                <ThumbsUpDownIcon sx={{ color: SURVEY_COLORS.neutral }} />
+              </ListItemIcon>
+              <ListItemText 
+                primary="Nötr" 
+                secondary="Müşterilerin nötr değerlendirmeleri (örn. 'Kısmen', 'Orta', vb.)"
+              />
+            </ListItem>
+            <ListItem>
+              <ListItemIcon>
+                <ThumbDownIcon sx={{ color: SURVEY_COLORS.negative }} />
+              </ListItemIcon>
+              <ListItemText 
+                primary="Olumsuz" 
+                secondary="Müşterilerin olumsuz değerlendirmeleri (örn. 'Hayır', 'Memnun değilim', vb.)"
+              />
+            </ListItem>
+          </List>
+          <Typography paragraph>
+            Bu grafik sayesinde, müşteri memnuniyeti konusunda genel bir bakış açısı elde edebilir ve 
+            hangi alanlarda iyileştirme yapmanız gerektiğini belirleyebilirsiniz.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseOverallInfoModal}>Kapat</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Trend İnfo Modalı */}
+      <Dialog
+        open={trendInfoModalOpen}
+        onClose={handleCloseTrendInfoModal}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box display="flex" alignItems="center">
+            <ShowChartIcon sx={{ mr: 1, color: 'primary.main' }} />
+            Son 1 Ay Memnuniyet Trendi Hakkında
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Typography paragraph>
+            Bu grafik, son 1 ay içerisinde haftalık olarak müşteri memnuniyet anketlerindeki 
+            cevapların dağılımını yüzde olarak göstermektedir.
+          </Typography>
+          <Typography paragraph>
+            Her bir çubuk, ilgili haftadaki anket cevaplarının yüzdesel dağılımını gösterir:
+          </Typography>
+          <List>
+            <ListItem>
+              <ListItemIcon>
+                <ThumbUpIcon sx={{ color: SURVEY_COLORS.positive }} />
+              </ListItemIcon>
+              <ListItemText 
+                primary="Olumlu (Yeşil)" 
+                secondary="Olumlu cevapların o haftadaki tüm cevaplara oranı"
+              />
+            </ListItem>
+            <ListItem>
+              <ListItemIcon>
+                <ThumbsUpDownIcon sx={{ color: SURVEY_COLORS.neutral }} />
+              </ListItemIcon>
+              <ListItemText 
+                primary="Nötr (Gri)" 
+                secondary="Nötr cevapların o haftadaki tüm cevaplara oranı"
+              />
+            </ListItem>
+            <ListItem>
+              <ListItemIcon>
+                <ThumbDownIcon sx={{ color: SURVEY_COLORS.negative }} />
+              </ListItemIcon>
+              <ListItemText 
+                primary="Olumsuz (Kırmızı)" 
+                secondary="Olumsuz cevapların o haftadaki tüm cevaplara oranı"
+              />
+            </ListItem>
+          </List>
+          <Typography paragraph>
+            Bu trend grafiği sayesinde, müşteri memnuniyetinin zaman içerisindeki değişimini 
+            takip edebilir ve aldığınız aksiyonların sonuçlarını gözlemleyebilirsiniz.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseTrendInfoModal}>Kapat</Button>
+        </DialogActions>
+      </Dialog>
     </Grid>
   );
 };

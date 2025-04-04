@@ -1047,14 +1047,14 @@ const Dashboard: React.FC = () => {
             <Divider sx={{ mb: 1 }} />
             
             {personnelPerformanceData.length === 0 ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 200 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 250 }}>
                 <Typography variant="body2" color="textSecondary">Henüz personel performans verisi bulunmuyor</Typography>
               </Box>
             ) : (
-              <ResponsiveContainer width="100%" height={200}>
+              <ResponsiveContainer width="100%" height={250}>
                 <BarChart
-                  data={personnelPerformanceData}
-                  margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+                  data={personnelPerformanceData.slice(0, 5)}
+                  margin={{ top: 20, right: 30, left: 10, bottom: 20 }}
                   layout="vertical"
                 >
                   <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
@@ -1063,7 +1063,7 @@ const Dashboard: React.FC = () => {
                     dataKey="name" 
                     type="category" 
                     tick={{ fontSize: 12 }}
-                    width={100}
+                    width={150}
                   />
                   <RechartsTooltip content={<CustomTooltip performanceChart={true} />} />
                   <Legend verticalAlign="bottom" height={24} />
