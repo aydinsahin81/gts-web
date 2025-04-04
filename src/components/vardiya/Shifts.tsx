@@ -3,6 +3,7 @@ import { Box, Paper, Typography, Divider, Tabs, Tab, styled, Button } from '@mui
 import PersonelListesi from './PersonelListesi';
 import VardiyaListesi from './VardiyaListesi';
 import GirisCikisRaporlari from './GirisCikisRaporlari';
+import ToplamSure from './ToplamSure';
 import { Download as DownloadIcon, QrCode as QrCodeIcon } from '@mui/icons-material';
 import * as ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
@@ -81,6 +82,8 @@ const Shifts: React.FC = () => {
         return "Vardiya Listesi";
       case 2:
         return "Giriş Çıkış Raporları";
+      case 3:
+        return "Toplam Süre";
       default:
         return "Vardiya Yönetimi";
     }
@@ -134,6 +137,19 @@ const Shifts: React.FC = () => {
         
         // Özel olarak veri ekleme işlemi için event oluşturup yayınlanacak
         const event = new CustomEvent('export-report-to-excel', { detail: { worksheet } });
+        window.dispatchEvent(event);
+      }
+      else if (value === 3) { // Toplam Süre
+        worksheet.columns = [
+          { header: 'Personel', key: 'personnel', width: 30 },
+          { header: 'Dönem', key: 'period', width: 20 },
+          { header: 'Çalışma Saati', key: 'workHours', width: 15 },
+          { header: 'Ek Çalışma', key: 'extraWork', width: 15 },
+          { header: 'Toplam Süre', key: 'totalHours', width: 15 }
+        ];
+        
+        // Özel olarak veri ekleme işlemi için event oluşturup yayınlanacak
+        const event = new CustomEvent('export-toplamsure-to-excel', { detail: { worksheet } });
         window.dispatchEvent(event);
       }
       
@@ -294,6 +310,7 @@ const Shifts: React.FC = () => {
             <Tab label="Personel Listesi" {...a11yProps(0)} />
             <Tab label="Vardiya Listesi" {...a11yProps(1)} />
             <Tab label="Giriş Çıkış Raporları" {...a11yProps(2)} />
+            <Tab label="Toplam Süre" {...a11yProps(3)} />
           </Tabs>
         </Box>
         <ScrollableContent>
@@ -305,6 +322,9 @@ const Shifts: React.FC = () => {
           </TabPanel>
           <TabPanel value={value} index={2}>
             <GirisCikisRaporlari />
+          </TabPanel>
+          <TabPanel value={value} index={3}>
+            <ToplamSure />
           </TabPanel>
         </ScrollableContent>
       </Box>
