@@ -113,6 +113,10 @@ const ToplamSure: React.FC = () => {
       const startDateStr = format(startDate, 'dd-MM-yyyy');
       const endDateStr = format(endDate, 'dd-MM-yyyy');
       
+      // Tarih karşılaştırması için tarih nesneleri oluştur
+      const startDateObj = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+      const endDateObj = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+      
       const personnelWorkData: PersonnelWorkData[] = [];
       
       // Her personel için verileri çek
@@ -129,8 +133,18 @@ const ToplamSure: React.FC = () => {
           
           // Tarih bazlı kayıtları işle
           Object.keys(allShiftData).forEach(date => {
-            // Tarih filtreleme
-            if (date >= startDateStr && date <= endDateStr) {
+            // Tarih string'ini Date nesnesine çevir (dd-MM-yyyy)
+            const dateParts = date.split('-');
+            if (dateParts.length !== 3) return; // Geçersiz tarih formatı
+            
+            const day = parseInt(dateParts[0], 10);
+            const month = parseInt(dateParts[1], 10) - 1; // JavaScript ayları 0'dan başlar
+            const year = parseInt(dateParts[2], 10);
+            
+            const currentDateObj = new Date(year, month, day);
+            
+            // Tarih filtreleme (Date nesneleri ile karşılaştırma)
+            if (currentDateObj >= startDateObj && currentDateObj <= endDateObj) {
               const dateData = allShiftData[date];
               
               // Personele ait kayıt varsa
@@ -170,7 +184,24 @@ const ToplamSure: React.FC = () => {
           
           // Tarihe göre sırala
           personnelRecords.sort((a, b) => {
-            return a.date.localeCompare(b.date);
+            // Tarihleri parçalara ayır ve tarih nesneleri oluştur
+            const aDateParts = a.date.split('-');
+            const bDateParts = b.date.split('-');
+            
+            const aDate = new Date(
+              parseInt(aDateParts[2], 10),
+              parseInt(aDateParts[1], 10) - 1,
+              parseInt(aDateParts[0], 10)
+            );
+            
+            const bDate = new Date(
+              parseInt(bDateParts[2], 10),
+              parseInt(bDateParts[1], 10) - 1,
+              parseInt(bDateParts[0], 10)
+            );
+            
+            // Tarih nesneleri ile karşılaştır
+            return aDate.getTime() - bDate.getTime();
           });
           
           // Personel veri nesnesini ekle

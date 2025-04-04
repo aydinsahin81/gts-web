@@ -46,6 +46,11 @@ const GirisCikisRaporlari: React.FC = () => {
 
     setLoading(true);
     
+    // Son 30 günün tarihini hesapla
+    const today = new Date();
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(today.getDate() - 30);
+    
     // Personel verilerini çek
     const personnelRef = ref(database, `companies/${userDetails.companyId}/personnel`);
     const personnelUnsubscribe = onValue(personnelRef, (personnelSnapshot) => {
@@ -74,99 +79,127 @@ const GirisCikisRaporlari: React.FC = () => {
         
         // Tarih bazlı verileri işle
         Object.keys(vardiyaListesi).forEach(date => {
-          const dateData = vardiyaListesi[date];
+          // Tarih string'ini Date nesnesine çevir (dd-MM-yyyy)
+          const dateParts = date.split('-');
+          if (dateParts.length !== 3) return; // Geçersiz tarih formatı
           
-          // Her tarih için personel bazlı verileri işle
-          Object.keys(dateData).forEach(personelId => {
-            const record = dateData[personelId];
+          const day = parseInt(dateParts[0], 10);
+          const month = parseInt(dateParts[1], 10) - 1; // JavaScript ayları 0'dan başlar
+          const year = parseInt(dateParts[2], 10);
+          
+          const dateObj = new Date(year, month, day);
+          
+          // Son 30 gün kontrolü
+          if (dateObj >= thirtyDaysAgo) {
+            const dateData = vardiyaListesi[date];
             
-            // Unix timestamp'i saat:dakika formatına dönüştür
-            const formatTime = (timestamp: number) => {
-              if (!timestamp) return '--:--';
-              const date = new Date(timestamp);
-              return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
-            };
-            
-            // Durum bilgilerini belirle
-            const statusInfo = {
-              entryStatus: '',
-              exitStatus: ''
-            };
-            
-            // Giriş durumu kontrolü - veritabanından direkt olarak al
-            if (record.girisDurumu) {
-              // Veritabanındaki değeri görüntüleme için dönüştür
-              switch (record.girisDurumu) {
-                case 'early':
-                  statusInfo.entryStatus = 'Erken Geldi';
-                  break;
-                case 'late':
-                  statusInfo.entryStatus = 'Geç Geldi';
-                  break;
-                case 'giriş yapılmamış':
-                  statusInfo.entryStatus = 'Giriş Yapılmamış';
-                  break;
-                case 'normal':
-                  statusInfo.entryStatus = 'Normal Geldi';
-                  break;
-                default:
-                  // Diğer durumlarda doğrudan değeri al
-                  statusInfo.entryStatus = record.girisDurumu;
-              }
-            } else {
-              // Giriş durumu yoksa
-              statusInfo.entryStatus = 'Giriş Durumu Belirsiz';
-            }
-            
-            // Çıkış durumu kontrolü - veritabanından direkt olarak al
-            if (record.cikisZamani) {
-              if (record.cikisDurumu) {
+            // Her tarih için personel bazlı verileri işle
+            Object.keys(dateData).forEach(personelId => {
+              const record = dateData[personelId];
+              
+              // Unix timestamp'i saat:dakika formatına dönüştür
+              const formatTime = (timestamp: number) => {
+                if (!timestamp) return '--:--';
+                const date = new Date(timestamp);
+                return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+              };
+              
+              // Durum bilgilerini belirle
+              const statusInfo = {
+                entryStatus: '',
+                exitStatus: ''
+              };
+              
+              // Giriş durumu kontrolü - veritabanından direkt olarak al
+              if (record.girisDurumu) {
                 // Veritabanındaki değeri görüntüleme için dönüştür
-                switch (record.cikisDurumu) {
-                  case 'earlyExit':
-                    statusInfo.exitStatus = 'Erken Çıktı';
+                switch (record.girisDurumu) {
+                  case 'early':
+                    statusInfo.entryStatus = 'Erken Geldi';
                     break;
-                  case 'çıkış yapılmamış':
-                    statusInfo.exitStatus = 'Çıkış Yapılmamış';
+                  case 'late':
+                    statusInfo.entryStatus = 'Geç Geldi';
+                    break;
+                  case 'giriş yapılmamış':
+                    statusInfo.entryStatus = 'Giriş Yapılmamış';
                     break;
                   case 'normal':
-                    statusInfo.exitStatus = 'Normal Çıktı';
+                    statusInfo.entryStatus = 'Normal Geldi';
                     break;
                   default:
                     // Diğer durumlarda doğrudan değeri al
-                    statusInfo.exitStatus = record.cikisDurumu;
+                    statusInfo.entryStatus = record.girisDurumu;
                 }
               } else {
-                statusInfo.exitStatus = 'Çıkış Durumu Belirsiz';
+                // Giriş durumu yoksa
+                statusInfo.entryStatus = 'Giriş Durumu Belirsiz';
               }
-            } else {
-              // Çıkış kaydı yoksa
-              statusInfo.exitStatus = 'Devam Ediyor';
-            }
-            
-            // Personel bilgisini bul
-            const personnel = personnelObj[personelId] || { name: '' };
-            const personnelName = personnel.name || personelId;
-            
-            reportsList.push({
-              id: `${date}_${personelId}`,
-              personnel: personnelName,
-              personnelId: personelId,
-              shift: record.vardiyaAdi || 'Bilinmeyen Vardiya',
-              date: date,
-              checkIn: formatTime(record.girisZamani),
-              checkOut: record.cikisZamani ? formatTime(record.cikisZamani) : '--:--',
-              statusInfo: statusInfo,
-              originalRecord: record
+              
+              // Çıkış durumu kontrolü - veritabanından direkt olarak al
+              if (record.cikisZamani) {
+                if (record.cikisDurumu) {
+                  // Veritabanındaki değeri görüntüleme için dönüştür
+                  switch (record.cikisDurumu) {
+                    case 'earlyExit':
+                      statusInfo.exitStatus = 'Erken Çıktı';
+                      break;
+                    case 'çıkış yapılmamış':
+                      statusInfo.exitStatus = 'Çıkış Yapılmamış';
+                      break;
+                    case 'normal':
+                      statusInfo.exitStatus = 'Normal Çıktı';
+                      break;
+                    default:
+                      // Diğer durumlarda doğrudan değeri al
+                      statusInfo.exitStatus = record.cikisDurumu;
+                  }
+                } else {
+                  statusInfo.exitStatus = 'Çıkış Durumu Belirsiz';
+                }
+              } else {
+                // Çıkış kaydı yoksa
+                statusInfo.exitStatus = 'Devam Ediyor';
+              }
+              
+              // Personel bilgisini bul
+              const personnel = personnelObj[personelId] || { name: '' };
+              const personnelName = personnel.name || personelId;
+              
+              reportsList.push({
+                id: `${date}_${personelId}`,
+                personnel: personnelName,
+                personnelId: personelId,
+                shift: record.vardiyaAdi || 'Bilinmeyen Vardiya',
+                date: date,
+                checkIn: formatTime(record.girisZamani),
+                checkOut: record.cikisZamani ? formatTime(record.cikisZamani) : '--:--',
+                statusInfo: statusInfo,
+                originalRecord: record
+              });
             });
-          });
+          }
         });
         
         // Tarihe göre sırala (en yeni en üstte)
         reportsList.sort((a, b) => {
-          const dateA = a.date.split('-').reverse().join('-');
-          const dateB = b.date.split('-').reverse().join('-');
-          return new Date(dateB).getTime() - new Date(dateA).getTime();
+          // Tarih string'ini Date nesnesine çevir (dd-MM-yyyy)
+          const aDateParts = a.date.split('-');
+          const bDateParts = b.date.split('-');
+          
+          const aDate = new Date(
+            parseInt(aDateParts[2], 10),
+            parseInt(aDateParts[1], 10) - 1,
+            parseInt(aDateParts[0], 10)
+          );
+          
+          const bDate = new Date(
+            parseInt(bDateParts[2], 10),
+            parseInt(bDateParts[1], 10) - 1,
+            parseInt(bDateParts[0], 10)
+          );
+          
+          // Daha yeni tarihler önce gösterilecek
+          return bDate.getTime() - aDate.getTime();
         });
         
         setReports(reportsList);
