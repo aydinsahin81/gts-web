@@ -209,7 +209,12 @@ const PersonnelTable: React.FC<{
         </TableHead>
         <TableBody>
           {personnel.map((person) => (
-            <TableRow key={person.id} hover>
+            <TableRow 
+              key={person.id} 
+              hover
+              onClick={() => onViewDetails(person.id)}
+              sx={{ cursor: 'pointer' }}
+            >
               <TableCell>
                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
                   <Avatar 
@@ -252,7 +257,7 @@ const PersonnelTable: React.FC<{
                   />
                 </TableCell>
               )}
-              <TableCell align="right">
+              <TableCell align="right" onClick={(e) => e.stopPropagation()}>
                 {showDeleted ? (
                   <Tooltip title="İşe Geri Al">
                     <IconButton 
@@ -271,7 +276,10 @@ const PersonnelTable: React.FC<{
                     <Tooltip title="Detaylar">
                       <IconButton 
                         size="small" 
-                        onClick={() => onViewDetails(person.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onViewDetails(person.id);
+                        }}
                         sx={{ color: 'primary.main', p: 0.5 }}
                       >
                         <PersonIcon fontSize="small" />
@@ -280,7 +288,10 @@ const PersonnelTable: React.FC<{
                     <Tooltip title="Mesaj Gönder">
                       <IconButton 
                         size="small" 
-                        onClick={() => onSendMessage(person.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSendMessage(person.id);
+                        }}
                         sx={{ color: 'success.main', p: 0.5, ml: 0.5 }}
                       >
                         <EmailIcon fontSize="small" />
