@@ -574,6 +574,7 @@ const Tasks: React.FC = () => {
           startTolerance: data.startTolerance || 15,
           repetitionTimes: data.repetitionTimes || [],
           completedAt: data.completedAt || null, // Tamamlanma tarihi
+          groupId: data.groupId || null, // Görev grup ID'sini burada sakla
         };
       }) : [];
     
