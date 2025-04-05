@@ -643,20 +643,39 @@ const Personnel: React.FC = () => {
 
   // Personel detaylarını gösteren modal
   const handleOpenModal = async (person: any) => {
-    setSelectedPersonnel(person);
-    setModalOpen(true);
-    setConfirmDelete(false); // Reset delete confirmation state
-    
-    if (person.id) {
-      try {
+    try {
+      console.log("Modal açılıyor, personel:", person);
+      
+      // Veritabanından kullanıcı bilgilerini kontrol et
+      if (person.id) {
+        const userRef = ref(database, `users/${person.id}`);
+        const userSnapshot = await get(userRef);
+        
+        if (userSnapshot.exists()) {
+          const userData = userSnapshot.val();
+          console.log("Kullanıcı verileri:", userData);
+          
+          // Users veritabanında branchesId var mı kontrol et
+          if (userData.branchesId && !person.branchesId) {
+            console.log("Kullanıcı veritabanında branchesId bulundu:", userData.branchesId);
+            person.branchesId = userData.branchesId;
+          }
+        }
+      }
+      
+      setSelectedPersonnel(person);
+      setModalOpen(true);
+      setConfirmDelete(false); // Reset delete confirmation state
+      
+      if (person.id) {
         setLoadingTasks(true);
         // Personele ait görevleri yükle
         await loadPersonnelTasks(person.id);
-      } catch (error) {
-        console.error('Personel bilgileri yüklenirken hata:', error);
-      } finally {
-        setLoadingTasks(false);
       }
+    } catch (error) {
+      console.error('Personel bilgileri yüklenirken hata:', error);
+    } finally {
+      setLoadingTasks(false);
     }
   };
 

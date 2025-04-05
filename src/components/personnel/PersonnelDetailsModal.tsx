@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -13,6 +13,12 @@ import {
   Modal,
   IconButton,
   Paper,
+  Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
 } from '@mui/material';
 import {
   Person as PersonIcon,
@@ -20,7 +26,13 @@ import {
   PhoneAndroid as PhoneIcon,
   Close as CloseIcon,
   Delete as DeleteIcon,
+  Business as BusinessIcon,
+  DeleteForever as DeleteForeverIcon,
+  Warning as WarningIcon,
 } from '@mui/icons-material';
+import PersonnelBranchTransferModal from './PersonnelBranchTransferModal';
+import { ref, get, update } from 'firebase/database';
+import { database } from '../../firebase';
 
 // Modal için styled component
 const StyledModal = styled(Modal)(({ theme }) => ({
@@ -110,6 +122,146 @@ const PersonnelDetailsModal: React.FC<PersonnelDetailsModalProps> = ({
   onCancelDelete,
   onDeletePersonnel
 }) => {
+  const [branchTransferModalOpen, setBranchTransferModalOpen] = useState(false);
+  const [branchName, setBranchName] = useState<string>('');
+  const [loadingBranch, setLoadingBranch] = useState(false);
+  const [confirmRemoveDialogOpen, setConfirmRemoveDialogOpen] = useState(false);
+  const [removingFromBranch, setRemovingFromBranch] = useState(false);
+  const [branchRemoveSuccess, setBranchRemoveSuccess] = useState<string | null>(null);
+  const [branchRemoveError, setBranchRemoveError] = useState<string | null>(null);
+
+  const handleOpenBranchTransferModal = () => {
+    setBranchTransferModalOpen(true);
+  };
+
+  const handleCloseBranchTransferModal = () => {
+    setBranchTransferModalOpen(false);
+    // Modal kapandığında şube adını tekrar yükle (şube değişmiş olabilir)
+    if (selectedPersonnel?.branchesId) {
+      loadBranchName(selectedPersonnel.branchesId);
+    }
+  };
+
+  // Silme onay diyaloğunu aç
+  const handleOpenRemoveDialog = () => {
+    setConfirmRemoveDialogOpen(true);
+  };
+
+  // Silme onay diyaloğunu kapat
+  const handleCloseRemoveDialog = () => {
+    setConfirmRemoveDialogOpen(false);
+  };
+
+  // Şube atamasını kaldırma işlemi
+  const handleRemoveBranchAssignment = async () => {
+    if (!selectedPersonnel || !selectedPersonnel.id || !selectedPersonnel.companyId) return;
+    
+    setRemovingFromBranch(true);
+    setBranchRemoveError(null);
+    setBranchRemoveSuccess(null);
+    setConfirmRemoveDialogOpen(false);
+    
+    try {
+      // Personel verisini güncelle
+      const personnelRef = ref(database, `companies/${selectedPersonnel.companyId}/personnel/${selectedPersonnel.id}`);
+      await update(personnelRef, {
+        branchesId: null
+      });
+      
+      // Kullanıcı verisini güncelle
+      const userRef = ref(database, `users/${selectedPersonnel.id}`);
+      await update(userRef, {
+        branchesId: null
+      });
+      
+      // State'i güncelle
+      setBranchRemoveSuccess(`Personelin "${branchName}" şubesinden ataması kaldırıldı`);
+      
+      // Personel nesnesini güncelle
+      selectedPersonnel.branchesId = null;
+      
+      // Şube adını temizle
+      setBranchName('');
+      
+      // 2 saniye sonra başarı mesajını temizle
+      setTimeout(() => {
+        setBranchRemoveSuccess(null);
+      }, 3000);
+    } catch (error) {
+      console.error('Şube ataması kaldırma hatası:', error);
+      setBranchRemoveError('Şube ataması kaldırılırken bir hata oluştu');
+    } finally {
+      setRemovingFromBranch(false);
+    }
+  };
+
+  // Şube adını yükle
+  useEffect(() => {
+    console.log("PersonnelDetailsModal - selectedPersonnel:", selectedPersonnel);
+    if (selectedPersonnel?.branchesId) {
+      console.log("PersonnelDetailsModal - branchesId bulundu:", selectedPersonnel.branchesId);
+      loadBranchName(selectedPersonnel.branchesId);
+    } else {
+      setBranchName('');
+    }
+  }, [selectedPersonnel]);
+
+  // Modal açılınca personel bilgilerini kontrol et
+  useEffect(() => {
+    const checkUserBranchId = async () => {
+      if (selectedPersonnel && selectedPersonnel.id && open) {
+        console.log("Kullanıcı bilgilerini kontrol ediyorum:", selectedPersonnel.id);
+        try {
+          // Kullanıcı veritabanından bilgileri kontrol et
+          const userRef = ref(database, `users/${selectedPersonnel.id}`);
+          const snapshot = await get(userRef);
+          
+          if (snapshot.exists()) {
+            const userData = snapshot.val();
+            console.log("Kullanıcı verileri:", userData);
+            
+            // Users veritabanında branchesId var mı kontrol et
+            if (userData.branchesId && !selectedPersonnel.branchesId) {
+              console.log("Users veritabanında branchesId bulundu:", userData.branchesId);
+              
+              // selectedPersonnel nesnesine branchesId ekle
+              selectedPersonnel.branchesId = userData.branchesId;
+              
+              // Şube adını yükle
+              loadBranchName(userData.branchesId);
+            }
+          }
+        } catch (error) {
+          console.error("Kullanıcı branch bilgisi kontrol hatası:", error);
+        }
+      }
+    };
+    
+    checkUserBranchId();
+  }, [open, selectedPersonnel]);
+
+  const loadBranchName = async (branchId: string) => {
+    if (!branchId || !selectedPersonnel?.companyId) return;
+    
+    setLoadingBranch(true);
+    try {
+      const branchRef = ref(database, `companies/${selectedPersonnel.companyId}/branches/${branchId}`);
+      const snapshot = await get(branchRef);
+      
+      if (snapshot.exists()) {
+        const branchData = snapshot.val();
+        setBranchName(branchData.name || 'Bilinmeyen Şube');
+      } else {
+        setBranchName('Şube bulunamadı');
+      }
+    } catch (error) {
+      console.error('Şube bilgisi yüklenirken hata:', error);
+      setBranchName('Şube bilgisi yüklenemedi');
+    } finally {
+      setLoadingBranch(false);
+    }
+  };
+
   return (
     <StyledModal
       open={open}
@@ -185,6 +337,81 @@ const PersonnelDetailsModal: React.FC<PersonnelDetailsModalProps> = ({
                 </Box>
               )}
             </ModalSection>
+            
+            {/* Şubeye Aktar Butonu */}
+            {!showDeleted && (
+              <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  startIcon={<BusinessIcon />}
+                  onClick={handleOpenBranchTransferModal}
+                  sx={{ borderRadius: 2 }}
+                >
+                  Şubeye Aktar
+                </Button>
+              </Box>
+            )}
+            
+            {/* Başarı veya Hata Mesajları */}
+            {branchRemoveSuccess && (
+              <Alert severity="success" sx={{ mb: 3 }}>
+                {branchRemoveSuccess}
+              </Alert>
+            )}
+
+            {branchRemoveError && (
+              <Alert severity="error" sx={{ mb: 3 }}>
+                {branchRemoveError}
+              </Alert>
+            )}
+            
+            {/* Şube Bilgisi ve Şubeden Çıkar Butonu */}
+            {!showDeleted && selectedPersonnel.branchesId && (
+              <ModalSection>
+                <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 2 }}>
+                  Şube Bilgisi
+                </Typography>
+                
+                {loadingBranch ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', my: 2 }}>
+                    <CircularProgress size={24} />
+                  </Box>
+                ) : (
+                  <Box sx={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center',
+                    p: 2,
+                    bgcolor: 'background.paper',
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    borderRadius: 1
+                  }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <BusinessIcon sx={{ mr: 1, color: 'primary.main' }} />
+                      <Typography variant="body1" fontWeight="medium">
+                        {branchName}
+                      </Typography>
+                    </Box>
+                    <Button
+                      variant="outlined"
+                      color="error"
+                      size="small"
+                      startIcon={<DeleteForeverIcon />}
+                      onClick={handleOpenRemoveDialog}
+                      disabled={removingFromBranch}
+                    >
+                      {removingFromBranch ? (
+                        <CircularProgress size={16} color="error" />
+                      ) : (
+                        'Şubeden Çıkar'
+                      )}
+                    </Button>
+                  </Box>
+                )}
+              </ModalSection>
+            )}
             
             {/* Görev Bilgileri */}
             <ModalSection>
@@ -276,6 +503,39 @@ const PersonnelDetailsModal: React.FC<PersonnelDetailsModalProps> = ({
                 </Box>
               )}
             </Box>
+            
+            {/* Şubeye Aktar Modalı */}
+            <PersonnelBranchTransferModal
+              open={branchTransferModalOpen}
+              onClose={handleCloseBranchTransferModal}
+              personnelId={selectedPersonnel.id}
+              personnelName={selectedPersonnel.name}
+              currentBranchId={selectedPersonnel.branchesId}
+            />
+
+            {/* Şube atamasını kaldırma onay diyaloğu */}
+            <Dialog
+              open={confirmRemoveDialogOpen}
+              onClose={handleCloseRemoveDialog}
+            >
+              <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <WarningIcon color="warning" />
+                Şube atamasını kaldır
+              </DialogTitle>
+              <DialogContent>
+                <DialogContentText>
+                  <strong>{selectedPersonnel.name}</strong> adlı personelin <strong>{branchName}</strong> şubesindeki atamasını kaldırmak istediğinize emin misiniz?
+                </DialogContentText>
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={handleCloseRemoveDialog} color="inherit">
+                  İptal
+                </Button>
+                <Button onClick={handleRemoveBranchAssignment} color="error" variant="contained" autoFocus>
+                  Şubeden Çıkar
+                </Button>
+              </DialogActions>
+            </Dialog>
           </>
         )}
       </ModalContent>
