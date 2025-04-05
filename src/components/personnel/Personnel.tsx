@@ -36,12 +36,7 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Snackbar,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  FormHelperText
+  Snackbar
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -59,8 +54,7 @@ import {
   ViewModule as ViewModuleIcon,
   ViewList as ViewListIcon,
   Info as InfoIcon,
-  Download as DownloadIcon,
-  Business as BusinessIcon
+  Download as DownloadIcon
 } from '@mui/icons-material';
 import { ref, get, onValue, off, remove, update, set, push } from 'firebase/database';
 import { database, auth } from '../../firebase';
@@ -70,7 +64,6 @@ import QrCode2Icon from '@mui/icons-material/QrCode2';
 import MuiAlert, { AlertProps } from '@mui/material/Alert';
 import { useNavigate } from 'react-router-dom';
 import { utils, writeFile } from 'xlsx';
-import { Autocomplete } from '@mui/material';
 
 // Kaydırılabilir ana içerik için styled component
 const ScrollableContent = styled(Box)(({ theme }) => ({
@@ -216,7 +209,12 @@ const PersonnelTable: React.FC<{
         </TableHead>
         <TableBody>
           {personnel.map((person) => (
-            <TableRow key={person.id} hover>
+            <TableRow 
+              key={person.id} 
+              hover
+              onClick={() => onViewDetails(person.id)}
+              sx={{ cursor: 'pointer' }}
+            >
               <TableCell>
                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
                   <Avatar 
@@ -259,7 +257,7 @@ const PersonnelTable: React.FC<{
                   />
                 </TableCell>
               )}
-              <TableCell align="right">
+              <TableCell align="right" onClick={(e) => e.stopPropagation()}>
                 {showDeleted ? (
                   <Tooltip title="İşe Geri Al">
                     <IconButton 
@@ -278,7 +276,10 @@ const PersonnelTable: React.FC<{
                     <Tooltip title="Detaylar">
                       <IconButton 
                         size="small" 
-                        onClick={() => onViewDetails(person.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onViewDetails(person.id);
+                        }}
                         sx={{ color: 'primary.main', p: 0.5 }}
                       >
                         <PersonIcon fontSize="small" />
@@ -287,7 +288,10 @@ const PersonnelTable: React.FC<{
                     <Tooltip title="Mesaj Gönder">
                       <IconButton 
                         size="small" 
-                        onClick={() => onSendMessage(person.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSendMessage(person.id);
+                        }}
                         sx={{ color: 'success.main', p: 0.5, ml: 0.5 }}
                       >
                         <EmailIcon fontSize="small" />
@@ -533,15 +537,6 @@ const Personnel: React.FC = () => {
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [infoModalOpen, setInfoModalOpen] = useState(false);
   
-  // Şube ataması için state
-  const [branches, setBranches] = useState<any[]>([]);
-  const [loadingBranches, setLoadingBranches] = useState(false);
-  const [selectedBranch, setSelectedBranch] = useState<any | null>(null);
-  const [branchConfirmOpen, setBranchConfirmOpen] = useState(false);
-  const [assigningBranch, setAssigningBranch] = useState(false);
-  const [deleteBranchConfirm, setDeleteBranchConfirm] = useState(false);
-  const [removingBranch, setRemovingBranch] = useState(false);
-  
   const navigate = useNavigate();
 
   // Görünüm modunu localStorage'dan yükle
@@ -675,24 +670,6 @@ const Personnel: React.FC = () => {
         setLoadingTasks(true);
         // Personele ait görevleri yükle
         await loadPersonnelTasks(person.id);
-        
-        // Eğer personel bir şubeye atanmışsa şube bilgisini al
-        if (person.branchesId && companyId) {
-          const branchSnapshot = await get(ref(database, `companies/${companyId}/branches/${person.branchesId}`));
-          if (branchSnapshot.exists()) {
-            const branchData = branchSnapshot.val();
-            // Personel nesnesini güncelle, şube adını ekle
-            setSelectedPersonnel((prev: any) => ({
-              ...prev,
-              branchName: branchData.basicInfo?.name || 'Bilinmeyen Şube'
-            }));
-          }
-        }
-        
-        // Tüm şubeleri yükle (eğer personel şubeye atanmamışsa kullanılacak)
-        if (!showDeleted) {
-          await loadBranches();
-        }
       } catch (error) {
         console.error('Personel bilgileri yüklenirken hata:', error);
       } finally {
@@ -729,133 +706,6 @@ const Personnel: React.FC = () => {
       setPersonnelTasks([]);
     } finally {
       setLoadingTasks(false);
-    }
-  };
-
-  // Şubeleri yükleme fonksiyonu
-  const loadBranches = async () => {
-    if (!companyId) return;
-    
-    setLoadingBranches(true);
-    try {
-      // Şubelerin yolunu kontrol et
-      console.log(`Veri yolu: companies/${companyId}/branches`);
-      
-      const branchesRef = ref(database, `companies/${companyId}/branches`);
-      const snapshot = await get(branchesRef);
-      
-      if (snapshot.exists()) {
-        const branchesData = snapshot.val();
-        console.log("Ham şube verileri:", branchesData);
-        
-        // Şubeleri dönüştür - Branches.tsx dosyasına benzer şekilde
-        const branchesList = Object.entries(branchesData).map(([id, data]: [string, any]) => ({
-          id,
-          ...data,
-          basicInfo: data.basicInfo || {},
-          locationInfo: data.locationInfo || {},
-          contactInfo: data.contactInfo || {}
-        }));
-        
-        console.log("Dönüştürülmüş şube listesi:", branchesList);
-        
-        // Sadece geçerli şubeleri filtrele
-        const validBranches = branchesList.filter(branch => branch.basicInfo && branch.basicInfo.name);
-        console.log("Geçerli şubeler:", validBranches);
-        
-        setBranches(validBranches);
-      } else {
-        console.log("Şube bulunamadı");
-        setBranches([]);
-      }
-    } catch (error) {
-      console.error('Şubeler yüklenirken hata:', error);
-    } finally {
-      setLoadingBranches(false);
-    }
-  };
-  
-  // Personeli şubeye atama işlevi
-  const handleAssignToBranch = async () => {
-    if (!selectedPersonnel || !selectedBranch || !companyId) {
-      setBranchConfirmOpen(false);
-      return;
-    }
-    
-    setAssigningBranch(true);
-    try {
-      // 1. User tablosunda branchesId alanını güncelle
-      await update(ref(database, `users/${selectedPersonnel.id}`), {
-        branchesId: selectedBranch.id
-      });
-      
-      // 2. Şirket personel tablosunda branchesId alanını güncelle
-      await update(ref(database, `companies/${companyId}/personnel/${selectedPersonnel.id}`), {
-        branchesId: selectedBranch.id
-      });
-      
-      // Başarı mesajı
-      setSnackbarMessage(`${selectedPersonnel.name} başarıyla ${selectedBranch.basicInfo.name} şubesine atandı.`);
-      setSnackbarSeverity('success');
-      setSnackbarOpen(true);
-      
-      // Personel nesnesini güncelle
-      setSelectedPersonnel({
-        ...selectedPersonnel,
-        branchesId: selectedBranch.id,
-        branchName: selectedBranch.basicInfo.name
-      });
-      
-      // Modal durumunu sıfırla
-      setBranchConfirmOpen(false);
-      setSelectedBranch(null);
-    } catch (error) {
-      console.error('Şube ataması sırasında hata:', error);
-      setSnackbarMessage('Şube ataması sırasında bir hata oluştu.');
-      setSnackbarSeverity('error');
-      setSnackbarOpen(true);
-    } finally {
-      setAssigningBranch(false);
-    }
-  };
-  
-  // Personelin şube atamasını kaldırma işlevi
-  const handleRemoveBranchAssignment = async () => {
-    if (!selectedPersonnel || !companyId) return;
-    
-    setRemovingBranch(true);
-    try {
-      // 1. User tablosunda branchesId alanını null yap
-      await update(ref(database, `users/${selectedPersonnel.id}`), {
-        branchesId: null
-      });
-      
-      // 2. Şirket personel tablosunda branchesId alanını null yap
-      await update(ref(database, `companies/${companyId}/personnel/${selectedPersonnel.id}`), {
-        branchesId: null
-      });
-      
-      // Başarı mesajı
-      setSnackbarMessage(`${selectedPersonnel.name} şube ataması başarıyla kaldırıldı.`);
-      setSnackbarSeverity('success');
-      setSnackbarOpen(true);
-      
-      // Personel nesnesini güncelle
-      setSelectedPersonnel({
-        ...selectedPersonnel,
-        branchesId: null,
-        branchName: null
-      });
-      
-      // Onay durumunu sıfırla
-      setDeleteBranchConfirm(false);
-    } catch (error) {
-      console.error('Şube ataması kaldırılırken hata:', error);
-      setSnackbarMessage('Şube ataması kaldırılırken bir hata oluştu.');
-      setSnackbarSeverity('error');
-      setSnackbarOpen(true);
-    } finally {
-      setRemovingBranch(false);
     }
   };
 
@@ -1625,160 +1475,6 @@ const Personnel: React.FC = () => {
                       </CardContent>
                     </Card>
                   ))
-                )}
-              </ModalSection>
-              
-              {/* Şube Ata/Transfer Bölümü */}
-              <ModalSection>
-                <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 2 }}>
-                  Şube Ataması
-                </Typography>
-                
-                {!showDeleted && (
-                  <>
-                    {selectedPersonnel.branchesId ? (
-                      <Box sx={{ mb: 2 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                            <BusinessIcon sx={{ mr: 1, color: 'primary.main' }} />
-                            <Typography variant="body1" fontWeight="medium">
-                              {selectedPersonnel.branchName || 'Belirtilmemiş Şube'}
-                            </Typography>
-                          </Box>
-                          <Button
-                            variant="outlined"
-                            color="error"
-                            size="small"
-                            startIcon={<DeleteIcon />}
-                            onClick={() => setDeleteBranchConfirm(true)}
-                          >
-                            Kaldır
-                          </Button>
-                        </Box>
-                        
-                        {deleteBranchConfirm && (
-                          <Box sx={{ mt: 2, p: 2, bgcolor: 'error.light', borderRadius: 1 }}>
-                            <Typography variant="body2" color="error.contrastText" paragraph>
-                              Bu personeli şubeden kaldırmak istediğinize emin misiniz?
-                            </Typography>
-                            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-                              <Button
-                                variant="outlined"
-                                size="small"
-                                onClick={() => setDeleteBranchConfirm(false)}
-                                sx={{ color: 'error.contrastText', borderColor: 'error.contrastText' }}
-                              >
-                                İptal
-                              </Button>
-                              <Button
-                                variant="contained"
-                                size="small"
-                                color="error"
-                                onClick={handleRemoveBranchAssignment}
-                                disabled={removingBranch}
-                                startIcon={removingBranch ? <CircularProgress size={16} /> : null}
-                              >
-                                {removingBranch ? 'İşleniyor...' : 'Evet, Kaldır'}
-                              </Button>
-                            </Box>
-                          </Box>
-                        )}
-                      </Box>
-                    ) : (
-                      <Box sx={{ mb: 2 }}>
-                        <Typography variant="body2" color="text.secondary" paragraph>
-                          Bu personeli bir şubeye atamak için aşağıdaki alanı kullanın.
-                        </Typography>
-                        
-                        <FormControl fullWidth>
-                          <InputLabel id="branch-select-label">Şube Seç</InputLabel>
-                          <Select
-                            labelId="branch-select-label"
-                            id="branch-select"
-                            value={selectedBranch ? selectedBranch.id : ''}
-                            label="Şube Seç"
-                            onChange={(e) => {
-                              const branchId = e.target.value;
-                              const branch = branches.find(b => b.id === branchId);
-                              setSelectedBranch(branch || null);
-                            }}
-                            startAdornment={
-                              <InputAdornment position="start">
-                                <BusinessIcon color="action" />
-                              </InputAdornment>
-                            }
-                            endAdornment={
-                              loadingBranches ? (
-                                <InputAdornment position="end">
-                                  <CircularProgress size={20} />
-                                </InputAdornment>
-                              ) : undefined
-                            }
-                          >
-                            {branches.length === 0 && !loadingBranches ? (
-                              <MenuItem disabled value="">
-                                <em>Şube bulunamadı</em>
-                              </MenuItem>
-                            ) : (
-                              branches.map(branch => (
-                                <MenuItem key={branch.id} value={branch.id}>
-                                  {branch.basicInfo?.name || 'İsimsiz Şube'}
-                                  {branch.locationInfo?.city && (
-                                    <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
-                                      ({branch.locationInfo.city})
-                                    </Typography>
-                                  )}
-                                </MenuItem>
-                              ))
-                            )}
-                          </Select>
-                          <FormHelperText>
-                            {loadingBranches ? 'Şubeler yükleniyor...' : 
-                             branches.length > 0 ? `${branches.length} şube bulundu` : 
-                             'Şube bulunamadı. Önce şube ekleyin.'}
-                          </FormHelperText>
-                        </FormControl>
-                        
-                        <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
-                          <Button
-                            variant="contained"
-                            color="primary"
-                            disabled={!selectedBranch || assigningBranch}
-                            onClick={() => setBranchConfirmOpen(true)}
-                            startIcon={assigningBranch ? <CircularProgress size={20} /> : null}
-                          >
-                            {assigningBranch ? 'İşleniyor...' : 'Şubeye Ata'}
-                          </Button>
-                        </Box>
-                        
-                        <Dialog
-                          open={branchConfirmOpen}
-                          onClose={() => setBranchConfirmOpen(false)}
-                        >
-                          <DialogTitle>Şube Ataması Onayı</DialogTitle>
-                          <DialogContent>
-                            <Typography variant="body1" paragraph>
-                              <b>{selectedPersonnel.name}</b> adlı personeli <b>{selectedBranch?.basicInfo?.name}</b> şubesine atamak istediğinize emin misiniz?
-                            </Typography>
-                          </DialogContent>
-                          <DialogActions>
-                            <Button onClick={() => setBranchConfirmOpen(false)} disabled={assigningBranch}>
-                              İptal
-                            </Button>
-                            <Button
-                              variant="contained"
-                              color="primary"
-                              onClick={handleAssignToBranch}
-                              disabled={assigningBranch}
-                              startIcon={assigningBranch ? <CircularProgress size={16} /> : null}
-                            >
-                              {assigningBranch ? 'İşleniyor...' : 'Evet, Ata'}
-                            </Button>
-                          </DialogActions>
-                        </Dialog>
-                      </Box>
-                    )}
-                  </>
                 )}
               </ModalSection>
               
