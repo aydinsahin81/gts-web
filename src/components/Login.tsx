@@ -152,9 +152,16 @@ const Login: React.FC = () => {
       const userData = userSnapshot.val();
       const role = userData.role || 'employee';
       
-      // Kullanıcı rolünü kontrol et
-      if (role !== 'admin') {
-        console.log('Personel girişi tespit edildi. Sadece yöneticiler web uygulamasına erişebilir.');
+      // Kullanıcı rolü kontrolü ve yönlendirme
+      if (role === 'admin') {
+        // Admin kullanıcısını dashboard'a yönlendir
+        navigate('/dashboard');
+      } else if (role === 'manager') {
+        // Manager kullanıcısını manager sayfasına yönlendir
+        navigate('/manager');
+      } else {
+        // Diğer roller (employee vb) için modalı göster ve çıkış yap
+        console.log('Personel girişi tespit edildi. Sadece yöneticiler ve şube yöneticileri web uygulamasına erişebilir.');
         
         // Personel girişi ise oturumu kapat
         await auth.signOut();
@@ -162,11 +169,7 @@ const Login: React.FC = () => {
         // Personel modalını göster
         setShowEmployeeModal(true);
         setLoading(false);
-        return;
       }
-      
-      // Admin girişi ise admin dashboard'a yönlendir
-      navigate('/dashboard');
     } catch (err: any) {
       console.error('Giriş hatası:', err);
       
@@ -196,7 +199,6 @@ const Login: React.FC = () => {
       }
       
       setError(errorMessage);
-    } finally {
       setLoading(false);
     }
   };
@@ -347,4 +349,4 @@ const Login: React.FC = () => {
   );
 };
 
-export default Login; 
+export default Login;

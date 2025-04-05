@@ -20,6 +20,7 @@ import PublicSurvey from './pages/PublicSurvey';
 import ShiftsPage from './pages/Shifts';
 import BranchesPage from './pages/Branches';
 import CustomerScreenPage from './pages/CustomerScreen';
+import ManagerPage from './pages/ManagerDashboard';
 
 // Henüz oluşturulmamış diğer sayfalar için geçici bileşenler
 // const Reports = () => <div>Raporlar Sayfası</div>;
@@ -69,15 +70,54 @@ const theme = createTheme({
 
 // Özel PrivateRoute bileşeni
 const PrivateRoute = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, loading } = useAuth();
   const location = useLocation();
-
-  // Kullanıcı girişi yoksa Login sayfasına yönlendir
+  
+  // Auth durumu yüklenirken loading göster
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+  
+  // Giriş yapılmamışsa login sayfasına yönlendir
   if (!currentUser) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
+  
+  // Giriş yapılmışsa ilgili route'a erişim sağla
+  return <Outlet />;
+};
 
-  // Kullanıcı girişi varsa alt route'ları render et
+// Rol bazlı Route bileşeni
+const RoleRoute = ({ requiredRole }: { requiredRole: string }) => {
+  const { userDetails, loading } = useAuth();
+  const location = useLocation();
+  
+  // Auth durumu yüklenirken loading göster
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+  
+  // Rolü kontrol et
+  if (userDetails?.role !== requiredRole) {
+    // role == 'manager' ise manager sayfasına, role == 'admin' ise dashboard'a yönlendir
+    if (userDetails?.role === 'manager') {
+      return <Navigate to="/manager" replace />;
+    } else if (userDetails?.role === 'admin') {
+      return <Navigate to="/dashboard" replace />;
+    }
+    // Employee veya diğer roller için login'e yönlendir
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+  
+  // Rol doğruysa içeriği göster
   return <Outlet />;
 };
 
@@ -94,19 +134,26 @@ const App: React.FC = () => {
             {/* Public Routes */}
             <Route path="/surveys/:taskId" element={<PublicSurvey />} />
             
-            {/* Private Routes */}
+            {/* Admin Routes */}
             <Route element={<PrivateRoute />}>
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
-              <Route path="/dashboard" element={<MainLayout><Dashboard /></MainLayout>} />
-              <Route path="/tasks" element={<MainLayout><Tasks /></MainLayout>} />
-              <Route path="/personnel" element={<MainLayout><Personnel /></MainLayout>} />
-              <Route path="/shifts" element={<MainLayout><ShiftsPage /></MainLayout>} />
-              <Route path="/reports" element={<MainLayout><Reports /></MainLayout>} />
-              <Route path="/messages" element={<MainLayout><Messages /></MainLayout>} />
-              <Route path="/surveys" element={<MainLayout><Surveys /></MainLayout>} />
-              <Route path="/branches" element={<MainLayout><BranchesPage /></MainLayout>} />
-              <Route path="/customer-screen" element={<MainLayout><CustomerScreenPage /></MainLayout>} />
-              <Route path="/profile" element={<MainLayout><Profile /></MainLayout>} />
+              <Route element={<RoleRoute requiredRole="admin" />}>
+                <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                <Route path="/dashboard" element={<MainLayout><Dashboard /></MainLayout>} />
+                <Route path="/tasks" element={<MainLayout><Tasks /></MainLayout>} />
+                <Route path="/personnel" element={<MainLayout><Personnel /></MainLayout>} />
+                <Route path="/shifts" element={<MainLayout><ShiftsPage /></MainLayout>} />
+                <Route path="/reports" element={<MainLayout><Reports /></MainLayout>} />
+                <Route path="/messages" element={<MainLayout><Messages /></MainLayout>} />
+                <Route path="/surveys" element={<MainLayout><Surveys /></MainLayout>} />
+                <Route path="/branches" element={<MainLayout><BranchesPage /></MainLayout>} />
+                <Route path="/customer-screen" element={<MainLayout><CustomerScreenPage /></MainLayout>} />
+                <Route path="/profile" element={<MainLayout><Profile /></MainLayout>} />
+              </Route>
+              
+              {/* Manager Routes */}
+              <Route element={<RoleRoute requiredRole="manager" />}>
+                <Route path="/manager" element={<ManagerPage />} />
+              </Route>
             </Route>
             
             {/* Fallback Route */}

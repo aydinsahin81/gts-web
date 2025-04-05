@@ -19,6 +19,7 @@ export interface UserDetails {
   companyName: string;
   role: string;
   createdAt: number;
+  branchesId?: string;
 }
 
 // Firebase User tipini genişlet
