@@ -1,0 +1,20 @@
+import React from 'react';
+import { Box, Typography, Paper } from '@mui/material';
+
+const ManagerTasksTab: React.FC = () => {
+  return (
+    <Box sx={{ mt: 2 }}>
+      <Typography variant="h5" component="h2" gutterBottom>
+        Görevler
+      </Typography>
+      
+      <Paper elevation={1} sx={{ p: 3 }}>
+        <Typography variant="body1" color="text.secondary">
+          Görevler modülü henüz geliştirme aşamasındadır.
+        </Typography>
+      </Paper>
+    </Box>
+  );
+};
+
+export default ManagerTasksTab; 

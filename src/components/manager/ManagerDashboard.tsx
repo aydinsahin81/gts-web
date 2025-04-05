@@ -19,6 +19,7 @@ import { ref, get } from 'firebase/database';
 import { database } from '../../firebase';
 import { useNavigate } from 'react-router-dom';
 import NotificationMenu from '../notifications/NotificationMenu';
+import ManagerTabs from './ManagerTabs';
 
 const StyledAppBar = styled(AppBar)(({ theme }) => ({
   backgroundColor: 'white',
@@ -208,7 +209,7 @@ const ManagerDashboard: React.FC = () => {
         </Toolbar>
       </StyledAppBar>
       
-      {/* Header'dan sonraki içerik alanı - şu an boş */}
+      {/* Header'dan sonraki içerik alanı */}
       <Box 
         component="main" 
         sx={{ 
@@ -227,7 +228,8 @@ const ManagerDashboard: React.FC = () => {
             flexDirection: 'column'
           }}
         >
-          {/* Burada manager dashboard içeriği gelecek - şu an boş */}
+          {/* Manager Tabs bileşenini burada göster */}
+          <ManagerTabs />
         </Paper>
       </Box>
     </>
