@@ -51,7 +51,8 @@ import {
   PersonAdd as PersonAddIcon,
   Search as SearchIcon,
   Group as GroupIcon,
-  Delete as DeleteIcon
+  Delete as DeleteIcon,
+  Security as SecurityIcon
 } from '@mui/icons-material';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
@@ -60,6 +61,7 @@ import { ref, set, push, get, onValue, off, update, remove } from 'firebase/data
 import { database, auth } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import BranchQRModal from './BranchQRModal';
+import ManagerPermissionsModal from './ManagerPermissionsModal';
 
 // Kaydırılabilir ana içerik için styled component
 const ScrollableContent = styled(Box)(({ theme }) => ({
@@ -151,6 +153,9 @@ const Branches: React.FC = () => {
   const [loadingManagers, setLoadingManagers] = useState(false);
   const [deletingManagerId, setDeletingManagerId] = useState<string | null>(null);
   const [confirmDeleteModal, setConfirmDeleteModal] = useState(false);
+
+  // Yönetici izinleri modalı için state
+  const [permissionsModalOpen, setPermissionsModalOpen] = useState(false);
 
   // Form state değişkenleri
   const [branchForm, setBranchForm] = useState<{
@@ -440,6 +445,16 @@ const Branches: React.FC = () => {
     setManagersModalOpen(false);
     setBranchManagers([]);
   };
+
+  // Yönetici izinleri modalını açma işlevi
+  const handleOpenPermissionsModal = (branch: {id: string, name: string}) => {
+    setSelectedBranch(branch);
+    setPermissionsModalOpen(true);
+  };
+
+  const handleClosePermissionsModal = () => {
+    setPermissionsModalOpen(false);
+  };
   
   // Şube yöneticilerini getirme
   const fetchBranchManagers = async (branchId: string) => {
@@ -722,9 +737,15 @@ const Branches: React.FC = () => {
                                 <PersonAddIcon />
                               </IconButton>
                             </Tooltip>
-                            <IconButton aria-label="düzenle">
-                              <BusinessIcon />
-                            </IconButton>
+                            <Tooltip title="Yönetici İzinleri">
+                              <IconButton 
+                                aria-label="Yönetici İzinleri" 
+                                color="info"
+                                onClick={() => handleOpenPermissionsModal({id: branch.id, name: branch.name})}
+                              >
+                                <SecurityIcon />
+                              </IconButton>
+                            </Tooltip>
                           </Box>
                         }
                       />
@@ -1298,6 +1319,17 @@ const Branches: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+      
+      {/* Yönetici İzinleri Modal */}
+      {selectedBranch && companyId && (
+        <ManagerPermissionsModal
+          open={permissionsModalOpen}
+          onClose={handleClosePermissionsModal}
+          branchId={selectedBranch.id}
+          branchName={selectedBranch.name}
+          companyId={companyId}
+        />
+      )}
       
       {/* Bildirim Snackbar */}
       <Snackbar
