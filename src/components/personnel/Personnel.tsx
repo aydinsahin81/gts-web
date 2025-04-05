@@ -1284,33 +1284,48 @@ const Personnel: React.FC<PersonnelProps> = ({ branchId, isManager = false }) =>
           >
             <InfoIcon fontSize="small" />
           </IconButton>
-          <Button
-            variant="contained"
-            color="success"
-            startIcon={<QrCode2Icon />}
-            onClick={handleOpenCompanyQRModal}
-          >
-            Şirket QR
-          </Button>
-          <Button
-            variant="contained"
-            color="info"
-            startIcon={<DownloadIcon />}
-            onClick={handleDownloadExcel}
-            disabled={personnel.length === 0}
-          >
-            Excel İndir
-          </Button>
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<AddIcon />}
-            sx={{ borderRadius: 2 }}
-            onClick={handleOpenAddModal}
-            disabled={showDeleted}
-          >
-            Yeni Personel Ekle
-          </Button>
+          {!isManager && (
+            <>
+              <Button
+                variant="contained"
+                color="success"
+                startIcon={<QrCode2Icon />}
+                onClick={handleOpenCompanyQRModal}
+              >
+                Şirket QR
+              </Button>
+              <Button
+                variant="contained"
+                color="info"
+                startIcon={<DownloadIcon />}
+                onClick={handleDownloadExcel}
+                disabled={personnel.length === 0}
+              >
+                Excel İndir
+              </Button>
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<AddIcon />}
+                sx={{ borderRadius: 2 }}
+                onClick={handleOpenAddModal}
+                disabled={showDeleted}
+              >
+                Yeni Personel Ekle
+              </Button>
+            </>
+          )}
+          {isManager && (
+            <Button
+              variant="contained"
+              color="info"
+              startIcon={<DownloadIcon />}
+              onClick={handleDownloadExcel}
+              disabled={personnel.length === 0}
+            >
+              Excel İndir
+            </Button>
+          )}
         </Box>
       </HeaderContainer>
 
@@ -1483,6 +1498,7 @@ const Personnel: React.FC<PersonnelProps> = ({ branchId, isManager = false }) =>
         onDeleteConfirm={handleDeleteConfirm}
         onCancelDelete={() => setConfirmDelete(false)}
         onDeletePersonnel={handleDeletePersonnel}
+        isManager={isManager}
       />
       
       {/* Personel Ekleme Modalı */}

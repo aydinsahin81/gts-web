@@ -108,6 +108,7 @@ interface PersonnelDetailsModalProps {
   onDeleteConfirm: () => void;
   onCancelDelete: () => void;
   onDeletePersonnel: () => void;
+  isManager?: boolean;
 }
 
 const PersonnelDetailsModal: React.FC<PersonnelDetailsModalProps> = ({
@@ -120,7 +121,8 @@ const PersonnelDetailsModal: React.FC<PersonnelDetailsModalProps> = ({
   confirmDelete,
   onDeleteConfirm,
   onCancelDelete,
-  onDeletePersonnel
+  onDeletePersonnel,
+  isManager = false
 }) => {
   const [branchTransferModalOpen, setBranchTransferModalOpen] = useState(false);
   const [branchName, setBranchName] = useState<string>('');
@@ -372,7 +374,7 @@ const PersonnelDetailsModal: React.FC<PersonnelDetailsModalProps> = ({
             </ModalSection>
             
             {/* Şubeye Aktar Butonu */}
-            {!showDeleted && (
+            {!showDeleted && !isManager && (
               <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
                 <Button
                   variant="contained"
@@ -400,7 +402,7 @@ const PersonnelDetailsModal: React.FC<PersonnelDetailsModalProps> = ({
             )}
             
             {/* Şube Bilgisi ve Şubeden Çıkar Butonu */}
-            {!showDeleted && selectedPersonnel.branchesId && (
+            {!showDeleted && selectedPersonnel.branchesId && !isManager && (
               <ModalSection>
                 <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 2 }}>
                   Şube Bilgisi
