@@ -19,7 +19,7 @@ import { ref, get } from 'firebase/database';
 import { database } from '../../firebase';
 import { useNavigate } from 'react-router-dom';
 import NotificationMenu from '../notifications/NotificationMenu';
-import ManagerTabs from './ManagerTabs';
+import ManagerWithSidebar from './ManagerWithSidebar';
 
 const StyledAppBar = styled(AppBar)(({ theme }) => ({
   backgroundColor: 'white',
@@ -216,20 +216,22 @@ const ManagerDashboard: React.FC = () => {
           flexGrow: 1, 
           p: 3, 
           mt: 8, // AppBar yüksekliğini hesaba katarak üst kenar boşluğu
+          overflow: 'hidden',
         }}
       >
         <Paper 
           elevation={0}
           sx={{ 
-            p: 3, 
+            p: 0, // İç padding'i kaldırıyoruz, çünkü ManagerWithSidebar kendi padding'ini içeriyor
             height: 'calc(100vh - 180px)', 
             borderRadius: 2,
             display: 'flex',
-            flexDirection: 'column'
+            flexDirection: 'column',
+            overflow: 'hidden'
           }}
         >
-          {/* Manager Tabs bileşenini burada göster */}
-          <ManagerTabs />
+          {/* ManagerWithSidebar bileşenini göster */}
+          <ManagerWithSidebar />
         </Paper>
       </Box>
     </>
