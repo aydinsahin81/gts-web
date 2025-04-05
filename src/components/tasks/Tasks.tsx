@@ -209,7 +209,10 @@ const TasksTable: React.FC<{
   // Şubeleri yükle
   useEffect(() => {
     const loadBranches = async () => {
-      if (!companyId) return;
+      if (!companyId) {
+        console.warn("TasksTable: Şube yüklenemiyor çünkü companyId değeri bulunamadı:", companyId);
+        return;
+      }
       
       try {
         console.log("TasksTable: Şubeleri yüklüyorum, companyId:", companyId);
@@ -226,6 +229,8 @@ const TasksTable: React.FC<{
           
           console.log("TasksTable: Şubeler yüklendi:", branchesMap);
           setBranches(branchesMap);
+        } else {
+          console.warn("TasksTable: Şubeler bulunamadı!");
         }
       } catch (error) {
         console.error('Şube verileri yüklenirken hata:', error);
@@ -238,8 +243,19 @@ const TasksTable: React.FC<{
   // Şube adını getir
   const getBranchName = (branchId: string | null) => {
     if (!branchId) return '-';
-    console.log("TasksTable: getBranchName çağrıldı, branchId:", branchId, "mevcut şubeler:", branches);
-    return branches[branchId] || '-';
+    
+    // branchId bir nesne mi kontrol et ve düzenle
+    if (typeof branchId === 'object' && branchId !== null) {
+      const keys = Object.keys(branchId);
+      if (keys.length > 0) {
+        const firstKey = keys[0];
+        console.log(`getBranchName: branchId bir nesne, ilk anahtar kullanılıyor: ${firstKey}`);
+        branchId = firstKey;
+      }
+    }
+    
+    // Artık branchId bir string olmalı, şube adını döndür
+    return branches[branchId as string] || '-';
   };
   
   return (
@@ -469,9 +485,13 @@ const Tasks: React.FC = () => {
   // Şubeleri yükle
   useEffect(() => {
     const loadBranches = async () => {
-      if (!companyId) return;
+      if (!companyId) {
+        console.warn("TasksTable: Şube yüklenemiyor çünkü companyId değeri bulunamadı:", companyId);
+        return;
+      }
       
       try {
+        console.log("TasksTable: Şubeleri yüklüyorum, companyId:", companyId);
         const branchesRef = ref(database, `companies/${companyId}/branches`);
         const branchesSnapshot = await get(branchesRef);
         
@@ -483,22 +503,35 @@ const Tasks: React.FC = () => {
             branchesMap[id] = data.name || 'İsimsiz Şube';
           });
           
+          console.log("TasksTable: Şubeler yüklendi:", branchesMap);
           setBranches(branchesMap);
+        } else {
+          console.warn("TasksTable: Şubeler bulunamadı!");
         }
       } catch (error) {
         console.error('Şube verileri yüklenirken hata:', error);
       }
     };
     
-    if (companyId) {
-      loadBranches();
-    }
+    loadBranches();
   }, [companyId]);
   
   // Şube adını getir
   const getBranchName = (branchId: string | null) => {
     if (!branchId) return '-';
-    return branches[branchId] || '-';
+    
+    // branchId bir nesne mi kontrol et ve düzenle
+    if (typeof branchId === 'object' && branchId !== null) {
+      const keys = Object.keys(branchId);
+      if (keys.length > 0) {
+        const firstKey = keys[0];
+        console.log(`getBranchName: branchId bir nesne, ilk anahtar kullanılıyor: ${firstKey}`);
+        branchId = firstKey;
+      }
+    }
+    
+    // Artık branchId bir string olmalı, şube adını döndür
+    return branches[branchId as string] || '-';
   };
 
   // Duruma göre renk döndüren yardımcı fonksiyon
@@ -634,6 +667,18 @@ const Tasks: React.FC = () => {
         const personnelId = data.personnelId || '';
         const personnelInfo = personnelData[personnelId] || {};
         
+        // branchesId değerini doğru şekilde al
+        let branchesId = data.branchesId || null;
+        
+        // branchesId bir nesne ise, ilk anahtarını al (format düzeltme)
+        if (typeof branchesId === 'object' && branchesId !== null) {
+          const keys = Object.keys(branchesId);
+          if (keys.length > 0) {
+            branchesId = keys[0];
+            console.log(`Task ${id} için branchesId nesneden string'e dönüştürüldü:`, branchesId);
+          }
+        }
+
         return {
           id,
           name: data.name || 'İsimsiz Görev',
@@ -649,7 +694,7 @@ const Tasks: React.FC = () => {
           repetitionTimes: data.repetitionTimes || [],
           completedAt: data.completedAt || null, // Tamamlanma tarihi
           groupId: data.groupId || null, // Görev grup ID'sini burada sakla
-          branchesId: data.branchesId || null, // Şube ID'sini ekle
+          branchesId: branchesId, // Şube ID'sini ekle
         };
       }) : [];
     
@@ -764,12 +809,30 @@ const Tasks: React.FC = () => {
     // Personel listesini hazırla
     const personnelList = personnelData ? Object.entries(personnelData)
       .filter(([_, data]: [string, any]) => !data.isDeleted) // Silinen personelleri filtrele
-      .map(([id, data]: [string, any]) => ({
-        id,
-        name: data.name || 'İsimsiz Personel',
-        hasTask: data.hasTask || false,
-      })) : [];
+      .map(([id, data]: [string, any]) => {
+        // branchesId değerini doğru şekilde al
+        let branchesId = data.branchesId || null;
+        
+        // branchesId bir nesne ise, ilk anahtarını al (format düzeltme)
+        if (typeof branchesId === 'object' && branchesId !== null) {
+          const keys = Object.keys(branchesId);
+          if (keys.length > 0) {
+            branchesId = keys[0];
+            console.log(`Personel ${id} için branchesId nesneden string'e dönüştürüldü:`, branchesId);
+          }
+        }
+        
+        return {
+          id,
+          name: data.name || 'İsimsiz Personel',
+          hasTask: data.hasTask || false,
+          branchesId: branchesId, // Şube ID'sini ekle
+          email: data.email || '',
+          phone: data.phone || '',
+        };
+      }) : [];
     
+    console.log("Personel listesi hazırlandı:", personnelList);
     setPersonnel(personnelList);
   };
 
@@ -818,11 +881,27 @@ const Tasks: React.FC = () => {
         // Görev gruplarını işle
         if (taskGroupsSnapshot.exists()) {
           const groupsData = taskGroupsSnapshot.val();
-          const groupsList = Object.entries(groupsData).map(([id, data]: [string, any]) => ({
-            id,
-            name: data.name || 'İsimsiz Grup',
-            createdAt: data.createdAt || '',
-          }));
+          const groupsList = Object.entries(groupsData).map(([id, data]: [string, any]) => {
+            // branchesId değerini doğru şekilde al
+            let branchesId = data.branchesId || null;
+            
+            // branchesId bir nesne ise, ilk anahtarını al (format düzeltme)
+            if (typeof branchesId === 'object' && branchesId !== null) {
+              const keys = Object.keys(branchesId);
+              if (keys.length > 0) {
+                branchesId = keys[0];
+                console.log(`Görev grubu ${id} için branchesId nesneden string'e dönüştürüldü:`, branchesId);
+              }
+            }
+            
+            return {
+              id,
+              name: data.name || 'İsimsiz Grup',
+              createdAt: data.createdAt || '',
+              branchesId: branchesId, // Şube ID'sini ekle
+            };
+          });
+          console.log("Görev grupları hazırlandı:", groupsList);
           setTaskGroups(groupsList);
         } else {
           setTaskGroups([]);

@@ -128,6 +128,31 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
     { day: 0, dayName: 'Pazar', selected: false, dailyRepetitions: 1, repetitionTimes: ['12:00'] },
   ]);
 
+  // Görev grupları için filtreleme state'i ekleyelim
+  const [filteredTaskGroups, setFilteredTaskGroups] = useState<any[]>([]);
+
+  // Şube adını getir - branchesId'den şube adını bulmak için yardımcı fonksiyon
+  const getBranchName = (branchId: string | null | object): string => {
+    if (!branchId) return '';
+    
+    // Eğer branchId bir object ise, ilk anahtarı al
+    let branchIdStr: string;
+    if (typeof branchId === 'object' && branchId !== null) {
+      const keys = Object.keys(branchId);
+      if (keys.length > 0) {
+        branchIdStr = keys[0];
+      } else {
+        return '';
+      }
+    } else {
+      branchIdStr = branchId as string;
+    }
+    
+    // branches dizisini kullanarak şube adını bul
+    const branch = branches.find(b => b.id === branchIdStr);
+    return branch ? branch.name : '';
+  };
+
   // Şubeleri yükle
   useEffect(() => {
     const loadBranches = async () => {
@@ -156,14 +181,26 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
     }
   }, [companyId, open]);
 
-  // Form açıldığında personel verilerini kontrol et ve filtrele
+  // Form açıldığında başlangıç değerlerini yükle
   useEffect(() => {
     if (open) {
       // Başlangıçta filtrelenmiş personel listesini tüm personel olarak ayarla
       setFilteredPersonnel(personnel);
       
-      // Personelin branchesId değerlerini kontrol et
-      const personnelWithBranchCount = personnel.filter(p => p.branchesId).length;
+      // Başlangıçta filtrelenmiş görev gruplarını tüm görev grupları olarak ayarla
+      setFilteredTaskGroups(taskGroups);
+      
+      // Personelin branchesId değerlerini kontrol et (farklı formatlardaki branchesId'leri hesaba kat)
+      const personnelWithBranchCount = personnel.filter(p => {
+        if (!p.branchesId) return false;
+        
+        if (typeof p.branchesId === 'object') {
+          return Object.keys(p.branchesId).length > 0;
+        }
+        
+        return true;
+      }).length;
+      
       console.log(`Modal açıldı, toplam personel: ${personnel.length}, şube bilgisi olan: ${personnelWithBranchCount}`);
       
       // Şube bilgisi olan personeli kontrol et
@@ -171,49 +208,115 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
         console.warn('Hiçbir personelin şube bilgisi (branchesId) bulunamadı!');
       }
     }
-  }, [open, personnel]);
+  }, [open, personnel, taskGroups]);
 
-  // Personel listesini şube değişimine göre filtrele
+  // Şube değiştiğinde hem personel hem de görev gruplarını filtrele
   useEffect(() => {
     if (!selectedBranch) {
-      // Şube seçili değilse tüm personeli göster
+      // Şube seçili değilse tüm personeli ve görev gruplarını göster
       setFilteredPersonnel(personnel);
+      setFilteredTaskGroups(taskGroups);
       return;
     }
     
-    // Branchesid formatını kontrol eden ve doğru karşılaştırma yapan bir filtre fonksiyonu
-    const filtered = personnel.filter(person => {
+    console.log("Şube ID:", selectedBranch.id);
+    console.log("Toplam personel sayısı:", personnel.length);
+    console.log("Personel detayları:", personnel);
+    console.log("Toplam görev grubu sayısı:", taskGroups.length);
+    console.log("Grup detayları:", taskGroups);
+    
+    // Personel filtreleme - Şube ID'sine göre personel filtreleme
+    const filteredPerson = personnel.filter(person => {
       // branchesId'nin farklı formatları için kontrol
       let personBranchId = person.branchesId;
+      
+      console.log(`Personel: ${person.name || person.id}, branchesId: ${JSON.stringify(personBranchId)}, tip: ${typeof personBranchId}`);
       
       // Eğer branchesId bir object ise, ilk anahtarı al
       if (typeof personBranchId === 'object' && personBranchId !== null) {
         const keys = Object.keys(personBranchId);
         if (keys.length > 0) {
           personBranchId = keys[0];
+          console.log(`  - Object branchesId için ilk anahtar: ${personBranchId}`);
         }
       }
       
+      // Null veya undefined kontrolü
+      if (!personBranchId) {
+        console.log(`  - branchesId yok, atlanıyor`);
+        return false;
+      }
+      
       // String karşılaştırması yaparak eşleşmeyi kontrol et
-      return String(personBranchId) === String(selectedBranch.id);
+      const isMatch = String(personBranchId) === String(selectedBranch.id);
+      console.log(`  - Karşılaştırma: "${personBranchId}" === "${selectedBranch.id}" = ${isMatch}`);
+      return isMatch;
     });
     
-    console.log(`Şube "${selectedBranch.name}" için bulunan personel sayısı: ${filtered.length}`);
+    // Görev gruplarını filtrele
+    const filteredGroups = taskGroups.filter(group => {
+      // Eğer grup şube bilgisi içermiyorsa genel gruptur, hepsinde göster
+      if (!group.branchesId) {
+        console.log(`Grup: ${group.name || group.id}, branchesId yok, genel grup olarak ekleniyor`);
+        return true;
+      }
+      
+      // branchesId'nin farklı formatları için kontrol
+      let groupBranchId = group.branchesId;
+      
+      console.log(`Grup: ${group.name || group.id}, branchesId: ${JSON.stringify(groupBranchId)}, tip: ${typeof groupBranchId}`);
+      
+      // Eğer branchesId bir object ise, ilk anahtarı al
+      if (typeof groupBranchId === 'object' && groupBranchId !== null) {
+        const keys = Object.keys(groupBranchId);
+        if (keys.length > 0) {
+          groupBranchId = keys[0];
+          console.log(`  - Object branchesId için ilk anahtar: ${groupBranchId}`);
+        }
+      }
+      
+      // Null veya undefined kontrolü
+      if (!groupBranchId) {
+        console.log(`  - branchesId yok, atlanıyor`);
+        return false;
+      }
+      
+      // String karşılaştırması yaparak eşleşmeyi kontrol et
+      const isMatch = String(groupBranchId) === String(selectedBranch.id);
+      console.log(`  - Karşılaştırma: "${groupBranchId}" === "${selectedBranch.id}" = ${isMatch}`);
+      return isMatch;
+    });
     
-    if (filtered.length === 0) {
+    console.log(`Şube "${selectedBranch.name}" için bulunan personel sayısı: ${filteredPerson.length}`);
+    console.log(`Şube "${selectedBranch.name}" için bulunan görev grubu sayısı: ${filteredGroups.length}`);
+    
+    if (filteredPerson.length === 0) {
       console.warn(`Uyarı: "${selectedBranch.name}" şubesinde hiç personel bulunamadı.`);
     }
     
-    setFilteredPersonnel(filtered);
+    if (filteredGroups.length === 0) {
+      console.warn(`Uyarı: "${selectedBranch.name}" şubesinde hiç görev grubu bulunamadı.`);
+    }
+    
+    setFilteredPersonnel(filteredPerson);
+    setFilteredTaskGroups(filteredGroups);
     
     // Eğer şu anki seçili personel bu şubede değilse, seçimi temizle
     if (selectedPersonnelId) {
-      const personelExists = filtered.some(p => p.id === selectedPersonnelId);
+      const personelExists = filteredPerson.some(p => p.id === selectedPersonnelId);
       if (!personelExists) {
         setSelectedPersonnelId('');
       }
     }
-  }, [selectedBranch, personnel, selectedPersonnelId]);
+    
+    // Eğer şu anki seçili grup bu şubede değilse, seçimi temizle
+    if (selectedGroupId) {
+      const groupExists = filteredGroups.some(g => g.id === selectedGroupId);
+      if (!groupExists) {
+        setSelectedGroupId('');
+      }
+    }
+  }, [selectedBranch, personnel, taskGroups, selectedPersonnelId, selectedGroupId]);
 
   // Form alanlarını sıfırla
   const resetForm = () => {
@@ -527,6 +630,25 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
                   />
                 )}
               />
+              
+              {/* Şube seçiliyse bilgi mesajı göster */}
+              {selectedBranch && (
+                <Alert 
+                  severity="info" 
+                  variant="outlined" 
+                  sx={{ mt: 1, fontSize: '0.75rem', py: 0.5 }}
+                  icon={<BusinessIcon sx={{ fontSize: '1rem' }} />}
+                >
+                  <Box>
+                    <Typography variant="caption" display="block" fontWeight="bold">
+                      "{selectedBranch.name}" şubesi seçildi
+                    </Typography>
+                    <Typography variant="caption">
+                      Bu şubeye ait {filteredPersonnel.length} personel ve {filteredTaskGroups.filter(g => g.branchesId).length} görev grubu bulundu.
+                    </Typography>
+                  </Box>
+                </Alert>
+              )}
             </Grid>
 
             <Grid item xs={12} sm={6}>
@@ -548,11 +670,15 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
                       <PersonIcon fontSize="small" sx={{ mr: 1, color: 'primary.main', fontSize: '0.875rem' }} />
                       <Box sx={{ display: 'flex', flexDirection: 'column' }}>
                         <Typography variant="body2">{option.name}</Typography>
-                        {option.branchName && (
+                        {option.branchName ? (
                           <Typography variant="caption" color="text.secondary">
                             {option.branchName}
                           </Typography>
-                        )}
+                        ) : option.branchesId ? (
+                          <Typography variant="caption" color="text.secondary">
+                            {getBranchName(option.branchesId)}
+                          </Typography>
+                        ) : null}
                       </Box>
                     </Box>
                   </li>
@@ -599,11 +725,16 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
                     <MenuItem value="">
                       <em>Grup Seçilmedi</em>
                     </MenuItem>
-                    {taskGroups.map((group) => (
+                    {filteredTaskGroups.map((group) => (
                       <MenuItem key={group.id} value={group.id}>
                         <Box sx={{ display: 'flex', alignItems: 'center' }}>
                           <CategoryIcon fontSize="small" sx={{ mr: 1, color: 'primary.main', fontSize: '0.875rem' }} />
                           {group.name}
+                          {group.branchesId && (
+                            <Typography variant="caption" sx={{ ml: 1, color: 'text.secondary' }}>
+                              ({getBranchName(group.branchesId)})
+                            </Typography>
+                          )}
                         </Box>
                       </MenuItem>
                     ))}
