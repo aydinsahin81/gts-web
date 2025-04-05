@@ -23,7 +23,8 @@ import {
   Collapse,
   Tabs,
   Tab,
-  Paper
+  Paper,
+  Autocomplete
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -331,7 +332,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
           alignItems: 'center',
           bgcolor: 'primary.main',
           color: 'white',
-          py: 2
+          py: 1.5
         }}>
           <Typography variant="h6" fontWeight="bold">Yeni Görev Ekle</Typography>
           <IconButton onClick={onClose} size="small" sx={{ color: 'white' }}>
@@ -339,11 +340,11 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
           </IconButton>
         </DialogTitle>
 
-        <DialogContent sx={{ px: 3, py: 4 }}>
+        <DialogContent sx={{ px: 2, py: 2 }}>
           <Collapse in={!!error}>
             <Alert 
               severity="error" 
-              sx={{ mb: 3 }}
+              sx={{ mb: 2 }}
               action={
                 <IconButton
                   aria-label="close"
@@ -360,14 +361,14 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
             </Alert>
           </Collapse>
           
-          <Box sx={{ mb: 3 }}>
+          <Box sx={{ mb: 2 }}>
             <Typography variant="h6" color="primary" fontWeight="medium" gutterBottom>
               Görev Bilgileri
             </Typography>
             <Divider />
           </Box>
 
-          <Grid container spacing={3}>
+          <Grid container spacing={2}>
             <Grid item xs={12}>
               <TextField
                 fullWidth
@@ -376,9 +377,10 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
                 onChange={(e) => setTaskName(e.target.value)}
                 required
                 variant="outlined"
+                size="small"
                 InputProps={{
                   startAdornment: (
-                    <TaskIcon sx={{ mr: 1, color: 'text.secondary' }} />
+                    <TaskIcon sx={{ mr: 1, color: 'text.secondary', fontSize: '1.2rem' }} />
                   ),
                 }}
               />
@@ -391,36 +393,63 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
                 value={taskDescription}
                 onChange={(e) => setTaskDescription(e.target.value)}
                 multiline
-                rows={3}
+                rows={2}
                 variant="outlined"
+                size="small"
               />
             </Grid>
 
             <Grid item xs={12} sm={6}>
-              <FormControl fullWidth variant="outlined">
-                <InputLabel id="personnel-select-label">Personel Seçin</InputLabel>
-                <Select
-                  labelId="personnel-select-label"
-                  value={selectedPersonnelId}
-                  onChange={(e) => setSelectedPersonnelId(e.target.value)}
-                  label="Personel Seçin"
-                  required
-                >
-                  {personnel.map((person) => (
-                    <MenuItem key={person.id} value={person.id}>
-                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        <PersonIcon fontSize="small" sx={{ mr: 1, color: 'primary.main' }} />
-                        {person.name}
+              <Autocomplete
+                fullWidth
+                value={personnel.find(person => person.id === selectedPersonnelId) || null}
+                onChange={(event, newValue) => {
+                  if (newValue) {
+                    setSelectedPersonnelId(newValue.id);
+                  } else {
+                    setSelectedPersonnelId('');
+                  }
+                }}
+                options={personnel}
+                getOptionLabel={(option) => option.name}
+                renderOption={(props, option) => (
+                  <li {...props}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                      <PersonIcon fontSize="small" sx={{ mr: 1, color: 'primary.main', fontSize: '0.875rem' }} />
+                      <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                        <Typography variant="body2">{option.name}</Typography>
+                        {option.branchName && (
+                          <Typography variant="caption" color="text.secondary">
+                            {option.branchName}
+                          </Typography>
+                        )}
                       </Box>
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+                    </Box>
+                  </li>
+                )}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Personel Seçin"
+                    required
+                    size="small"
+                    placeholder="Personel ara..."
+                  />
+                )}
+                isOptionEqualToValue={(option, value) => option.id === value.id}
+                filterOptions={(options, state) => {
+                  const inputValue = state.inputValue.toLowerCase();
+                  return options.filter(option => 
+                    option.name.toLowerCase().includes(inputValue) || 
+                    (option.branchName && option.branchName.toLowerCase().includes(inputValue))
+                  );
+                }}
+              />
             </Grid>
 
             <Grid item xs={12} sm={6}>
               <Box sx={{ display: 'flex', gap: 1 }}>
-                <FormControl fullWidth variant="outlined">
+                <FormControl fullWidth variant="outlined" size="small">
                   <InputLabel id="group-select-label">Görev Grubu</InputLabel>
                   <Select
                     labelId="group-select-label"
@@ -434,7 +463,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
                     {taskGroups.map((group) => (
                       <MenuItem key={group.id} value={group.id}>
                         <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <CategoryIcon fontSize="small" sx={{ mr: 1, color: 'primary.main' }} />
+                          <CategoryIcon fontSize="small" sx={{ mr: 1, color: 'primary.main', fontSize: '0.875rem' }} />
                           {group.name}
                         </Box>
                       </MenuItem>
@@ -445,9 +474,10 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
                   variant="outlined"
                   color="primary"
                   onClick={handleOpenTaskGroupsModal}
-                  sx={{ minWidth: '48px', px: 0 }}
+                  sx={{ minWidth: '40px', px: 0 }}
+                  size="small"
                 >
-                  <AddIcon />
+                  <AddIcon fontSize="small" />
                 </Button>
               </Box>
             </Grid>
@@ -459,56 +489,62 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
                     checked={isRecurring}
                     onChange={(e) => setIsRecurring(e.target.checked)}
                     color="primary"
+                    size="small"
                   />
                 }
                 label={
-                  <Typography variant="subtitle1" fontWeight="medium">
+                  <Typography variant="subtitle2" fontWeight="medium">
                     Tekrarlı Görev
                   </Typography>
                 }
               />
               
-              <Alert severity="info" sx={{ mt: 2 }}>
-                <AlertTitle>Bilgi</AlertTitle>
-                Tüm görevler QR kod tarama yöntemi ile tamamlanacak şekilde kaydedilecektir.
+              <Alert severity="info" sx={{ mt: 1 }} variant="outlined">
+                <Typography variant="body2">
+                  Tüm görevler QR kod tarama yöntemi ile tamamlanacak şekilde kaydedilecektir.
+                </Typography>
               </Alert>
             </Grid>
 
             {isRecurring && (
               <>
                 <Grid item xs={12}>
-                  <Typography variant="subtitle2" gutterBottom>
+                  <Typography variant="subtitle2" fontWeight="medium" gutterBottom>
                     Tekrar Tipi
                   </Typography>
                   <Tabs
                     value={repeatType}
                     onChange={(e, newValue) => setRepeatType(newValue)}
                     variant="fullWidth"
-                    sx={{ mb: 2, borderBottom: 1, borderColor: 'divider' }}
+                    sx={{ mb: 1, borderBottom: 1, borderColor: 'divider' }}
                   >
                     <Tab 
                       value="daily" 
                       label="Günlük" 
-                      icon={<TodayIcon />} 
+                      icon={<TodayIcon fontSize="small" />} 
                       iconPosition="start"
+                      sx={{ minHeight: '40px', py: 0.5 }}
                     />
                     <Tab 
                       value="weekly" 
                       label="Haftalık" 
-                      icon={<WeekIcon />} 
+                      icon={<WeekIcon fontSize="small" />} 
                       iconPosition="start"
+                      sx={{ minHeight: '40px', py: 0.5 }}
                     />
                     <Tab 
                       value="monthly" 
                       label="Aylık" 
-                      icon={<MonthIcon />} 
+                      icon={<MonthIcon fontSize="small" />} 
                       iconPosition="start"
+                      sx={{ minHeight: '40px', py: 0.5 }}
                     />
                     <Tab 
                       value="yearly" 
                       label="Yıllık" 
-                      icon={<YearIcon />} 
+                      icon={<YearIcon fontSize="small" />} 
                       iconPosition="start"
+                      sx={{ minHeight: '40px', py: 0.5 }}
                     />
                   </Tabs>
                 </Grid>
@@ -520,14 +556,15 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
                       <Typography variant="subtitle2" fontWeight="medium" gutterBottom>
                         Haftanın Günleri
                       </Typography>
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
                         {weeklyTaskDays.map((day, index) => (
                           <Button
                             key={day.day}
                             variant={day.selected ? "contained" : "outlined"}
                             color="primary"
                             onClick={() => handleWeeklyDayToggle(index)}
-                            sx={{ minWidth: '110px' }}
+                            sx={{ minWidth: '100px', py: 0.3, px: 1, fontSize: '0.75rem' }}
+                            size="small"
                           >
                             {day.dayName}
                           </Button>
@@ -536,7 +573,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
                     </Grid>
 
                     <Grid item xs={12} sm={6}>
-                      <FormControl fullWidth variant="outlined">
+                      <FormControl fullWidth variant="outlined" size="small">
                         <InputLabel>Başlama Toleransı (dk)</InputLabel>
                         <Select
                           value={startTolerance.toString()}
@@ -554,16 +591,16 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
                     {weeklyTaskDays.filter(day => day.selected).map((day, dayIndex) => {
                       const actualDayIndex = weeklyTaskDays.findIndex(d => d.day === day.day);
                       return (
-                        <Grid item xs={12} key={day.day} sx={{ mt: 2 }}>
+                        <Grid item xs={12} key={day.day} sx={{ mt: 1 }}>
                           <Paper 
                             variant="outlined" 
-                            sx={{ p: 2, borderRadius: 2, borderColor: 'primary.light' }}
+                            sx={{ p: 1.5, borderRadius: 1, borderColor: 'primary.light' }}
                           >
                             <Typography variant="subtitle2" color="primary" gutterBottom>
                               {day.dayName} Tekrar Ayarları
                             </Typography>
                             
-                            <Grid container spacing={2}>
+                            <Grid container spacing={1}>
                               <Grid item xs={12} sm={6}>
                                 <FormControl fullWidth variant="outlined" size="small">
                                   <InputLabel>Günlük Tekrar Sayısı</InputLabel>
@@ -583,7 +620,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
                                 <Typography variant="body2" gutterBottom>
                                   Tekrar Saatleri:
                                 </Typography>
-                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                                   {Array.from({ length: day.dailyRepetitions }).map((_, timeIndex) => (
                                     <TextField
                                       key={timeIndex}
@@ -611,7 +648,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
                 {repeatType === 'daily' && (
                   <>
                     <Grid item xs={12} sm={6}>
-                      <FormControl fullWidth variant="outlined">
+                      <FormControl fullWidth variant="outlined" size="small">
                         <InputLabel>Günlük Tekrar Sayısı</InputLabel>
                         <Select
                           value={dailyRepetitions.toString()}
@@ -626,7 +663,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
                     </Grid>
 
                     <Grid item xs={12} sm={6}>
-                      <FormControl fullWidth variant="outlined">
+                      <FormControl fullWidth variant="outlined" size="small">
                         <InputLabel>Başlama Toleransı (dk)</InputLabel>
                         <Select
                           value={startTolerance.toString()}
@@ -644,7 +681,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
                       <Typography variant="subtitle2" fontWeight="medium" gutterBottom>
                         Tekrar Saatleri
                       </Typography>
-                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 0.5 }}>
                         {Array.from({ length: dailyRepetitions }).map((_, index) => (
                           <TextField
                             key={index}
@@ -666,7 +703,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
                 {repeatType === 'monthly' && (
                   <>
                     <Grid item xs={12} sm={6}>
-                      <FormControl fullWidth variant="outlined">
+                      <FormControl fullWidth variant="outlined" size="small">
                         <InputLabel>Ayın Günü</InputLabel>
                         <Select
                           value={monthDay.toString()}
@@ -681,7 +718,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
                     </Grid>
 
                     <Grid item xs={12} sm={6}>
-                      <FormControl fullWidth variant="outlined">
+                      <FormControl fullWidth variant="outlined" size="small">
                         <InputLabel>Başlama Toleransı (dk)</InputLabel>
                         <Select
                           value={startTolerance.toString()}
@@ -704,6 +741,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
                         InputLabelProps={{ shrink: true }}
                         inputProps={{ step: 300 }}
                         fullWidth
+                        size="small"
                       />
                     </Grid>
                   </>
@@ -726,11 +764,12 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
                         }}
                         InputLabelProps={{ shrink: true }}
                         fullWidth
+                        size="small"
                       />
                     </Grid>
 
                     <Grid item xs={12} sm={6}>
-                      <FormControl fullWidth variant="outlined">
+                      <FormControl fullWidth variant="outlined" size="small">
                         <InputLabel>Başlama Toleransı (dk)</InputLabel>
                         <Select
                           value={startTolerance.toString()}
@@ -753,6 +792,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
                         InputLabelProps={{ shrink: true }}
                         inputProps={{ step: 300 }}
                         fullWidth
+                        size="small"
                       />
                     </Grid>
                   </>
@@ -762,8 +802,8 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
           </Grid>
         </DialogContent>
 
-        <DialogActions sx={{ px: 3, pb: 3 }}>
-          <Button onClick={onClose} disabled={isSubmitting}>
+        <DialogActions sx={{ px: 2, pb: 2, pt: 0 }}>
+          <Button onClick={onClose} disabled={isSubmitting} size="small">
             İptal
           </Button>
           <Button
@@ -771,7 +811,8 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
             color="primary"
             onClick={handleSubmit}
             disabled={isSubmitting}
-            startIcon={isSubmitting ? <CircularProgress size={20} /> : undefined}
+            startIcon={isSubmitting ? <CircularProgress size={16} /> : undefined}
+            size="small"
           >
             {isSubmitting ? 'Ekleniyor...' : 'Görevi Ekle'}
           </Button>
