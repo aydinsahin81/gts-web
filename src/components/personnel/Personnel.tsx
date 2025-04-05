@@ -65,6 +65,7 @@ import QrCode2Icon from '@mui/icons-material/QrCode2';
 import MuiAlert, { AlertProps } from '@mui/material/Alert';
 import { useNavigate } from 'react-router-dom';
 import { utils, writeFile } from 'xlsx';
+import BranchQRModal from '../branches/BranchQRModal';
 
 // Kaydırılabilir ana içerik için styled component
 const ScrollableContent = styled(Box)(({ theme }) => ({
@@ -531,11 +532,13 @@ const Personnel: React.FC<PersonnelProps> = ({ branchId, isManager = false }) =>
   const [showDeleted, setShowDeleted] = useState(false); // Silinen personelleri gösterme durumu
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [companyQRModalOpen, setCompanyQRModalOpen] = useState(false);
+  const [branchQRModalOpen, setBranchQRModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [infoModalOpen, setInfoModalOpen] = useState(false);
+  const [branchName, setBranchName] = useState<string>('Şube');
   
   const navigate = useNavigate();
 
@@ -603,28 +606,42 @@ const Personnel: React.FC<PersonnelProps> = ({ branchId, isManager = false }) =>
         const personnelData = personnelSnapshot.exists() ? personnelSnapshot.val() : {};
         
         // Personel listesini hazırla (isDeleted durumuna göre filtrele)
-        const personnelList = Object.entries(personnelData)
-          .filter(([_, data]: [string, any]) => {
-            // showDeleted true ise silinenleri, false ise silinmeyenleri göster
-            const isDeleted = data.isDeleted === true;
-            return showDeleted ? isDeleted : !isDeleted;
-          })
-          .map(([id, data]: [string, any]) => {
-            const person = {
-              id,
-              name: data.name || 'İsimsiz Personel',
-              hasTask: data.hasTask || false,
-              email: data.email || '',
-              phone: data.phone || '',
-              addedAt: data.addedAt || Date.now(),
-              deletedAt: data.deletedAt || null,
-              isDeleted: data.isDeleted || false,
-              branchesId: data.branchesId || null,
-              branchName: '' 
-            };
-            
-            return person;
-          });
+        const personnelList = await Promise.all(
+          Object.entries(personnelData)
+            .filter(([_, data]: [string, any]) => {
+              // showDeleted true ise silinenleri, false ise silinmeyenleri göster
+              const isDeleted = data.isDeleted === true;
+              return showDeleted ? isDeleted : !isDeleted;
+            })
+            .map(async ([id, data]: [string, any]) => {
+              const person = {
+                id,
+                name: data.name || 'İsimsiz Personel',
+                hasTask: data.hasTask || false,
+                email: data.email || '',
+                phone: data.phone || '',
+                addedAt: data.addedAt || Date.now(),
+                deletedAt: data.deletedAt || null,
+                isDeleted: data.isDeleted || false,
+                branchesId: data.branchesId || null,
+                branchName: '',
+                role: data.role || '' // Personel rolünü kaydet
+              };
+              
+              // Kullanıcı veritabanından rolü kontrol et (personel verisinde yoksa)
+              if (!person.role) {
+                const userRef = ref(database, `users/${id}`);
+                const userSnapshot = await get(userRef);
+                
+                if (userSnapshot.exists()) {
+                  const userData = userSnapshot.val();
+                  person.role = userData.role || userData.userRole || '';
+                }
+              }
+              
+              return person;
+            })
+        );
         
         // Her personel için şube bilgilerini ve users'dan branchesId'yi kontrol et
         const enhancedPersonnel = await Promise.all(
@@ -661,10 +678,25 @@ const Personnel: React.FC<PersonnelProps> = ({ branchId, isManager = false }) =>
         );
         
         // branchId prop'u varsa ve yönetici modundaysak sadece o şubenin personellerini göster
+        // ve manager rolüne sahip personelleri filtrele
         let sortedPersonnel = [...enhancedPersonnel];
-        if (branchId && isManager) {
-          console.log("Şubeye göre personel filtreleniyor:", branchId);
-          sortedPersonnel = sortedPersonnel.filter(person => person.branchesId === branchId);
+        if (isManager) {
+          console.log("Şubeye ve role göre personel filtreleniyor:");
+          
+          // Yönetici modunda, manager rolüne sahip personelleri filtreliyoruz
+          sortedPersonnel = sortedPersonnel.filter(person => {
+            // Önce role göre filtrele - manager rolüne sahip personelleri çıkar
+            if (person.role === 'manager' || person.role === 'admin') {
+              return false;
+            }
+            
+            // Şube ID'sine göre filtrele (eğer branchId belirtildiyse)
+            if (branchId) {
+              return person.branchesId === branchId;
+            }
+            
+            return true;
+          });
         }
         
         // Ekleme tarihine göre sırala (yeniden eskiye)
@@ -681,23 +713,41 @@ const Personnel: React.FC<PersonnelProps> = ({ branchId, isManager = false }) =>
           const personnelData = snapshot.val();
           
           // Personel listesini hazırla
-          const personnelList = Object.entries(personnelData)
-            .filter(([_, data]: [string, any]) => {
-              const isDeleted = data.isDeleted === true;
-              return showDeleted ? isDeleted : !isDeleted;
-            })
-            .map(([id, data]: [string, any]) => ({
-              id,
-              name: data.name || 'İsimsiz Personel',
-              hasTask: data.hasTask || false,
-              email: data.email || '',
-              phone: data.phone || '',
-              addedAt: data.addedAt || Date.now(),
-              deletedAt: data.deletedAt || null,
-              isDeleted: data.isDeleted || false,
-              branchesId: data.branchesId || null,
-              branchName: '' 
-            }));
+          const personnelList = await Promise.all(
+            Object.entries(personnelData)
+              .filter(([_, data]: [string, any]) => {
+                const isDeleted = data.isDeleted === true;
+                return showDeleted ? isDeleted : !isDeleted;
+              })
+              .map(async ([id, data]: [string, any]) => {
+                const person = {
+                  id,
+                  name: data.name || 'İsimsiz Personel',
+                  hasTask: data.hasTask || false,
+                  email: data.email || '',
+                  phone: data.phone || '',
+                  addedAt: data.addedAt || Date.now(),
+                  deletedAt: data.deletedAt || null,
+                  isDeleted: data.isDeleted || false,
+                  branchesId: data.branchesId || null,
+                  branchName: '',
+                  role: data.role || '' // Personel rolünü kaydet
+                };
+                
+                // Kullanıcı veritabanından rolü kontrol et (personel verisinde yoksa)
+                if (!person.role) {
+                  const userRef = ref(database, `users/${id}`);
+                  const userSnapshot = await get(userRef);
+                  
+                  if (userSnapshot.exists()) {
+                    const userData = userSnapshot.val();
+                    person.role = userData.role || userData.userRole || '';
+                  }
+                }
+                
+                return person;
+              })
+          );
           
           // Şubeleri yeniden yükle
           const branchesSnapshot = await get(branchesRef);
@@ -738,10 +788,25 @@ const Personnel: React.FC<PersonnelProps> = ({ branchId, isManager = false }) =>
           );
           
           // branchId prop'u varsa ve yönetici modundaysak sadece o şubenin personellerini göster
+          // ve manager rolüne sahip personelleri filtrele
           let sortedPersonnel = [...enhancedPersonnel];
-          if (branchId && isManager) {
-            console.log("Şubeye göre personel filtreleniyor (realtime):", branchId);
-            sortedPersonnel = sortedPersonnel.filter(person => person.branchesId === branchId);
+          if (isManager) {
+            console.log("Şubeye ve role göre personel filtreleniyor (realtime):");
+            
+            // Yönetici modunda, manager rolüne sahip personelleri filtreliyoruz
+            sortedPersonnel = sortedPersonnel.filter(person => {
+              // Önce role göre filtrele - manager rolüne sahip personelleri çıkar
+              if (person.role === 'manager' || person.role === 'admin') {
+                return false;
+              }
+              
+              // Şube ID'sine göre filtrele (eğer branchId belirtildiyse)
+              if (branchId) {
+                return person.branchesId === branchId;
+              }
+              
+              return true;
+            });
           }
           
           // Ekleme tarihine göre sırala (yeniden eskiye)
@@ -1134,13 +1199,47 @@ const Personnel: React.FC<PersonnelProps> = ({ branchId, isManager = false }) =>
     fileInputRef.current?.click();
   };
 
+  // Şube adını yükleme
+  useEffect(() => {
+    const loadBranchName = async () => {
+      if (isManager && branchId && companyId) {
+        try {
+          const branchRef = ref(database, `companies/${companyId}/branches/${branchId}`);
+          const snapshot = await get(branchRef);
+          
+          if (snapshot.exists()) {
+            const branchData = snapshot.val();
+            // Şube adını kontrol et - iki farklı yapıda olabilir
+            if (branchData.name) {
+              setBranchName(branchData.name);
+            } else if (branchData.basicInfo && branchData.basicInfo.name) {
+              setBranchName(branchData.basicInfo.name);
+            }
+          }
+        } catch (error) {
+          console.error('Şube adı yüklenirken hata:', error);
+        }
+      }
+    };
+    
+    loadBranchName();
+  }, [isManager, branchId, companyId]);
+  
   // QR kodunu görüntülemek için modal açma/kapama işlevleri
   const handleOpenCompanyQRModal = () => {
-    setCompanyQRModalOpen(true);
+    if (isManager && branchId) {
+      setBranchQRModalOpen(true);
+    } else {
+      setCompanyQRModalOpen(true);
+    }
   };
 
   const handleCloseCompanyQRModal = () => {
     setCompanyQRModalOpen(false);
+  };
+  
+  const handleCloseBranchQRModal = () => {
+    setBranchQRModalOpen(false);
   };
 
   // Mesaj sayfasına yönlendirme
@@ -1284,46 +1383,33 @@ const Personnel: React.FC<PersonnelProps> = ({ branchId, isManager = false }) =>
           >
             <InfoIcon fontSize="small" />
           </IconButton>
+          <Button
+            variant="contained"
+            color="success"
+            startIcon={<QrCode2Icon />}
+            onClick={handleOpenCompanyQRModal}
+          >
+            Şirket QR
+          </Button>
+          <Button
+            variant="contained"
+            color="info"
+            startIcon={<DownloadIcon />}
+            onClick={handleDownloadExcel}
+            disabled={personnel.length === 0}
+          >
+            Excel İndir
+          </Button>
           {!isManager && (
-            <>
-              <Button
-                variant="contained"
-                color="success"
-                startIcon={<QrCode2Icon />}
-                onClick={handleOpenCompanyQRModal}
-              >
-                Şirket QR
-              </Button>
-              <Button
-                variant="contained"
-                color="info"
-                startIcon={<DownloadIcon />}
-                onClick={handleDownloadExcel}
-                disabled={personnel.length === 0}
-              >
-                Excel İndir
-              </Button>
-              <Button
-                variant="contained"
-                color="primary"
-                startIcon={<AddIcon />}
-                sx={{ borderRadius: 2 }}
-                onClick={handleOpenAddModal}
-                disabled={showDeleted}
-              >
-                Yeni Personel Ekle
-              </Button>
-            </>
-          )}
-          {isManager && (
             <Button
               variant="contained"
-              color="info"
-              startIcon={<DownloadIcon />}
-              onClick={handleDownloadExcel}
-              disabled={personnel.length === 0}
+              color="primary"
+              startIcon={<AddIcon />}
+              sx={{ borderRadius: 2 }}
+              onClick={handleOpenAddModal}
+              disabled={showDeleted}
             >
-              Excel İndir
+              Yeni Personel Ekle
             </Button>
           )}
         </Box>
@@ -1642,11 +1728,23 @@ const Personnel: React.FC<PersonnelProps> = ({ branchId, isManager = false }) =>
         </AddPersonnelModalContent>
       </StyledModal>
 
-      {/* Şirket QR Modal */}
-      <CompanyQRModal 
-        open={companyQRModalOpen} 
-        onClose={handleCloseCompanyQRModal} 
-      />
+      {/* Şirket QR Modal - Normal kullanıcılar için */}
+      {!isManager && (
+        <CompanyQRModal 
+          open={companyQRModalOpen} 
+          onClose={handleCloseCompanyQRModal} 
+        />
+      )}
+      
+      {/* Şube QR Modal - Yöneticiler için */}
+      {isManager && branchId && (
+        <BranchQRModal 
+          open={branchQRModalOpen} 
+          onClose={handleCloseBranchQRModal} 
+          branchId={branchId}
+          branchName={branchName}
+        />
+      )}
 
       {/* Silme Onay Modalı */}
       <DeleteConfirmModal
