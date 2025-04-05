@@ -34,8 +34,7 @@ import {
   ListItemIcon,
   ListItemButton,
   Autocomplete,
-  Chip,
-  Avatar
+  Chip
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -49,14 +48,12 @@ import {
   Download as DownloadIcon,
   QrCode2 as QrCode2Icon,
   PersonAdd as PersonAddIcon,
-  Search as SearchIcon,
-  Group as GroupIcon,
-  Delete as DeleteIcon
+  Search as SearchIcon
 } from '@mui/icons-material';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import { tr } from 'date-fns/locale';
-import { ref, set, push, get, onValue, off, update, remove } from 'firebase/database';
+import { ref, set, push, get, onValue, off, update } from 'firebase/database';
 import { database, auth } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import BranchQRModal from './BranchQRModal';
@@ -144,13 +141,6 @@ const Branches: React.FC = () => {
   const [filteredPersonnel, setFilteredPersonnel] = useState<any[]>([]);
   const [loadingPersonnel, setLoadingPersonnel] = useState(false);
   const [savingManagers, setSavingManagers] = useState(false);
-  
-  // Yöneticileri görüntüleme modalı için state
-  const [managersModalOpen, setManagersModalOpen] = useState(false);
-  const [branchManagers, setBranchManagers] = useState<any[]>([]);
-  const [loadingManagers, setLoadingManagers] = useState(false);
-  const [deletingManagerId, setDeletingManagerId] = useState<string | null>(null);
-  const [confirmDeleteModal, setConfirmDeleteModal] = useState(false);
 
   // Form state değişkenleri
   const [branchForm, setBranchForm] = useState<{
@@ -438,107 +428,6 @@ const Branches: React.FC = () => {
     setFilterText('');
   };
   
-  // Yöneticileri görüntüleme modalını açma işlevi
-  const handleOpenManagersModal = (branch: {id: string, name: string}) => {
-    setSelectedBranch(branch);
-    setManagersModalOpen(true);
-    fetchBranchManagers(branch.id);
-  };
-
-  const handleCloseManagersModal = () => {
-    setManagersModalOpen(false);
-    setBranchManagers([]);
-  };
-  
-  // Şube yöneticilerini getirme
-  const fetchBranchManagers = async (branchId: string) => {
-    if (!companyId) return;
-    
-    setLoadingManagers(true);
-    
-    try {
-      const personnelRef = ref(database, `companies/${companyId}/personnel`);
-      const snapshot = await get(personnelRef);
-      
-      if (snapshot.exists()) {
-        const personnelData = snapshot.val();
-        // Bu şubeye atanmış yöneticileri filtrele
-        const managersList = Object.entries(personnelData)
-          .filter(([_, data]: [string, any]) => {
-            return data.branchesId === branchId && data.role === 'manager' && !data.isDeleted;
-          })
-          .map(([id, data]: [string, any]) => ({
-            id,
-            name: data.name || 'İsimsiz Personel',
-            email: data.email || '',
-            phone: data.phone || ''
-          }));
-        
-        setBranchManagers(managersList);
-      } else {
-        setBranchManagers([]);
-      }
-    } catch (error) {
-      console.error('Şube yöneticileri yüklenirken hata:', error);
-      setSnackbarSeverity('error');
-      setSnackbarMessage('Şube yöneticileri yüklenirken bir hata oluştu.');
-      setSnackbarOpen(true);
-    } finally {
-      setLoadingManagers(false);
-    }
-  };
-  
-  // Yönetici silme onay modalını aç
-  const handleConfirmDeleteManager = (managerId: string) => {
-    setDeletingManagerId(managerId);
-    setConfirmDeleteModal(true);
-  };
-  
-  // Yönetici silme onay modalını kapat
-  const handleCloseConfirmDelete = () => {
-    setConfirmDeleteModal(false);
-    setDeletingManagerId(null);
-  };
-  
-  // Yönetici silme işlemi
-  const handleRemoveManager = async () => {
-    if (!deletingManagerId || !companyId || !selectedBranch) return;
-    
-    try {
-      // 1. Users tablosunda rol ve branchesId alanlarını güncelle
-      const userRef = ref(database, `users/${deletingManagerId}`);
-      await update(userRef, {
-        role: 'employee',
-        branchesId: null
-      });
-      
-      // 2. Şirket personel tablosunda rol ve branchesId alanlarını sil
-      const personnelRef = ref(database, `companies/${companyId}/personnel/${deletingManagerId}`);
-      const updates = {
-        role: null,
-        branchesId: null
-      };
-      await update(personnelRef, updates);
-      
-      // Başarı mesajı göster
-      setSnackbarSeverity('success');
-      setSnackbarMessage('Yönetici başarıyla kaldırıldı.');
-      setSnackbarOpen(true);
-      
-      // Yönetici listesini güncelle
-      fetchBranchManagers(selectedBranch.id);
-      
-    } catch (error) {
-      console.error('Yönetici silme hatası:', error);
-      setSnackbarSeverity('error');
-      setSnackbarMessage('Yönetici silinirken bir hata oluştu.');
-      setSnackbarOpen(true);
-    } finally {
-      setConfirmDeleteModal(false);
-      setDeletingManagerId(null);
-    }
-  };
-  
   // Görev atanmamış personelleri getirme
   const fetchAvailablePersonnel = async () => {
     if (!companyId) return;
@@ -707,7 +596,7 @@ const Branches: React.FC = () => {
               <Grid container spacing={3}>
                 {branches.map((branch) => (
                   <Grid item xs={12} md={6} lg={4} key={branch.id}>
-                    <Card elevation={2} sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                    <Card elevation={2} sx={{ height: '100%' }}>
                       <CardHeader
                         title={branch.basicInfo.name}
                         subheader={`Oluşturulma: ${new Date(branch.createdAt).toLocaleDateString('tr-TR')}`}
@@ -738,7 +627,7 @@ const Branches: React.FC = () => {
                         }
                       />
                       <Divider />
-                      <CardContent sx={{ flex: 1 }}>
+                      <CardContent>
                         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                           <LocationIcon fontSize="small" sx={{ mr: 1, verticalAlign: 'middle' }} />
                           {branch.locationInfo.address}
@@ -756,17 +645,6 @@ const Branches: React.FC = () => {
                           </Typography>
                         )}
                       </CardContent>
-                      <Box sx={{ display: 'flex', justifyContent: 'flex-end', p: 2, pt: 0 }}>
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          color="info"
-                          startIcon={<GroupIcon />}
-                          onClick={() => handleOpenManagersModal({id: branch.id, name: branch.basicInfo.name})}
-                        >
-                          Yöneticiler
-                        </Button>
-                      </Box>
                     </Card>
                   </Grid>
                 ))}
@@ -1004,122 +882,6 @@ const Branches: React.FC = () => {
         />
       )}
       
-      {/* Şube Yöneticileri Görüntüleme Modal */}
-      <Dialog
-        open={managersModalOpen}
-        onClose={handleCloseManagersModal}
-        maxWidth="md"
-        fullWidth
-        PaperProps={{
-          sx: {
-            borderRadius: 2,
-            maxHeight: '80vh'
-          }
-        }}
-      >
-        <DialogTitle>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Typography variant="h6">
-              {selectedBranch ? `"${selectedBranch.name}" Şubesi Yöneticileri` : 'Şube Yöneticileri'}
-            </Typography>
-            <IconButton edge="end" color="inherit" onClick={handleCloseManagersModal} aria-label="kapat">
-              <CloseIcon />
-            </IconButton>
-          </Box>
-        </DialogTitle>
-        
-        <DialogContent dividers>
-          {loadingManagers ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
-              <CircularProgress />
-            </Box>
-          ) : branchManagers.length > 0 ? (
-            <List>
-              {branchManagers.map((manager) => (
-                <ListItem
-                  key={manager.id}
-                  secondaryAction={
-                    <Tooltip title="Yöneticiyi Kaldır">
-                      <IconButton 
-                        edge="end" 
-                        aria-label="sil" 
-                        color="error"
-                        onClick={() => handleConfirmDeleteManager(manager.id)}
-                      >
-                        <DeleteIcon />
-                      </IconButton>
-                    </Tooltip>
-                  }
-                  sx={{ 
-                    border: '1px solid',
-                    borderColor: 'divider',
-                    borderRadius: 1,
-                    mb: 1,
-                    '&:last-child': { mb: 0 }
-                  }}
-                >
-                  <ListItemIcon>
-                    <Avatar sx={{ bgcolor: 'primary.main' }}>
-                      {manager.name.charAt(0)}
-                    </Avatar>
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={manager.name}
-                    secondary={
-                      <Box>
-                        {manager.email && (
-                          <Typography variant="body2" component="span" sx={{ mr: 2 }}>
-                            <EmailIcon fontSize="inherit" sx={{ mr: 0.5, verticalAlign: 'text-bottom' }} />
-                            {manager.email}
-                          </Typography>
-                        )}
-                        {manager.phone && (
-                          <Typography variant="body2" component="span">
-                            <PhoneIcon fontSize="inherit" sx={{ mr: 0.5, verticalAlign: 'text-bottom' }} />
-                            {manager.phone}
-                          </Typography>
-                        )}
-                      </Box>
-                    }
-                  />
-                </ListItem>
-              ))}
-            </List>
-          ) : (
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 4 }}>
-              <GroupIcon sx={{ fontSize: 60, color: 'text.disabled', mb: 2 }} />
-              <Typography variant="body1" color="text.secondary" align="center">
-                Bu şubeye henüz yönetici atanmamış.
-              </Typography>
-              <Button
-                variant="contained"
-                color="primary"
-                startIcon={<PersonAddIcon />}
-                sx={{ mt: 2 }}
-                onClick={() => {
-                  handleCloseManagersModal();
-                  if (selectedBranch) {
-                    handleOpenAdminModal(selectedBranch);
-                  }
-                }}
-              >
-                Yönetici Ata
-              </Button>
-            </Box>
-          )}
-        </DialogContent>
-        
-        <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button 
-            variant="contained" 
-            color="primary"
-            onClick={handleCloseManagersModal}
-          >
-            Kapat
-          </Button>
-        </DialogActions>
-      </Dialog>
-      
       {/* Şube Yöneticisi Atama Modal */}
       <Dialog
         open={adminModalOpen}
@@ -1271,39 +1033,6 @@ const Branches: React.FC = () => {
             startIcon={savingManagers ? <CircularProgress size={20} /> : <PersonAddIcon />}
           >
             {savingManagers ? 'Kaydediliyor...' : 'Yönetici Olarak Ata'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-      
-      {/* Yönetici Silme Onay Modalı */}
-      <Dialog
-        open={confirmDeleteModal}
-        onClose={handleCloseConfirmDelete}
-        maxWidth="xs"
-        fullWidth
-      >
-        <DialogTitle>
-          Yöneticiyi Kaldır
-        </DialogTitle>
-        <DialogContent>
-          <Typography variant="body1">
-            Bu kişiyi şube yöneticiliğinden kaldırmak istediğinize emin misiniz?
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            Bu işlem sonucunda kişi normal çalışan olarak devam edecek ve şube yöneticisi yetkilerini kaybedecektir.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseConfirmDelete}>
-            İptal
-          </Button>
-          <Button 
-            onClick={handleRemoveManager} 
-            color="error" 
-            variant="contained"
-            startIcon={<DeleteIcon />}
-          >
-            Yöneticiyi Kaldır
           </Button>
         </DialogActions>
       </Dialog>
