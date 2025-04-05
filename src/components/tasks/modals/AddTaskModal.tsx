@@ -13,8 +13,6 @@ import {
   Select,
   MenuItem,
   FormControlLabel,
-  RadioGroup,
-  Radio,
   Switch,
   Grid,
   Divider,
@@ -90,7 +88,6 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
   const [taskDescription, setTaskDescription] = useState('');
   const [selectedPersonnelId, setSelectedPersonnelId] = useState('');
   const [selectedGroupId, setSelectedGroupId] = useState('');
-  const [completionType, setCompletionType] = useState('button');
   const [isRecurring, setIsRecurring] = useState(false);
   const [repeatType, setRepeatType] = useState('daily');
   const [dailyRepetitions, setDailyRepetitions] = useState(1);
@@ -128,7 +125,6 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
     setTaskDescription('');
     setSelectedPersonnelId('');
     setSelectedGroupId('');
-    setCompletionType('button');
     setIsRecurring(false);
     setRepeatType('daily');
     setDailyRepetitions(1);
@@ -266,7 +262,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
           name: taskName,
           description: taskDescription,
           personnelId: selectedPersonnelId,
-          completionType,
+          completionType: 'qr', // QR kodu zorunlu
           weekDays: selectedDays,
           startTolerance,
           groupId: selectedGroupId || undefined,
@@ -277,7 +273,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
           name: taskName,
           description: taskDescription,
           personnelId: selectedPersonnelId,
-          completionType,
+          completionType: 'qr', // QR kodu zorunlu
           isRecurring,
           repeatType,
           dailyRepetitions,
@@ -457,32 +453,6 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
             </Grid>
 
             <Grid item xs={12}>
-              <Typography variant="subtitle1" fontWeight="medium" gutterBottom>
-                Görev Tamamlama Yöntemi
-              </Typography>
-              <RadioGroup
-                row
-                value={completionType}
-                onChange={(e) => setCompletionType(e.target.value)}
-              >
-                <FormControlLabel 
-                  value="button" 
-                  control={<Radio color="primary" />} 
-                  label="Buton" 
-                />
-                <FormControlLabel 
-                  value="qr" 
-                  control={<Radio color="primary" />} 
-                  label="QR Kod" 
-                />
-              </RadioGroup>
-            </Grid>
-
-            <Grid item xs={12}>
-              <Divider />
-            </Grid>
-
-            <Grid item xs={12}>
               <FormControlLabel
                 control={
                   <Switch
@@ -497,6 +467,11 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
                   </Typography>
                 }
               />
+              
+              <Alert severity="info" sx={{ mt: 2 }}>
+                <AlertTitle>Bilgi</AlertTitle>
+                Tüm görevler QR kod tarama yöntemi ile tamamlanacak şekilde kaydedilecektir.
+              </Alert>
             </Grid>
 
             {isRecurring && (
