@@ -60,6 +60,7 @@ interface AddTaskModalProps {
     weekDays?: number[];
     monthDay?: number;
     yearDate?: string;
+    branchesId?: string;
   }) => Promise<void>;
   onAddWeeklyTask?: (taskData: {
     name: string;
@@ -73,6 +74,7 @@ interface AddTaskModalProps {
     }[];
     startTolerance: number;
     groupId?: string;
+    branchesId?: string;
   }) => Promise<void>;
   personnel: any[];
   taskGroups?: any[];
@@ -256,16 +258,16 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
     // 2. branchesId'si seçilen şubeyle eşleşiyorsa gösterilir
     // 3. diğer şubelerin grupları gösterilmez
     const filteredGroups = taskGroups.filter(group => {
-      // Eğer grup şube bilgisi içermiyorsa genel gruptur, hepsinde göster
-      if (!group.branchesId) {
-        console.log(`Grup: ${group.name || group.id}, branchesId yok, genel grup olarak ekleniyor`);
-        return true;
-      }
+      console.log(`Görev grubu filtreleme: ${group.name || group.id}, branchesId: ${JSON.stringify(group.branchesId)}`);
       
       // branchesId'nin farklı formatları için kontrol
       let groupBranchId = group.branchesId;
       
-      console.log(`Grup: ${group.name || group.id}, branchesId: ${JSON.stringify(groupBranchId)}`);
+      // Eğer grup şube bilgisi içermiyorsa genel gruptur, hepsinde göster
+      if (!groupBranchId) {
+        console.log(`  - Şube ID'si yok, genel grup olarak eklendi: ${group.name}`);
+        return true;
+      }
       
       // Eğer branchesId bir object ise, ilk anahtarı al
       if (typeof groupBranchId === 'object' && groupBranchId !== null) {
@@ -273,13 +275,17 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
         if (keys.length > 0) {
           groupBranchId = keys[0];
           console.log(`  - Object branchesId için ilk anahtar: ${groupBranchId}`);
+        } else {
+          // Boş nesne ise genel grup olarak kabul et
+          console.log(`  - branchesId boş nesne, genel grup olarak eklendi: ${group.name}`);
+          return true;
         }
       }
       
       // Null veya undefined kontrolü
       if (!groupBranchId) {
-        console.log(`  - branchesId değeri null veya boş, atlanıyor`);
-        return false;
+        console.log(`  - branchesId dönüşüm sonrası boş, genel grup olarak eklendi: ${group.name}`);
+        return true;
       }
       
       // String karşılaştırması yaparak eşleşmeyi kontrol et
@@ -288,8 +294,14 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
       return isMatch;
     });
     
+    // Şube filtresinin sonuçlarını logla
+    const generalGroups = taskGroups.filter(g => !g.branchesId).length;
+    const branchSpecificGroups = filteredGroups.filter(g => g.branchesId).length;
+    
     console.log(`Şube "${selectedBranch.name}" için bulunan personel sayısı: ${filteredPerson.length}`);
     console.log(`Şube "${selectedBranch.name}" için bulunan görev grubu sayısı: ${filteredGroups.length}`);
+    console.log(`  - Genel görev grupları: ${generalGroups}`);
+    console.log(`  - Şubeye özel görev grupları: ${branchSpecificGroups}`);
     console.log("Filtrelenmiş görev grupları:", filteredGroups);
     
     if (filteredPerson.length === 0) {
@@ -446,6 +458,9 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
     setError(null);
 
     try {
+      // Şube ID'sini belirle (seçiliyse)
+      const branchesId = selectedBranch ? selectedBranch.id : undefined;
+      
       // Haftalık görevleri ayrı bir API çağrısıyla işle
       if (isRecurring && repeatType === 'weekly' && onAddWeeklyTask) {
         // Seçili günleri filtrele
@@ -465,6 +480,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
           weekDays: selectedDays,
           startTolerance,
           groupId: selectedGroupId || undefined,
+          branchesId // Şube ID'sini ekle
         });
       } else {
         // Normal görevler için mevcut işlemi kullan
@@ -481,7 +497,8 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
           groupId: selectedGroupId || undefined,
           weekDays: isRecurring && repeatType === 'weekly' ? weekDays : undefined,
           monthDay: isRecurring && repeatType === 'monthly' ? monthDay : undefined,
-          yearDate: isRecurring && repeatType === 'yearly' ? yearDate : undefined
+          yearDate: isRecurring && repeatType === 'yearly' ? yearDate : undefined,
+          branchesId // Şube ID'sini ekle
         });
       }
       
@@ -645,8 +662,17 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
                     <Typography variant="caption" display="block" fontWeight="bold">
                       "{selectedBranch.name}" şubesi seçildi
                     </Typography>
-                    <Typography variant="caption">
-                      Bu şubeye ait {filteredPersonnel.length} personel ve {filteredTaskGroups.filter(g => g.branchesId).length} görev grubu bulundu.
+                    <Typography variant="caption" display="block">
+                      Personel: {filteredPersonnel.length} kişi
+                    </Typography>
+                    <Typography variant="caption" display="block">
+                      Görev Grupları: {filteredTaskGroups.length} adet
+                      {filteredTaskGroups.length > 0 && (
+                        <span>
+                          &nbsp;({filteredTaskGroups.filter(g => g.branchesId).length} şubeye özel, 
+                          {filteredTaskGroups.filter(g => !g.branchesId).length} genel)
+                        </span>
+                      )}
                     </Typography>
                   </Box>
                 </Alert>

@@ -1086,7 +1086,7 @@ const Tasks: React.FC = () => {
     setTaskDetailOpen(true);
   };
 
-  // Görev ekleme fonksiyonu
+  // Yeni görev ekleme fonksiyonu
   const handleAddTask = async (taskData: {
     name: string;
     description: string;
@@ -1101,6 +1101,7 @@ const Tasks: React.FC = () => {
     weekDays?: number[];
     monthDay?: number;
     yearDate?: string;
+    branchesId?: string; // Şube ID'si parametresi
   }) => {
     if (!companyId) {
       throw new Error('Şirket bilgisi bulunamadı');
@@ -1117,25 +1118,24 @@ const Tasks: React.FC = () => {
         throw new Error('Görev ID oluşturulamadı');
       }
       
-      // Görev verilerini hazırla
+      // Görevi kaydet
       interface TaskData {
         name: string;
         description: string;
         personnelId: string;
         status: string;
+        isRecurring: boolean;
         completionType: string;
         createdAt: number;
-        startedAt: null;
-        completedAt: null;
-        isRecurring: boolean;
-        repeatType: string;
-        dailyRepetitions: number;
-        startTolerance: number;
-        repetitionTimes: string[];
+        repeatType?: string;
+        dailyRepetitions?: number;
+        startTolerance?: number;
+        repetitionTimes?: string[];
         groupId?: string;
         weekDays?: number[];
         monthDay?: number;
         yearDate?: string;
+        branchesId?: string; // Şube ID'si 
       }
       
       const taskToSave: TaskData = {
@@ -1143,24 +1143,32 @@ const Tasks: React.FC = () => {
         description: taskData.description,
         personnelId: taskData.personnelId,
         status: 'pending', // Başlangıç durumu
+        isRecurring: taskData.isRecurring,
         completionType: taskData.completionType,
         createdAt: Date.now(),
-        startedAt: null,
-        completedAt: null,
-        isRecurring: taskData.isRecurring,
-        repeatType: taskData.repeatType || 'daily',
-        dailyRepetitions: taskData.dailyRepetitions,
-        startTolerance: taskData.startTolerance,
-        repetitionTimes: taskData.repetitionTimes,
       };
       
-      // Tekrar tipine göre ek alanları ekle
-      if (taskData.repeatType === 'weekly' && taskData.weekDays) {
-        taskToSave.weekDays = taskData.weekDays;
-      } else if (taskData.repeatType === 'monthly' && taskData.monthDay) {
-        taskToSave.monthDay = taskData.monthDay;
-      } else if (taskData.repeatType === 'yearly' && taskData.yearDate) {
-        taskToSave.yearDate = taskData.yearDate;
+      // Şube ID'si varsa ekle
+      if (taskData.branchesId) {
+        taskToSave.branchesId = taskData.branchesId;
+        console.log(`Görev ${newTaskKey} için branchesId eklendi:`, taskData.branchesId);
+      }
+      
+      // Tekrarlı görevleri ekle
+      if (taskData.isRecurring) {
+        taskToSave.repeatType = taskData.repeatType;
+        taskToSave.dailyRepetitions = taskData.dailyRepetitions;
+        taskToSave.startTolerance = taskData.startTolerance;
+        taskToSave.repetitionTimes = taskData.repetitionTimes;
+        
+        // Farklı tekrar tipleri için özel alanlar
+        if (taskData.repeatType === 'weekly' && taskData.weekDays) {
+          taskToSave.weekDays = taskData.weekDays;
+        } else if (taskData.repeatType === 'monthly' && taskData.monthDay) {
+          taskToSave.monthDay = taskData.monthDay;
+        } else if (taskData.repeatType === 'yearly' && taskData.yearDate) {
+          taskToSave.yearDate = taskData.yearDate;
+        }
       }
       
       // Eğer görev grubu seçildiyse bunu da ekle
@@ -1168,7 +1176,6 @@ const Tasks: React.FC = () => {
         taskToSave.groupId = taskData.groupId;
       }
       
-      // Görevi kaydet
       await set(ref(database, `companies/${companyId}/tasks/${newTaskKey}`), taskToSave);
       console.log('Görev başarıyla eklendi');
       
@@ -1197,6 +1204,7 @@ const Tasks: React.FC = () => {
     }[];
     startTolerance: number;
     groupId?: string;
+    branchesId?: string; // Şube ID'si parametresi
   }) => {
     if (!companyId) {
       throw new Error('Şirket bilgisi bulunamadı');
@@ -1223,6 +1231,7 @@ const Tasks: React.FC = () => {
         createdAt: number;
         startTolerance: number;
         groupId?: string;
+        branchesId?: string; // Şube ID'si
       }
       
       const taskToSave: WeeklyTaskData = {
@@ -1234,6 +1243,12 @@ const Tasks: React.FC = () => {
         createdAt: Date.now(),
         startTolerance: taskData.startTolerance,
       };
+      
+      // Şube ID'si varsa ekle
+      if (taskData.branchesId) {
+        taskToSave.branchesId = taskData.branchesId;
+        console.log(`Haftalık görev ${newTaskKey} için branchesId eklendi:`, taskData.branchesId);
+      }
       
       // Eğer görev grubu seçildiyse bunu da ekle
       if (taskData.groupId) {
