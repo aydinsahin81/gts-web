@@ -41,7 +41,6 @@ import {
 import {
   Add as AddIcon,
   Person as PersonIcon,
-  TaskAlt as TaskIcon,
   EmailOutlined as EmailIcon,
   PhoneAndroid as PhoneIcon,
   Close as CloseIcon,
@@ -60,6 +59,7 @@ import { ref, get, onValue, off, remove, update, set, push } from 'firebase/data
 import { database, auth } from '../../firebase';
 import { Html5Qrcode } from 'html5-qrcode';
 import CompanyQRModal from './CompanyQRModal';
+import PersonnelDetailsModal from './PersonnelDetailsModal';
 import QrCode2Icon from '@mui/icons-material/QrCode2';
 import MuiAlert, { AlertProps } from '@mui/material/Alert';
 import { useNavigate } from 'react-router-dom';
@@ -114,32 +114,6 @@ const StyledModal = styled(Modal)(({ theme }) => ({
   justifyContent: 'center',
 }));
 
-const ModalContent = styled(Paper)(({ theme }) => ({
-  position: 'relative',
-  width: '80%',
-  maxWidth: 600,
-  maxHeight: '80vh',
-  overflow: 'auto',
-  padding: theme.spacing(3),
-  borderRadius: 12,
-  boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
-}));
-
-const ModalHeader = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  marginBottom: theme.spacing(3),
-}));
-
-const ModalSection = styled(Box)(({ theme }) => ({
-  marginBottom: theme.spacing(3),
-  padding: theme.spacing(2),
-  backgroundColor: theme.palette.grey[50],
-  borderRadius: theme.shape.borderRadius,
-  border: `1px solid ${theme.palette.grey[200]}`,
-}));
-
 // Personel ekleme modalı için styled component
 const AddPersonnelModalContent = styled(Paper)(({ theme }) => ({
   position: 'relative',
@@ -171,6 +145,14 @@ const SlimPersonnelCard = styled(Card)(({ theme }) => ({
     backgroundColor: theme.palette.grey[50],
     cursor: 'pointer'
   }
+}));
+
+// Personel için styled component tanımlamaları
+const ModalHeader = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  marginBottom: theme.spacing(3),
 }));
 
 // Liste görünümü için tablo bileşeni
@@ -772,36 +754,6 @@ const Personnel: React.FC = () => {
     }
   };
 
-  // Görev durumuna göre renk döndür
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return 'success.main';
-      case 'started':
-        return 'info.main';
-      case 'accepted':
-        return 'secondary.main';
-      case 'pending':
-      default:
-        return 'warning.main';
-    }
-  };
-
-  // Görev durumuna göre metin döndür
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return 'Tamamlandı';
-      case 'started':
-        return 'Görev Başladı';
-      case 'accepted':
-        return 'Kabul Edildi';
-      case 'pending':
-      default:
-        return 'Beklemede';
-    }
-  };
-
   // Personel ekleme modalını açma
   const handleOpenAddModal = () => {
     setAddModalOpen(true);
@@ -1299,7 +1251,6 @@ const Personnel: React.FC = () => {
                     
                     {!showDeleted && person.hasTask && (
                       <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
-                        <TaskIcon fontSize="small" sx={{ mr: 1, color: 'primary.main' }} />
                         <Typography variant="body2" color="primary">
                           Aktif görevleri var
                         </Typography>
@@ -1351,176 +1302,19 @@ const Personnel: React.FC = () => {
         />
       )}
       
-      {/* Personel Detay Modalı */}
-      <StyledModal
+      {/* Personel Ayrıntıları Modalı */}
+      <PersonnelDetailsModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        aria-labelledby="personel-detay-modal"
-      >
-        <ModalContent>
-          {selectedPersonnel && (
-            <>
-              <ModalHeader>
-                <Typography variant="h5" fontWeight="bold">
-                  Personel Ayrıntıları
-                </Typography>
-                <IconButton onClick={() => setModalOpen(false)}>
-                  <CloseIcon />
-                </IconButton>
-              </ModalHeader>
-              
-              {/* Profil Bilgileri */}
-              <ModalSection>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <Avatar 
-                    sx={{ 
-                      width: 80, 
-                      height: 80, 
-                      bgcolor: 'primary.main',
-                      fontSize: 36,
-                      mr: 2
-                    }}
-                  >
-                    {selectedPersonnel.name.substring(0, 1).toUpperCase()}
-                  </Avatar>
-                  <Box>
-                    <Typography variant="h5" fontWeight="bold">
-                      {selectedPersonnel.name}
-                    </Typography>
-                    {!showDeleted && (
-                      <Chip
-                        label={selectedPersonnel.hasTask ? 'Görev Atanmış' : 'Müsait'}
-                        size="small"
-                        color={selectedPersonnel.hasTask ? 'primary' : 'success'}
-                        sx={{ fontWeight: 'medium', mt: 0.5 }}
-                      />
-                    )}
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                      ID: {selectedPersonnel.id}
-                    </Typography>
-                  </Box>
-                </Box>
-                
-                <Divider sx={{ my: 2 }} />
-                
-                {/* İletişim Bilgileri */}
-                <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 1.5 }}>
-                  İletişim Bilgileri
-                </Typography>
-                
-                {selectedPersonnel.email && (
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                    <EmailIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />
-                    <Typography variant="body2">
-                      {selectedPersonnel.email}
-                    </Typography>
-                  </Box>
-                )}
-                
-                {selectedPersonnel.phone && (
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                    <PhoneIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />
-                    <Typography variant="body2">
-                      {selectedPersonnel.phone}
-                    </Typography>
-                  </Box>
-                )}
-              </ModalSection>
-              
-              {/* Görev Bilgileri */}
-              <ModalSection>
-                <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 2 }}>
-                  Atanmış Görevler
-                </Typography>
-                
-                {loadingTasks ? (
-                  <Box sx={{ display: 'flex', justifyContent: 'center', my: 2 }}>
-                    <CircularProgress size={30} />
-                  </Box>
-                ) : personnelTasks.length === 0 ? (
-                  <Typography variant="body2" color="text.secondary" sx={{ my: 2, textAlign: 'center' }}>
-                    Bu personele henüz görev atanmamış.
-                  </Typography>
-                ) : (
-                  personnelTasks.map((task) => (
-                    <Card 
-                      key={task.id} 
-                      sx={{ 
-                        mb: 1.5, 
-                        boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
-                        border: `1px solid`,
-                        borderColor: 'grey.200',
-                      }}
-                    >
-                      <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                          <Box>
-                            <Typography variant="subtitle2" fontWeight="bold">
-                              {task.name}
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                              {task.description ? task.description.substring(0, 100) + (task.description.length > 100 ? '...' : '') : 'Açıklama yok'}
-                            </Typography>
-                          </Box>
-                          <Chip 
-                            label={getStatusText(task.status)}
-                            size="small"
-                            sx={{ 
-                              bgcolor: `${getStatusColor(task.status)}20`, 
-                              color: getStatusColor(task.status),
-                              fontWeight: 'medium' 
-                            }}
-                          />
-                        </Box>
-                      </CardContent>
-                    </Card>
-                  ))
-                )}
-              </ModalSection>
-              
-              {/* İşlem Butonları */}
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3 }}>
-                <Button
-                  variant="outlined"
-                  color="primary"
-                  onClick={() => setModalOpen(false)}
-                >
-                  Kapat
-                </Button>
-                {!confirmDelete ? (
-                  <Button
-                    variant="contained"
-                    color="error"
-                    startIcon={<DeleteIcon />}
-                    onClick={handleDeleteConfirm}
-                  >
-                    Personeli Sil
-                  </Button>
-                ) : (
-                  <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Button
-                      variant="outlined"
-                      color="inherit"
-                      size="small"
-                      onClick={() => setConfirmDelete(false)}
-                    >
-                      İptal
-                    </Button>
-                    <Button
-                      variant="contained"
-                      color="error"
-                      size="small"
-                      onClick={handleDeletePersonnel}
-                    >
-                      Silmeyi Onayla
-                    </Button>
-                  </Box>
-                )}
-              </Box>
-            </>
-          )}
-        </ModalContent>
-      </StyledModal>
+        selectedPersonnel={selectedPersonnel}
+        personnelTasks={personnelTasks}
+        loadingTasks={loadingTasks}
+        showDeleted={showDeleted}
+        confirmDelete={confirmDelete}
+        onDeleteConfirm={handleDeleteConfirm}
+        onCancelDelete={() => setConfirmDelete(false)}
+        onDeletePersonnel={handleDeletePersonnel}
+      />
       
       {/* Personel Ekleme Modalı */}
       <StyledModal
