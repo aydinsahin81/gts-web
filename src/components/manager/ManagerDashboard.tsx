@@ -195,7 +195,7 @@ const ManagerDashboard: React.FC = () => {
             >
               <MenuItem onClick={() => {
                 handleMenuClose();
-                navigate('/profile');
+                navigate('/manager/profile');
               }}>
                 Profil
               </MenuItem>

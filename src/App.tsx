@@ -21,6 +21,7 @@ import ShiftsPage from './pages/Shifts';
 import BranchesPage from './pages/Branches';
 import CustomerScreenPage from './pages/CustomerScreen';
 import ManagerPage from './pages/ManagerDashboard';
+import ManagerProfilePage from './pages/ManagerProfile';
 
 // Henüz oluşturulmamış diğer sayfalar için geçici bileşenler
 // const Reports = () => <div>Raporlar Sayfası</div>;
@@ -153,6 +154,7 @@ const App: React.FC = () => {
               {/* Manager Routes */}
               <Route element={<RoleRoute requiredRole="manager" />}>
                 <Route path="/manager" element={<ManagerPage />} />
+                <Route path="/manager/profile" element={<ManagerProfilePage />} />
               </Route>
             </Route>
             
