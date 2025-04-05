@@ -983,11 +983,27 @@ const Tasks: React.FC = () => {
         onValue(taskGroupsRef, (snapshot) => {
           if (snapshot.exists()) {
             const groupsData = snapshot.val();
-            const groupsList = Object.entries(groupsData).map(([id, data]: [string, any]) => ({
-              id,
-              name: data.name || 'İsimsiz Grup',
-              createdAt: data.createdAt || '',
-            }));
+            const groupsList = Object.entries(groupsData).map(([id, data]: [string, any]) => {
+              // branchesId değerini doğru şekilde al
+              let branchesId = data.branchesId || null;
+              
+              // branchesId bir nesne ise, ilk anahtarını al (format düzeltme)
+              if (typeof branchesId === 'object' && branchesId !== null) {
+                const keys = Object.keys(branchesId);
+                if (keys.length > 0) {
+                  branchesId = keys[0];
+                  console.log(`Görev grubu ${id} için branchesId nesneden string'e dönüştürüldü:`, branchesId);
+                }
+              }
+              
+              return {
+                id,
+                name: data.name || 'İsimsiz Grup',
+                createdAt: data.createdAt || '',
+                branchesId: branchesId, // Şube ID'sini ekle
+              };
+            });
+            console.log("Görev grupları güncel değişikliklerle hazırlandı:", groupsList);
             setTaskGroups(groupsList);
           } else {
             setTaskGroups([]);

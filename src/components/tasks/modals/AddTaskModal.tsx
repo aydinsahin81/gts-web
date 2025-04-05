@@ -221,16 +221,14 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
     
     console.log("Şube ID:", selectedBranch.id);
     console.log("Toplam personel sayısı:", personnel.length);
-    console.log("Personel detayları:", personnel);
     console.log("Toplam görev grubu sayısı:", taskGroups.length);
-    console.log("Grup detayları:", taskGroups);
     
     // Personel filtreleme - Şube ID'sine göre personel filtreleme
     const filteredPerson = personnel.filter(person => {
       // branchesId'nin farklı formatları için kontrol
       let personBranchId = person.branchesId;
       
-      console.log(`Personel: ${person.name || person.id}, branchesId: ${JSON.stringify(personBranchId)}, tip: ${typeof personBranchId}`);
+      console.log(`Personel: ${person.name || person.id}, branchesId: ${JSON.stringify(personBranchId)}`);
       
       // Eğer branchesId bir object ise, ilk anahtarı al
       if (typeof personBranchId === 'object' && personBranchId !== null) {
@@ -253,7 +251,10 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
       return isMatch;
     });
     
-    // Görev gruplarını filtrele
+    // Görev gruplarını filtrele: 
+    // 1. branchesId'si yoksa genel gruptur, her şubede gösterilir
+    // 2. branchesId'si seçilen şubeyle eşleşiyorsa gösterilir
+    // 3. diğer şubelerin grupları gösterilmez
     const filteredGroups = taskGroups.filter(group => {
       // Eğer grup şube bilgisi içermiyorsa genel gruptur, hepsinde göster
       if (!group.branchesId) {
@@ -264,7 +265,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
       // branchesId'nin farklı formatları için kontrol
       let groupBranchId = group.branchesId;
       
-      console.log(`Grup: ${group.name || group.id}, branchesId: ${JSON.stringify(groupBranchId)}, tip: ${typeof groupBranchId}`);
+      console.log(`Grup: ${group.name || group.id}, branchesId: ${JSON.stringify(groupBranchId)}`);
       
       // Eğer branchesId bir object ise, ilk anahtarı al
       if (typeof groupBranchId === 'object' && groupBranchId !== null) {
@@ -277,7 +278,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
       
       // Null veya undefined kontrolü
       if (!groupBranchId) {
-        console.log(`  - branchesId yok, atlanıyor`);
+        console.log(`  - branchesId değeri null veya boş, atlanıyor`);
         return false;
       }
       
@@ -289,6 +290,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
     
     console.log(`Şube "${selectedBranch.name}" için bulunan personel sayısı: ${filteredPerson.length}`);
     console.log(`Şube "${selectedBranch.name}" için bulunan görev grubu sayısı: ${filteredGroups.length}`);
+    console.log("Filtrelenmiş görev grupları:", filteredGroups);
     
     if (filteredPerson.length === 0) {
       console.warn(`Uyarı: "${selectedBranch.name}" şubesinde hiç personel bulunamadı.`);
