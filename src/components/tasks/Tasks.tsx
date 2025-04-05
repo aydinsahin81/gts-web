@@ -82,7 +82,8 @@ import {
   Today as TodayIcon,
   DateRange as WeekIcon,
   CalendarMonth as MonthIcon,
-  CalendarToday as YearIcon
+  CalendarToday as YearIcon,
+  Business as BusinessIcon
 } from '@mui/icons-material';
 import { ref, get, onValue, off, remove, update, push, set } from 'firebase/database';
 import { database, auth } from '../../firebase';
@@ -190,6 +191,7 @@ const TasksTable: React.FC<{
   getStatusIcon: (status: string) => React.ReactNode,
   getStatusLabel: (status: string) => string,
   getTaskTimeColor: (task: any, timeString: string) => string,
+  companyId: string | null,
 }> = ({ 
   tasks, 
   statusFilter,
@@ -198,8 +200,48 @@ const TasksTable: React.FC<{
   getStatusColor,
   getStatusIcon,
   getStatusLabel,
-  getTaskTimeColor
+  getTaskTimeColor,
+  companyId
 }) => {
+  // Şube adlarını almak için state
+  const [branches, setBranches] = useState<{[key: string]: string}>({});
+  
+  // Şubeleri yükle
+  useEffect(() => {
+    const loadBranches = async () => {
+      if (!companyId) return;
+      
+      try {
+        console.log("TasksTable: Şubeleri yüklüyorum, companyId:", companyId);
+        const branchesRef = ref(database, `companies/${companyId}/branches`);
+        const branchesSnapshot = await get(branchesRef);
+        
+        if (branchesSnapshot.exists()) {
+          const branchesData = branchesSnapshot.val();
+          const branchesMap: {[key: string]: string} = {};
+          
+          Object.entries(branchesData).forEach(([id, data]: [string, any]) => {
+            branchesMap[id] = data.name || 'İsimsiz Şube';
+          });
+          
+          console.log("TasksTable: Şubeler yüklendi:", branchesMap);
+          setBranches(branchesMap);
+        }
+      } catch (error) {
+        console.error('Şube verileri yüklenirken hata:', error);
+      }
+    };
+    
+    loadBranches();
+  }, [companyId]);
+  
+  // Şube adını getir
+  const getBranchName = (branchId: string | null) => {
+    if (!branchId) return '-';
+    console.log("TasksTable: getBranchName çağrıldı, branchId:", branchId, "mevcut şubeler:", branches);
+    return branches[branchId] || '-';
+  };
+  
   return (
     <TableContainer component={Paper} sx={{ 
       mt: 2, 
@@ -218,6 +260,7 @@ const TasksTable: React.FC<{
             <TableCell width="10%">Tolerans</TableCell>
             <TableCell width="10%">Personel</TableCell>
             <TableCell width="10%">Durum</TableCell>
+            <TableCell width="10%">Şube</TableCell>
             <TableCell width="10%" align="right">İşlemler</TableCell>
           </TableRow>
         </TableHead>
@@ -334,6 +377,11 @@ const TasksTable: React.FC<{
                   }}
                 />
               </TableCell>
+              <TableCell>
+                <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
+                  {getBranchName(task.branchesId)}
+                </Typography>
+              </TableCell>
               <TableCell align="right">
                 <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
                   {task.isRecurring && task.completionType === 'qr' && !task.fromDatabase && statusFilter !== 'completed' && statusFilter !== 'missed' && (
@@ -366,7 +414,7 @@ const TasksTable: React.FC<{
           ))}
           {tasks.length === 0 && (
             <TableRow>
-              <TableCell colSpan={8} align="center" sx={{ py: 3 }}>
+              <TableCell colSpan={9} align="center" sx={{ py: 3 }}>
                 <Typography color="text.secondary">
                   Görev bulunamadı
                 </Typography>
@@ -407,6 +455,8 @@ const Tasks: React.FC = () => {
   const [infoModalOpen, setInfoModalOpen] = useState(false);
   // Görev tipi sekmesi state'i
   const [taskType, setTaskType] = useState<string>('daily');
+  // Şube bilgisi state'i
+  const [branches, setBranches] = useState<{[key: string]: string}>({});
 
   // Görünüm modunu localStorage'dan yükle
   useEffect(() => {
@@ -416,15 +466,39 @@ const Tasks: React.FC = () => {
     }
   }, []);
   
-  // Görünüm modu değiştiğinde localStorage'a kaydet
-  const handleViewModeChange = (
-    event: React.MouseEvent<HTMLElement>,
-    newViewMode: 'card' | 'list' | null
-  ) => {
-    if (newViewMode !== null) {
-      setViewMode(newViewMode);
-      localStorage.setItem('tasksViewMode', newViewMode);
+  // Şubeleri yükle
+  useEffect(() => {
+    const loadBranches = async () => {
+      if (!companyId) return;
+      
+      try {
+        const branchesRef = ref(database, `companies/${companyId}/branches`);
+        const branchesSnapshot = await get(branchesRef);
+        
+        if (branchesSnapshot.exists()) {
+          const branchesData = branchesSnapshot.val();
+          const branchesMap: {[key: string]: string} = {};
+          
+          Object.entries(branchesData).forEach(([id, data]: [string, any]) => {
+            branchesMap[id] = data.name || 'İsimsiz Şube';
+          });
+          
+          setBranches(branchesMap);
+        }
+      } catch (error) {
+        console.error('Şube verileri yüklenirken hata:', error);
+      }
+    };
+    
+    if (companyId) {
+      loadBranches();
     }
+  }, [companyId]);
+  
+  // Şube adını getir
+  const getBranchName = (branchId: string | null) => {
+    if (!branchId) return '-';
+    return branches[branchId] || '-';
   };
 
   // Duruma göre renk döndüren yardımcı fonksiyon
@@ -575,6 +649,7 @@ const Tasks: React.FC = () => {
           repetitionTimes: data.repetitionTimes || [],
           completedAt: data.completedAt || null, // Tamamlanma tarihi
           groupId: data.groupId || null, // Görev grup ID'sini burada sakla
+          branchesId: data.branchesId || null, // Şube ID'sini ekle
         };
       }) : [];
     
@@ -1413,6 +1488,17 @@ const Tasks: React.FC = () => {
     setTaskType(newValue);
   };
 
+  // Görünüm modu değiştiğinde localStorage'a kaydet
+  const handleViewModeChange = (
+    event: React.MouseEvent<HTMLElement>,
+    newViewMode: 'card' | 'list' | null
+  ) => {
+    if (newViewMode !== null) {
+      setViewMode(newViewMode);
+      localStorage.setItem('tasksViewMode', newViewMode);
+    }
+  };
+
   return (
     <ScrollableContent>
       <HeaderContainer>
@@ -1748,6 +1834,19 @@ const Tasks: React.FC = () => {
                         </Box>
                       )}
 
+                      {task.branchesId && (
+                        <Box sx={{ mb: 1.5 }}>
+                          <Typography variant="caption" color="text.secondary" sx={{ 
+                            display: 'flex', 
+                            alignItems: 'center',
+                            fontSize: '0.7rem'
+                          }}>
+                            <BusinessIcon fontSize="small" sx={{ mr: 0.5, fontSize: 14, color: 'info.main' }} />
+                            Şube: {getBranchName(task.branchesId)}
+                          </Typography>
+                        </Box>
+                      )}
+
                       {task.isRecurring && task.repetitionTimes && task.repetitionTimes.length > 0 && (
                         <Box sx={{ mb: 1.5 }}>
                           <Divider sx={{ my: 1 }} />
@@ -1823,6 +1922,7 @@ const Tasks: React.FC = () => {
               getStatusIcon={getStatusIcon}
               getStatusLabel={getStatusLabel}
               getTaskTimeColor={getTaskTimeColor}
+              companyId={companyId}
             />
           )}
         </>

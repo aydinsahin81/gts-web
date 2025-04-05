@@ -144,6 +144,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
             name: data.name || 'İsimsiz Şube',
           }));
           setBranches(branchesList);
+          console.log('Yüklenen şubeler:', branchesList);
         }
       } catch (error) {
         console.error('Şube verileri yüklenirken hata:', error);
@@ -155,23 +156,62 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
     }
   }, [companyId, open]);
 
-  // Personel listesini filtrele
+  // Form açıldığında personel verilerini kontrol et ve filtrele
   useEffect(() => {
-    if (selectedBranch) {
-      // Seçili şubedeki personeli filtrele
-      const filtered = personnel.filter(person => person.branchesId === selectedBranch.id);
-      setFilteredPersonnel(filtered);
+    if (open) {
+      // Başlangıçta filtrelenmiş personel listesini tüm personel olarak ayarla
+      setFilteredPersonnel(personnel);
       
-      // Eğer şu anki seçili personel bu şubede değilse, seçimi temizle
-      if (selectedPersonnelId) {
-        const personelExists = filtered.some(p => p.id === selectedPersonnelId);
-        if (!personelExists) {
-          setSelectedPersonnelId('');
-        }
+      // Personelin branchesId değerlerini kontrol et
+      const personnelWithBranchCount = personnel.filter(p => p.branchesId).length;
+      console.log(`Modal açıldı, toplam personel: ${personnel.length}, şube bilgisi olan: ${personnelWithBranchCount}`);
+      
+      // Şube bilgisi olan personeli kontrol et
+      if (personnelWithBranchCount === 0 && personnel.length > 0) {
+        console.warn('Hiçbir personelin şube bilgisi (branchesId) bulunamadı!');
       }
-    } else {
+    }
+  }, [open, personnel]);
+
+  // Personel listesini şube değişimine göre filtrele
+  useEffect(() => {
+    if (!selectedBranch) {
       // Şube seçili değilse tüm personeli göster
       setFilteredPersonnel(personnel);
+      return;
+    }
+    
+    // Branchesid formatını kontrol eden ve doğru karşılaştırma yapan bir filtre fonksiyonu
+    const filtered = personnel.filter(person => {
+      // branchesId'nin farklı formatları için kontrol
+      let personBranchId = person.branchesId;
+      
+      // Eğer branchesId bir object ise, ilk anahtarı al
+      if (typeof personBranchId === 'object' && personBranchId !== null) {
+        const keys = Object.keys(personBranchId);
+        if (keys.length > 0) {
+          personBranchId = keys[0];
+        }
+      }
+      
+      // String karşılaştırması yaparak eşleşmeyi kontrol et
+      return String(personBranchId) === String(selectedBranch.id);
+    });
+    
+    console.log(`Şube "${selectedBranch.name}" için bulunan personel sayısı: ${filtered.length}`);
+    
+    if (filtered.length === 0) {
+      console.warn(`Uyarı: "${selectedBranch.name}" şubesinde hiç personel bulunamadı.`);
+    }
+    
+    setFilteredPersonnel(filtered);
+    
+    // Eğer şu anki seçili personel bu şubede değilse, seçimi temizle
+    if (selectedPersonnelId) {
+      const personelExists = filtered.some(p => p.id === selectedPersonnelId);
+      if (!personelExists) {
+        setSelectedPersonnelId('');
+      }
     }
   }, [selectedBranch, personnel, selectedPersonnelId]);
 
