@@ -501,7 +501,13 @@ const PersonnelInfoModal: React.FC<{
   );
 };
 
-const Personnel: React.FC = () => {
+// Personnel arayüzü
+interface PersonnelProps {
+  branchId?: string;
+  isManager?: boolean;
+}
+
+const Personnel: React.FC<PersonnelProps> = ({ branchId, isManager = false }) => {
   // State tanımlamaları
   const [loading, setLoading] = useState(true);
   const [personnel, setPersonnel] = useState<any[]>([]);
@@ -590,7 +596,7 @@ const Personnel: React.FC = () => {
         
         if (!personnelSnapshot.exists()) {
           setPersonnel([]);
-        setLoading(false);
+          setLoading(false);
           return;
         }
         
@@ -654,33 +660,40 @@ const Personnel: React.FC = () => {
           })
         );
         
+        // branchId prop'u varsa ve yönetici modundaysak sadece o şubenin personellerini göster
+        let sortedPersonnel = [...enhancedPersonnel];
+        if (branchId && isManager) {
+          console.log("Şubeye göre personel filtreleniyor:", branchId);
+          sortedPersonnel = sortedPersonnel.filter(person => person.branchesId === branchId);
+        }
+        
         // Ekleme tarihine göre sırala (yeniden eskiye)
-        const sortedPersonnel = [...enhancedPersonnel].sort((a, b) => b.addedAt - a.addedAt);
+        sortedPersonnel.sort((a, b) => b.addedAt - a.addedAt);
         setPersonnel(sortedPersonnel);
         
         // Realtime güncellemeleri dinle - güncellemeler olduğunda tüm süreci tekrarla
         onValue(personnelRef, async (snapshot) => {
           if (!snapshot.exists()) {
-      setPersonnel([]);
-      return;
-    }
+            setPersonnel([]);
+            return;
+          }
 
           const personnelData = snapshot.val();
           
           // Personel listesini hazırla
-    const personnelList = Object.entries(personnelData)
-      .filter(([_, data]: [string, any]) => {
-        const isDeleted = data.isDeleted === true;
-        return showDeleted ? isDeleted : !isDeleted;
-      })
-      .map(([id, data]: [string, any]) => ({
-        id,
-        name: data.name || 'İsimsiz Personel',
-        hasTask: data.hasTask || false,
-        email: data.email || '',
-        phone: data.phone || '',
-        addedAt: data.addedAt || Date.now(),
-        deletedAt: data.deletedAt || null,
+          const personnelList = Object.entries(personnelData)
+            .filter(([_, data]: [string, any]) => {
+              const isDeleted = data.isDeleted === true;
+              return showDeleted ? isDeleted : !isDeleted;
+            })
+            .map(([id, data]: [string, any]) => ({
+              id,
+              name: data.name || 'İsimsiz Personel',
+              hasTask: data.hasTask || false,
+              email: data.email || '',
+              phone: data.phone || '',
+              addedAt: data.addedAt || Date.now(),
+              deletedAt: data.deletedAt || null,
               isDeleted: data.isDeleted || false,
               branchesId: data.branchesId || null,
               branchName: '' 
@@ -724,9 +737,16 @@ const Personnel: React.FC = () => {
             })
           );
           
-    // Ekleme tarihine göre sırala (yeniden eskiye)
-          const sortedPersonnel = [...enhancedPersonnel].sort((a, b) => b.addedAt - a.addedAt);
-    setPersonnel(sortedPersonnel);
+          // branchId prop'u varsa ve yönetici modundaysak sadece o şubenin personellerini göster
+          let sortedPersonnel = [...enhancedPersonnel];
+          if (branchId && isManager) {
+            console.log("Şubeye göre personel filtreleniyor (realtime):", branchId);
+            sortedPersonnel = sortedPersonnel.filter(person => person.branchesId === branchId);
+          }
+          
+          // Ekleme tarihine göre sırala (yeniden eskiye)
+          sortedPersonnel.sort((a, b) => b.addedAt - a.addedAt);
+          setPersonnel(sortedPersonnel);
         });
         
       } catch (error) {
@@ -745,7 +765,7 @@ const Personnel: React.FC = () => {
         off(ref(database, `companies/${companyId}/personnel`));
       }
     };
-  }, [showDeleted]); // showDeleted değiştiğinde useEffect yeniden çalışacak
+  }, [showDeleted, branchId, isManager]); // branchId ve isManager değiştiğinde de useEffect yeniden çalışacak
 
   // Arama fonksiyonu
   useEffect(() => {

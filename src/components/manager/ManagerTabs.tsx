@@ -5,6 +5,7 @@ import { database } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import Dashboard from '../dashboard/Dashboard';
 import Tasks from '../tasks/Tasks';
+import Personnel from '../personnel/Personnel';
 
 // TabPanel bileşeni
 interface TabPanelProps {
@@ -42,15 +43,6 @@ const a11yProps = (index: number) => {
 };
 
 // Placeholder bileşenleri
-const PersonnelTab: React.FC = () => {
-  return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h5">Personel Modülü</Typography>
-      <Typography variant="body1">Bu modül henüz geliştirme aşamasındadır.</Typography>
-    </Box>
-  );
-};
-
 const ShiftsTab: React.FC = () => {
   return (
     <Box sx={{ p: 3 }}>
@@ -134,7 +126,7 @@ const ManagerTabs: React.FC = () => {
           {
             id: 'personnel',
             label: 'Personel',
-            component: <PersonnelTab />,
+            component: <Personnel branchId={userDetails.branchesId} isManager={true} />,
             enabled: false
           },
           {

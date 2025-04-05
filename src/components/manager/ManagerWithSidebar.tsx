@@ -3,6 +3,7 @@ import { Box, Paper, styled } from '@mui/material';
 import ManagerSidebar from './ManagerSidebar';
 // Gerçek sayfaları import et
 import Tasks from '../tasks/Tasks';
+import Personnel from '../personnel/Personnel';
 import { useAuth } from '../../contexts/AuthContext';
 
 // İçerik alanını stilize et
@@ -39,6 +40,20 @@ const BranchTasks: React.FC = () => {
   return <Tasks />;
 };
 
+// Şube personelini filtreleme bileşeni
+const BranchPersonnel: React.FC = () => {
+  const { userDetails } = useAuth();
+  
+  // Eğer kullanıcının şube bilgisi varsa, o şubeye ait personeli filtrele
+  if (userDetails && userDetails.branchesId) {
+    console.log("Personel görüntüleniyor, şube ID:", userDetails.branchesId);
+    return <Personnel branchId={userDetails.branchesId} isManager={true} />;
+  }
+  
+  // Şube bilgisi yoksa, tüm personeli göster (bu durum olmamalı)
+  return <Personnel isManager={true} />;
+};
+
 const ManagerWithSidebar: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [sidebarWidth, setSidebarWidth] = useState(260);
@@ -61,7 +76,7 @@ const ManagerWithSidebar: React.FC = () => {
       case 'tasks':
         return <BranchTasks />;
       case 'personnel':
-        return <div>Personel İçeriği Buraya Gelecek</div>;
+        return <BranchPersonnel />;
       case 'shifts':
         return <div>Vardiya İçeriği Buraya Gelecek</div>;
       case 'reports':
