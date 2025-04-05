@@ -32,12 +32,13 @@ interface TaskDetailModalProps {
   open: boolean;
   onClose: () => void;
   task: any;
-  onDelete: (taskId: string, personnelId: string) => Promise<void>;
+  onDelete?: (taskId: string, personnelId: string) => Promise<void>;
   onUpdatePersonnel?: (taskId: string, newPersonnelId: string) => Promise<void>;
   personnel?: any[];
   getStatusColor: (status: string) => string;
   getStatusIcon: (status: string) => React.ReactNode;
   getStatusLabel: (status: string) => string;
+  readOnly?: boolean;
 }
 
 const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ 
@@ -49,7 +50,8 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   personnel = [],
   getStatusColor,
   getStatusIcon,
-  getStatusLabel 
+  getStatusLabel,
+  readOnly = false
 }) => {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -59,7 +61,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   const [isChangingPersonnel, setIsChangingPersonnel] = useState(false);
 
   const handleDelete = async () => {
-    if (!task) return;
+    if (!task || !onDelete) return;
     
     setIsDeleting(true);
     setError(null);
@@ -120,7 +122,9 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
         color: 'white',
         py: 2
       }}>
-        <Typography variant="h6" fontWeight="bold">Görev Detayları</Typography>
+        <Typography variant="h6" fontWeight="bold">
+          {readOnly ? 'Görev Bilgileri' : 'Görev Detayları'}
+        </Typography>
         <IconButton onClick={onClose} size="small" sx={{ color: 'white' }}>
           <CloseIcon />
         </IconButton>
@@ -230,7 +234,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
             </Box>
           </Box>
 
-          {onUpdatePersonnel && personnel.length > 0 && (
+          {!readOnly && onUpdatePersonnel && personnel.length > 0 && (
             <Box sx={{ mt: 1, mb: 2 }}>
               <Button
                 fullWidth
@@ -251,78 +255,79 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
           {task.isRecurring && (
             <>
               <Divider sx={{ my: 2 }} />
-              <Typography variant="subtitle2" color="primary" gutterBottom>
-                Tekrarlı Görev Bilgileri
+              <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
+                Tekrar Bilgisi
               </Typography>
-              
-              {task.repetitionTimes && task.repetitionTimes.length > 0 && (
-                <Box sx={{ mt: 1 }}>
-                  <Typography variant="caption" color="text.secondary">
-                    Tekrar saatleri:
-                  </Typography>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
-                    {task.repetitionTimes.slice(0, 3).map((time: string, index: number) => (
-                      <Chip
-                        key={index}
-                        label={time}
-                        size="small"
-                        sx={{
-                          bgcolor: '#03A9F420',
-                          color: '#03A9F4',
-                          fontSize: '0.7rem',
-                          height: 20
-                        }}
-                      />
-                    ))}
-                    {task.repetitionTimes.length > 3 && (
-                      <Chip
-                        label={`+${task.repetitionTimes.length - 3}`}
-                        size="small"
-                        sx={{
-                          bgcolor: '#03A9F420',
-                          color: '#03A9F4',
-                          fontSize: '0.7rem',
-                          height: 20
-                        }}
-                      />
-                    )}
-                  </Box>
-                </Box>
-              )}
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                <Typography variant="body2">
+                  Tolerans: {task.startTolerance || 15} dakika
+                </Typography>
+                {task.repetitionTimes && task.repetitionTimes.length > 0 && (
+                  <>
+                    <Typography variant="caption" color="text.secondary">
+                      Tekrar Saatleri:
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                      {task.repetitionTimes.map((time: string, index: number) => (
+                        <Chip
+                          key={index}
+                          label={time}
+                          size="small"
+                          variant="outlined"
+                          sx={{ fontSize: '0.75rem' }}
+                        />
+                      ))}
+                    </Box>
+                  </>
+                )}
+              </Box>
             </>
           )}
         </Paper>
       </DialogContent>
 
-      <DialogActions sx={{ px: 3, pb: 3 }}>
+      <DialogActions sx={{ px: 3, py: 2 }}>
+        {!readOnly && onDelete && (
+          <Button
+            variant="outlined"
+            color="error"
+            startIcon={<DeleteIcon />}
+            onClick={() => setDeleteConfirmOpen(true)}
+            disabled={isDeleting}
+          >
+            {isDeleting ? 'Siliniyor...' : 'Görevi Sil'}
+          </Button>
+        )}
         <Button
           variant="contained"
-          color="error"
-          startIcon={<DeleteIcon />}
-          onClick={() => setDeleteConfirmOpen(true)}
-          disabled={isDeleting}
+          color="primary"
+          onClick={onClose}
+          sx={{ ml: 'auto' }}
         >
-          {isDeleting ? 'Siliniyor...' : 'Görevi Sil'}
+          {readOnly ? 'Kapat' : 'Tamam'}
         </Button>
       </DialogActions>
 
-      {/* Silme Onayı Diyaloğu */}
-      <Dialog open={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)}>
-        <DialogTitle>Görevi Sil</DialogTitle>
+      {/* Silme onay diyaloğu */}
+      <Dialog
+        open={deleteConfirmOpen}
+        onClose={() => setDeleteConfirmOpen(false)}
+      >
+        <DialogTitle>Görev Silme Onayı</DialogTitle>
         <DialogContent>
           <Typography>
-            "{task.name}" görevini silmek istediğinize emin misiniz? Bu işlem geri alınamaz.
+            "{task.name}" görevini silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
           </Typography>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDeleteConfirmOpen(false)}>İptal</Button>
-          <Button onClick={handleDelete} color="error" disabled={isDeleting}>
+          <Button onClick={handleDelete} color="error" variant="contained">
             {isDeleting ? 'Siliniyor...' : 'Evet, Sil'}
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Personel Değiştirme Diyaloğu */}
+      {/* Personel değiştirme diyaloğu */}
       <Dialog open={personnelChangeOpen} onClose={() => setPersonnelChangeOpen(false)}>
         <DialogTitle>Personel Değiştir</DialogTitle>
         <DialogContent>

@@ -443,7 +443,13 @@ const TasksTable: React.FC<{
   );
 };
 
-const Tasks: React.FC = () => {
+// Tasks bileşeni arayüzü oluştur
+interface TasksProps {
+  branchId?: string;
+  isManager?: boolean;
+}
+
+const Tasks: React.FC<TasksProps> = ({ branchId, isManager = false }) => {
   // State tanımlamaları
   const [loading, setLoading] = useState(true);
   const [tasks, setTasks] = useState<any[]>([]);
@@ -613,8 +619,48 @@ const Tasks: React.FC = () => {
   const filteredTasks = useMemo(() => {
     let result = [...tasks];
     
-    // Durum filtresi uygulanıyor
-    if (statusFilter !== 'all') {
+    // Eğer branchId verilmişse, sadece o şubeye ait görevleri göster
+    if (branchId) {
+      result = result.filter(task => {
+        // branchesId bir nesne olabilir veya string olabilir
+        if (typeof task.branchesId === 'object' && task.branchesId !== null) {
+          // Nesne durumunda, anahtarlarını kontrol et
+          return Object.keys(task.branchesId).includes(branchId);
+        } else {
+          // String durumunda direk karşılaştır
+          return task.branchesId === branchId;
+        }
+      });
+      
+      // Tamamlanan görevleri de şubeye göre filtrele
+      if (statusFilter === 'completed') {
+        const filteredCompletedTasks = completedTasks.filter(task => {
+          if (typeof task.branchesId === 'object' && task.branchesId !== null) {
+            return Object.keys(task.branchesId).includes(branchId);
+          } else {
+            return task.branchesId === branchId;
+          }
+        });
+        result = [
+          ...result.filter(task => task.status === 'completed'),
+          ...filteredCompletedTasks
+        ];
+      } else if (statusFilter === 'missed') {
+        // Kaçırılan görevleri de şubeye göre filtrele
+        const filteredMissedTasks = missedTasks.filter(task => {
+          if (typeof task.branchesId === 'object' && task.branchesId !== null) {
+            return Object.keys(task.branchesId).includes(branchId);
+          } else {
+            return task.branchesId === branchId;
+          }
+        });
+        result = [
+          ...result.filter(task => task.status === 'missed'),
+          ...filteredMissedTasks
+        ];
+      }
+    } else {
+      // Şube ID'si verilmemişse normal filtrele
       if (statusFilter === 'completed') {
         // Ana görev listesindeki tamamlanan görevler + veritabanındaki tamamlanan görevler
         result = [
@@ -627,13 +673,10 @@ const Tasks: React.FC = () => {
           ...result.filter(task => task.status === 'missed'),
           ...missedTasks
         ];
-      } else {
+      } else if (statusFilter !== 'all') {
         // Diğer durumlar için normal filtreleme
         result = result.filter(task => task.status === statusFilter);
       }
-    } else {
-      // "Tüm Görevler" seçiliyse sadece ana görev listesini göster
-      // CompletedTasks ve MissedTasks veritabanlarından gelenler dahil edilmez
     }
     
     // Personel filtresi uygulanıyor
@@ -655,7 +698,7 @@ const Tasks: React.FC = () => {
     }
     
     return result;
-  }, [tasks, completedTasks, missedTasks, statusFilter, personnelFilter, taskSearchTerm, groupFilter]);
+  }, [tasks, completedTasks, missedTasks, statusFilter, personnelFilter, taskSearchTerm, groupFilter, branchId]);
 
   // Veri işleme fonksiyonu
   const processData = (tasksData: any, personnelData: any, completedTasksData: any = null, missedTasksData: any = null) => {
@@ -1613,7 +1656,7 @@ const Tasks: React.FC = () => {
     <ScrollableContent>
       <HeaderContainer>
         <Typography variant="h4" component="h1" fontWeight="bold" color="primary">
-          Görevler
+          {isManager ? 'Şube Görevleri' : 'Görevler'}
         </Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <ToggleButtonGroup
@@ -1653,24 +1696,28 @@ const Tasks: React.FC = () => {
           >
             Excel İndir
           </Button>
-          <Button
-            variant="contained"
-            color="success"
-            startIcon={<CategoryIcon />}
-            onClick={() => setTaskGroupsModalOpen(true)}
-            sx={{ borderRadius: 2 }}
-          >
-            Grup Ekle
-          </Button>
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<AddIcon />}
-            onClick={() => setAddTaskModalOpen(true)}
-            sx={{ borderRadius: 2 }}
-          >
-            Yeni Görev Ekle
-          </Button>
+          {!isManager && (
+            <Button
+              variant="contained"
+              color="success"
+              startIcon={<CategoryIcon />}
+              onClick={() => setTaskGroupsModalOpen(true)}
+              sx={{ borderRadius: 2 }}
+            >
+              Grup Ekle
+            </Button>
+          )}
+          {!isManager && (
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<AddIcon />}
+              onClick={() => setAddTaskModalOpen(true)}
+              sx={{ borderRadius: 2 }}
+            >
+              Yeni Görev Ekle
+            </Button>
+          )}
         </Box>
       </HeaderContainer>
 
@@ -2302,43 +2349,50 @@ const Tasks: React.FC = () => {
         </>
       )}
 
-      {/* Görev Detay Modalı */}
+      {/* Görev Detay Modalı - hem yöneticiler hem normal kullanıcılar görebilir */}
       <TaskDetailModal
         open={taskDetailOpen}
         onClose={() => setTaskDetailOpen(false)}
         task={selectedTask}
-        onDelete={handleDeleteTask}
-        onUpdatePersonnel={handleUpdatePersonnel}
+        onDelete={!isManager ? handleDeleteTask : undefined} // Yöneticiler silemez
+        onUpdatePersonnel={!isManager ? handleUpdatePersonnel : undefined} // Yöneticiler personel atayamaz
         personnel={personnel}
         getStatusColor={getStatusColor}
         getStatusIcon={getStatusIcon}
         getStatusLabel={getStatusLabel}
+        readOnly={isManager} // Yönetici modu salt okunur
       />
 
-      {/* Görev Ekleme Modalı */}
-      <AddTaskModal
-        open={addTaskModalOpen}
-        onClose={() => setAddTaskModalOpen(false)}
-        onAddTask={handleAddTask}
-        onAddWeeklyTask={handleAddWeeklyTask}
-        personnel={personnel}
-        taskGroups={taskGroups}
-        companyId={companyId || ''}
-      />
-
+      {/* Yönetici modunda ekleme ve düzenleme fonksiyonlarını devre dışı bırak */}
+      {!isManager && (
+        <>
+          {/* Görev Ekleme Modalı */}
+          <AddTaskModal
+            open={addTaskModalOpen}
+            onClose={() => setAddTaskModalOpen(false)}
+            onAddTask={handleAddTask}
+            onAddWeeklyTask={handleAddWeeklyTask}
+            personnel={personnel}
+            taskGroups={taskGroups}
+            companyId={companyId || ''}
+          />
+          
+          {/* Görev Grupları Modalı */}
+          <TaskGroupsModal
+            open={taskGroupsModalOpen}
+            onClose={() => setTaskGroupsModalOpen(false)}
+            companyId={companyId || ''}
+            taskGroups={taskGroups}
+          />
+        </>
+      )}
+      
+      {/* Bu modallar her zaman gösterilsin */}
       {/* QR Kod Yazdırma Modalı */}
       <QrPrintModal
         open={qrPrintModalOpen}
         onClose={() => setQrPrintModalOpen(false)}
         task={selectedTaskForQr}
-      />
-
-      {/* Görev Grupları Modalı */}
-      <TaskGroupsModal
-        open={taskGroupsModalOpen}
-        onClose={() => setTaskGroupsModalOpen(false)}
-        companyId={companyId || ''}
-        taskGroups={taskGroups}
       />
 
       {/* Bilgi Modalı */}

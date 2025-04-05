@@ -3,13 +3,8 @@ import { Box, Tabs, Tab, Typography, CircularProgress, Alert } from '@mui/materi
 import { ref, get } from 'firebase/database';
 import { database } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
-import ManagerDashboardTab from './tabs/ManagerDashboardTab';
-import ManagerTasksTab from './tabs/ManagerTasksTab';
-import ManagerPersonnelTab from './tabs/ManagerPersonnelTab';
-import ManagerShiftsTab from './tabs/ManagerShiftsTab';
-import ManagerReportsTab from './tabs/ManagerReportsTab';
-import ManagerMessagesTab from './tabs/ManagerMessagesTab';
-import ManagerSurveysTab from './tabs/ManagerSurveysTab';
+import Dashboard from '../dashboard/Dashboard';
+import Tasks from '../tasks/Tasks';
 
 // TabPanel bileşeni
 interface TabPanelProps {
@@ -46,6 +41,52 @@ const a11yProps = (index: number) => {
   };
 };
 
+// Placeholder bileşenleri
+const PersonnelTab: React.FC = () => {
+  return (
+    <Box sx={{ p: 3 }}>
+      <Typography variant="h5">Personel Modülü</Typography>
+      <Typography variant="body1">Bu modül henüz geliştirme aşamasındadır.</Typography>
+    </Box>
+  );
+};
+
+const ShiftsTab: React.FC = () => {
+  return (
+    <Box sx={{ p: 3 }}>
+      <Typography variant="h5">Vardiya Modülü</Typography>
+      <Typography variant="body1">Bu modül henüz geliştirme aşamasındadır.</Typography>
+    </Box>
+  );
+};
+
+const ReportsTab: React.FC = () => {
+  return (
+    <Box sx={{ p: 3 }}>
+      <Typography variant="h5">Raporlar Modülü</Typography>
+      <Typography variant="body1">Bu modül henüz geliştirme aşamasındadır.</Typography>
+    </Box>
+  );
+};
+
+const MessagesTab: React.FC = () => {
+  return (
+    <Box sx={{ p: 3 }}>
+      <Typography variant="h5">Mesajlar Modülü</Typography>
+      <Typography variant="body1">Bu modül henüz geliştirme aşamasındadır.</Typography>
+    </Box>
+  );
+};
+
+const SurveysTab: React.FC = () => {
+  return (
+    <Box sx={{ p: 3 }}>
+      <Typography variant="h5">Anketler Modülü</Typography>
+      <Typography variant="body1">Bu modül henüz geliştirme aşamasındadır.</Typography>
+    </Box>
+  );
+};
+
 // Tab arayüzü
 interface TabConfig {
   id: string;
@@ -60,6 +101,7 @@ const ManagerTabs: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [tabs, setTabs] = useState<TabConfig[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [branchId, setBranchId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchPermissions = async () => {
@@ -72,48 +114,51 @@ const ManagerTabs: React.FC = () => {
           return;
         }
         
+        // Yöneticinin şube ID'sini al (eğer varsa)
+        setBranchId(userDetails.branchesId || null);
+        
         // Tab konfigürasyonlarını oluştur (varsayılan olarak tümü devre dışı)
         const allTabs: TabConfig[] = [
           {
             id: 'dashboard',
             label: 'Dashboard',
-            component: <ManagerDashboardTab />,
+            component: <Dashboard />,
             enabled: false
           },
           {
             id: 'tasks',
             label: 'Görevler',
-            component: <ManagerTasksTab />,
+            component: <Tasks branchId={userDetails.branchesId} isManager={true} />,
             enabled: false
           },
           {
             id: 'personnel',
             label: 'Personel',
-            component: <ManagerPersonnelTab />,
+            component: <PersonnelTab />,
             enabled: false
           },
           {
             id: 'shifts',
             label: 'Vardiya',
-            component: <ManagerShiftsTab />,
+            component: <ShiftsTab />,
             enabled: false
           },
           {
             id: 'reports',
             label: 'Raporlar',
-            component: <ManagerReportsTab />,
+            component: <ReportsTab />,
             enabled: false
           },
           {
             id: 'messages',
             label: 'Mesajlar',
-            component: <ManagerMessagesTab />,
+            component: <MessagesTab />,
             enabled: false
           },
           {
             id: 'surveys',
             label: 'Anketler',
-            component: <ManagerSurveysTab />,
+            component: <SurveysTab />,
             enabled: false
           }
         ];
@@ -156,7 +201,7 @@ const ManagerTabs: React.FC = () => {
         setTabs([{
           id: 'dashboard',
           label: 'Dashboard',
-          component: <ManagerDashboardTab />,
+          component: <Dashboard />,
           enabled: true
         }]);
         

@@ -27,14 +27,7 @@ import MessageIcon from '@mui/icons-material/Message';
 import PollIcon from '@mui/icons-material/Poll';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 
-// Tab bileşenleri
-import ManagerDashboardTab from './tabs/ManagerDashboardTab';
-import ManagerTasksTab from './tabs/ManagerTasksTab';
-import ManagerPersonnelTab from './tabs/ManagerPersonnelTab';
-import ManagerShiftsTab from './tabs/ManagerShiftsTab';
-import ManagerReportsTab from './tabs/ManagerReportsTab';
-import ManagerMessagesTab from './tabs/ManagerMessagesTab';
-import ManagerSurveysTab from './tabs/ManagerSurveysTab';
+// Tab bileşenleri kaldırıldı
 
 const SidebarContainer = styled(Box)<{ isCollapsed: boolean }>(({ theme, isCollapsed }) => ({
   width: isCollapsed ? 70 : 260,
@@ -97,12 +90,12 @@ interface TabConfig {
   id: string;
   label: string;
   icon: React.ReactNode;
-  component: React.ReactNode;
+  component: string;
   enabled: boolean;
 }
 
 interface ManagerSidebarProps {
-  onTabChange: (component: React.ReactNode) => void;
+  onTabChange: (component: string) => void;
   onCollapse: (isCollapsed: boolean) => void;
 }
 
@@ -135,49 +128,49 @@ const ManagerSidebar: React.FC<ManagerSidebarProps> = ({ onTabChange, onCollapse
             id: 'dashboard',
             label: 'Dashboard',
             icon: <DashboardIcon />,
-            component: <ManagerDashboardTab />,
+            component: 'dashboard',
             enabled: false
           },
           {
             id: 'tasks',
             label: 'Görevler',
             icon: <AssignmentIcon />,
-            component: <ManagerTasksTab />,
+            component: 'tasks',
             enabled: false
           },
           {
             id: 'personnel',
             label: 'Personel',
             icon: <PeopleIcon />,
-            component: <ManagerPersonnelTab />,
+            component: 'personnel',
             enabled: false
           },
           {
             id: 'shifts',
             label: 'Vardiya',
             icon: <AccessTimeIcon />,
-            component: <ManagerShiftsTab />,
+            component: 'shifts',
             enabled: false
           },
           {
             id: 'reports',
             label: 'Raporlar',
             icon: <AssessmentIcon />,
-            component: <ManagerReportsTab />,
+            component: 'reports',
             enabled: false
           },
           {
             id: 'messages',
             label: 'Mesajlar',
             icon: <MessageIcon />,
-            component: <ManagerMessagesTab />,
+            component: 'messages',
             enabled: false
           },
           {
             id: 'surveys',
             label: 'Anketler',
             icon: <PollIcon />,
-            component: <ManagerSurveysTab />,
+            component: 'surveys',
             enabled: false
           }
         ];
@@ -226,7 +219,7 @@ const ManagerSidebar: React.FC<ManagerSidebarProps> = ({ onTabChange, onCollapse
           id: 'dashboard',
           label: 'Dashboard',
           icon: <DashboardIcon />,
-          component: <ManagerDashboardTab />,
+          component: 'dashboard',
           enabled: true
         };
         
@@ -252,14 +245,6 @@ const ManagerSidebar: React.FC<ManagerSidebarProps> = ({ onTabChange, onCollapse
     onCollapse(newCollapsedState);
   };
 
-  if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', width: isCollapsed ? 70 : 260 }}>
-        <CircularProgress sx={{ color: 'white' }} />
-      </Box>
-    );
-  }
-
   return (
     <SidebarContainer isCollapsed={isCollapsed}>
       <ToggleButton onClick={toggleSidebar} size="small">
@@ -267,55 +252,60 @@ const ManagerSidebar: React.FC<ManagerSidebarProps> = ({ onTabChange, onCollapse
       </ToggleButton>
       
       <Logo isCollapsed={isCollapsed}>
-        {!isCollapsed && (
-          <Typography variant="h6" fontWeight="bold">
-            Yönetici Paneli
+        {isCollapsed ? (
+          <Typography variant="h4" fontWeight="bold" color="primary">
+            Y
           </Typography>
-        )}
-        {isCollapsed && (
-          <Typography variant="h6" fontWeight="bold">
-            YP
+        ) : (
+          <Typography variant="h6" fontWeight="bold" align="center">
+            Yönetici Paneli
           </Typography>
         )}
       </Logo>
       
-      {error && !isCollapsed && (
-        <Alert severity="info" sx={{ m: 2, backgroundColor: 'rgba(255,255,255,0.1)', color: 'white' }}>
-          {error}
-        </Alert>
+      {loading ? (
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          height: 300,
+          width: isCollapsed ? 70 : 260
+        }}>
+          <CircularProgress color="inherit" />
+        </Box>
+      ) : (
+        <>
+          {error && !isCollapsed && (
+            <Alert severity="warning" sx={{ m: 2, fontSize: 12 }}>
+              {error}
+            </Alert>
+          )}
+          
+          <MenuContainer>
+            {tabs.map((tab, index) => (
+              <MenuItem 
+                key={tab.id}
+                active={index === activeTabIndex} 
+                onClick={() => handleTabClick(index)}
+                isCollapsed={isCollapsed}
+              >
+                <ListItemIcon sx={{ minWidth: isCollapsed ? 'auto' : 40, color: 'white' }}>
+                  {tab.icon}
+                </ListItemIcon>
+                {!isCollapsed && (
+                  <ListItemText 
+                    primary={tab.label} 
+                    primaryTypographyProps={{ 
+                      fontSize: 15,
+                      fontWeight: index === activeTabIndex ? 'bold' : 'normal'
+                    }} 
+                  />
+                )}
+              </MenuItem>
+            ))}
+          </MenuContainer>
+        </>
       )}
-      
-      <Divider sx={{ backgroundColor: 'rgba(255,255,255,0.1)' }} />
-      
-      <MenuContainer>
-        {tabs.map((tab, index) => (
-          <MenuItem 
-            key={tab.id}
-            active={activeTabIndex === index} 
-            onClick={() => handleTabClick(index)}
-            isCollapsed={isCollapsed}
-          >
-            <ListItemIcon sx={{ color: 'white', minWidth: 40 }}>
-              {tab.icon}
-            </ListItemIcon>
-            {!isCollapsed && <ListItemText primary={tab.label} />}
-          </MenuItem>
-        ))}
-      </MenuContainer>
-      
-      <Divider sx={{ backgroundColor: 'rgba(255,255,255,0.1)' }} />
-      
-      <Box sx={{ p: 2, textAlign: 'center' }}>
-        {!isCollapsed ? (
-          <Typography variant="body2" sx={{ opacity: 0.7 }}>
-            GTS Manager Panel
-          </Typography>
-        ) : (
-          <Typography variant="body2" sx={{ opacity: 0.7 }}>
-            GTS
-          </Typography>
-        )}
-      </Box>
     </SidebarContainer>
   );
 };
