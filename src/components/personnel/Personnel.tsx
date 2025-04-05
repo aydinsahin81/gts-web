@@ -53,7 +53,8 @@ import {
   ViewModule as ViewModuleIcon,
   ViewList as ViewListIcon,
   Info as InfoIcon,
-  Download as DownloadIcon
+  Download as DownloadIcon,
+  Business as BusinessIcon
 } from '@mui/icons-material';
 import { ref, get, onValue, off, remove, update, set, push } from 'firebase/database';
 import { database, auth } from '../../firebase';
@@ -182,10 +183,11 @@ const PersonnelTable: React.FC<{
       <Table size="small" stickyHeader>
         <TableHead>
           <TableRow>
-            <TableCell width="30%">Ad Soyad</TableCell>
-            <TableCell width="20%">Telefon</TableCell>
-            <TableCell width="25%">E-posta</TableCell>
+            <TableCell width="25%">Ad Soyad</TableCell>
+            <TableCell width="15%">Telefon</TableCell>
+            <TableCell width="20%">E-posta</TableCell>
             {!showDeleted && <TableCell width="10%">Durum</TableCell>}
+            <TableCell width="15%">Şube</TableCell>
             <TableCell width="15%" align="right">İşlemler</TableCell>
           </TableRow>
         </TableHead>
@@ -239,6 +241,16 @@ const PersonnelTable: React.FC<{
                   />
                 </TableCell>
               )}
+              <TableCell>
+                {person.branchesId ? (
+                  <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center' }}>
+                    <BusinessIcon fontSize="small" sx={{ mr: 0.5, color: 'primary.main', fontSize: '0.875rem' }} />
+                    {person.branchName || 'Bilinmeyen Şube'}
+                  </Typography>
+                ) : (
+                  <Typography variant="body2" color="text.secondary">-</Typography>
+                )}
+              </TableCell>
               <TableCell align="right" onClick={(e) => e.stopPropagation()}>
                 {showDeleted ? (
                   <Tooltip title="İşe Geri Al">
@@ -286,7 +298,7 @@ const PersonnelTable: React.FC<{
           ))}
           {personnel.length === 0 && (
             <TableRow>
-              <TableCell colSpan={showDeleted ? 4 : 5} align="center" sx={{ py: 3 }}>
+              <TableCell colSpan={showDeleted ? 5 : 6} align="center" sx={{ py: 3 }}>
                 <Typography color="text.secondary">
                   {showDeleted ? "Silinen personel bulunmuyor" : "Personel bulunamadı"}
                 </Typography>
@@ -563,21 +575,160 @@ const Personnel: React.FC = () => {
           return;
         }
         
-        // Personel referansı oluştur
-        const personnelRef = ref(database, `companies/${companyId}/personnel`);
+        // Önce şubeleri yükle
+        const branchesRef = ref(database, `companies/${companyId}/branches`);
+        const branchesSnapshot = await get(branchesRef);
+        let branchesData: Record<string, any> = {};
         
-        // Başlangıç verilerini al
+        if (branchesSnapshot.exists()) {
+          branchesData = branchesSnapshot.val();
+        }
+        
+        // Personel verilerini yükle
+        const personnelRef = ref(database, `companies/${companyId}/personnel`);
         const personnelSnapshot = await get(personnelRef);
+        
+        if (!personnelSnapshot.exists()) {
+          setPersonnel([]);
+          setLoading(false);
+          return;
+        }
+        
         const personnelData = personnelSnapshot.exists() ? personnelSnapshot.val() : {};
         
-        // Verileri işle
-        processData(personnelData);
+        // Personel listesini hazırla (isDeleted durumuna göre filtrele)
+        const personnelList = Object.entries(personnelData)
+          .filter(([_, data]: [string, any]) => {
+            // showDeleted true ise silinenleri, false ise silinmeyenleri göster
+            const isDeleted = data.isDeleted === true;
+            return showDeleted ? isDeleted : !isDeleted;
+          })
+          .map(([id, data]: [string, any]) => {
+            const person = {
+              id,
+              name: data.name || 'İsimsiz Personel',
+              hasTask: data.hasTask || false,
+              email: data.email || '',
+              phone: data.phone || '',
+              addedAt: data.addedAt || Date.now(),
+              deletedAt: data.deletedAt || null,
+              isDeleted: data.isDeleted || false,
+              branchesId: data.branchesId || null,
+              branchName: '' 
+            };
+            
+            return person;
+          });
         
-        // Realtime güncellemeleri dinle
-        onValue(personnelRef, (snapshot) => {
-          const personnelData = snapshot.exists() ? snapshot.val() : {};
-          processData(personnelData);
+        // Her personel için şube bilgilerini ve users'dan branchesId'yi kontrol et
+        const enhancedPersonnel = await Promise.all(
+          personnelList.map(async (person) => {
+            // Önce personelin şube ID'sini kontrol et
+            if (!person.branchesId) {
+              // Şube ID'si yoksa users veritabanında kontrol et
+              const userRef = ref(database, `users/${person.id}`);
+              const userSnapshot = await get(userRef);
+              
+              if (userSnapshot.exists()) {
+                const userData = userSnapshot.val();
+                if (userData.branchesId) {
+                  person.branchesId = userData.branchesId;
+                }
+              }
+            }
+            
+            // Şube ID'si varsa şube adını bul
+            if (person.branchesId && branchesData[person.branchesId as string]) {
+              // Şube yapısına göre adı al
+              const branchData = branchesData[person.branchesId as string] as any;
+              if (branchData.name) {
+                person.branchName = branchData.name;
+              } else if (branchData.basicInfo && branchData.basicInfo.name) {
+                person.branchName = branchData.basicInfo.name;
+              } else {
+                person.branchName = 'Bilinmeyen Şube';
+              }
+            }
+            
+            return person;
+          })
+        );
+        
+        // Ekleme tarihine göre sırala (yeniden eskiye)
+        const sortedPersonnel = [...enhancedPersonnel].sort((a, b) => b.addedAt - a.addedAt);
+        setPersonnel(sortedPersonnel);
+        
+        // Realtime güncellemeleri dinle - güncellemeler olduğunda tüm süreci tekrarla
+        onValue(personnelRef, async (snapshot) => {
+          if (!snapshot.exists()) {
+            setPersonnel([]);
+            return;
+          }
+          
+          const personnelData = snapshot.val();
+          
+          // Personel listesini hazırla
+          const personnelList = Object.entries(personnelData)
+            .filter(([_, data]: [string, any]) => {
+              const isDeleted = data.isDeleted === true;
+              return showDeleted ? isDeleted : !isDeleted;
+            })
+            .map(([id, data]: [string, any]) => ({
+              id,
+              name: data.name || 'İsimsiz Personel',
+              hasTask: data.hasTask || false,
+              email: data.email || '',
+              phone: data.phone || '',
+              addedAt: data.addedAt || Date.now(),
+              deletedAt: data.deletedAt || null,
+              isDeleted: data.isDeleted || false,
+              branchesId: data.branchesId || null,
+              branchName: '' 
+            }));
+          
+          // Şubeleri yeniden yükle
+          const branchesSnapshot = await get(branchesRef);
+          const branchesData: Record<string, any> = branchesSnapshot.exists() ? branchesSnapshot.val() : {};
+          
+          // Her personel için şube bilgilerini ve users'dan branchesId'yi kontrol et
+          const enhancedPersonnel = await Promise.all(
+            personnelList.map(async (person) => {
+              // Önce personelin şube ID'sini kontrol et
+              if (!person.branchesId) {
+                // Şube ID'si yoksa users veritabanında kontrol et
+                const userRef = ref(database, `users/${person.id}`);
+                const userSnapshot = await get(userRef);
+                
+                if (userSnapshot.exists()) {
+                  const userData = userSnapshot.val();
+                  if (userData.branchesId) {
+                    person.branchesId = userData.branchesId;
+                  }
+                }
+              }
+              
+              // Şube ID'si varsa şube adını bul
+              if (person.branchesId && branchesData[person.branchesId as string]) {
+                // Şube yapısına göre adı al
+                const branchData = branchesData[person.branchesId as string] as any;
+                if (branchData.name) {
+                  person.branchName = branchData.name;
+                } else if (branchData.basicInfo && branchData.basicInfo.name) {
+                  person.branchName = branchData.basicInfo.name;
+                } else {
+                  person.branchName = 'Bilinmeyen Şube';
+                }
+              }
+              
+              return person;
+            })
+          );
+          
+          // Ekleme tarihine göre sırala (yeniden eskiye)
+          const sortedPersonnel = [...enhancedPersonnel].sort((a, b) => b.addedAt - a.addedAt);
+          setPersonnel(sortedPersonnel);
         });
+        
       } catch (error) {
         console.error('Personel verilerini yüklerken hata:', error);
       } finally {
@@ -595,36 +746,6 @@ const Personnel: React.FC = () => {
       }
     };
   }, [showDeleted]); // showDeleted değiştiğinde useEffect yeniden çalışacak
-
-  // Veri işleme fonksiyonu
-  const processData = (personnelData: any) => {
-    if (!personnelData) {
-      setPersonnel([]);
-      return;
-    }
-
-    // Personel listesini hazırla (isDeleted durumuna göre filtrele)
-    const personnelList = Object.entries(personnelData)
-      .filter(([_, data]: [string, any]) => {
-        // showDeleted true ise silinenleri, false ise silinmeyenleri göster
-        const isDeleted = data.isDeleted === true;
-        return showDeleted ? isDeleted : !isDeleted;
-      })
-      .map(([id, data]: [string, any]) => ({
-        id,
-        name: data.name || 'İsimsiz Personel',
-        hasTask: data.hasTask || false,
-        email: data.email || '',
-        phone: data.phone || '',
-        addedAt: data.addedAt || Date.now(),
-        deletedAt: data.deletedAt || null,
-        isDeleted: data.isDeleted || false
-      }));
-    
-    // Ekleme tarihine göre sırala (yeniden eskiye)
-    const sortedPersonnel = [...personnelList].sort((a, b) => b.addedAt - a.addedAt);
-    setPersonnel(sortedPersonnel);
-  };
 
   // Arama fonksiyonu
   useEffect(() => {
@@ -1264,6 +1385,15 @@ const Personnel: React.FC = () => {
                         <PhoneIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />
                         <Typography variant="body2" color="text.secondary">
                           {person.phone}
+                        </Typography>
+                      </Box>
+                    )}
+                    
+                    {person.branchesId && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
+                        <BusinessIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />
+                        <Typography variant="body2" color="text.secondary">
+                          {person.branchName || 'Bilinmeyen Şube'}
                         </Typography>
                       </Box>
                     )}

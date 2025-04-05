@@ -195,49 +195,56 @@ const PersonnelDetailsModal: React.FC<PersonnelDetailsModalProps> = ({
     }
   };
 
-  // Şube adını yükle
+  // Modal açılınca personel bilgilerini ve şube adını kontrol et/yükle
   useEffect(() => {
-    console.log("PersonnelDetailsModal - selectedPersonnel:", selectedPersonnel);
-    if (selectedPersonnel?.branchesId) {
-      console.log("PersonnelDetailsModal - branchesId bulundu:", selectedPersonnel.branchesId);
-      loadBranchName(selectedPersonnel.branchesId);
-    } else {
-      setBranchName('');
-    }
-  }, [selectedPersonnel]);
-
-  // Modal açılınca personel bilgilerini kontrol et
-  useEffect(() => {
-    const checkUserBranchId = async () => {
-      if (selectedPersonnel && selectedPersonnel.id && open) {
-        console.log("Kullanıcı bilgilerini kontrol ediyorum:", selectedPersonnel.id);
-        try {
-          // Kullanıcı veritabanından bilgileri kontrol et
-          const userRef = ref(database, `users/${selectedPersonnel.id}`);
-          const snapshot = await get(userRef);
+    const loadPersonnelData = async () => {
+      if (!selectedPersonnel || !open) return;
+      
+      console.log("PersonnelDetailsModal - selectedPersonnel:", selectedPersonnel);
+      
+      // 1. Önce personel nesnesinde şube adı varsa kullan
+      if (selectedPersonnel.branchName && selectedPersonnel.branchesId) {
+        console.log("Personel nesnesinden şube adı kullanılıyor:", selectedPersonnel.branchName);
+        setBranchName(selectedPersonnel.branchName);
+        return; // Şube adı zaten var, işlemi sonlandır
+      }
+      
+      // 2. Eğer personelde branchesId varsa ve şube adı yoksa veritabanından yükle
+      if (selectedPersonnel.branchesId) {
+        console.log("branchesId var, şube adı yükleniyor:", selectedPersonnel.branchesId);
+        await loadBranchName(selectedPersonnel.branchesId);
+        return; // Şube ID'si kullanılarak yükleme yapıldı
+      }
+      
+      // 3. Eğer personelde branchesId yoksa, users veritabanında kontrol et
+      try {
+        const userRef = ref(database, `users/${selectedPersonnel.id}`);
+        const snapshot = await get(userRef);
+        
+        if (snapshot.exists()) {
+          const userData = snapshot.val();
+          console.log("Users veritabanı verileri:", userData);
           
-          if (snapshot.exists()) {
-            const userData = snapshot.val();
-            console.log("Kullanıcı verileri:", userData);
+          if (userData.branchesId) {
+            console.log("Users veritabanında branchesId bulundu:", userData.branchesId);
             
-            // Users veritabanında branchesId var mı kontrol et
-            if (userData.branchesId && !selectedPersonnel.branchesId) {
-              console.log("Users veritabanında branchesId bulundu:", userData.branchesId);
-              
-              // selectedPersonnel nesnesine branchesId ekle
-              selectedPersonnel.branchesId = userData.branchesId;
-              
-              // Şube adını yükle
-              loadBranchName(userData.branchesId);
-            }
+            // selectedPersonnel nesnesine branchesId ekle
+            selectedPersonnel.branchesId = userData.branchesId;
+            
+            // Şube adını yükle
+            await loadBranchName(userData.branchesId);
+          } else {
+            // Hiçbir şube ID'si bulunamadı
+            setBranchName('');
           }
-        } catch (error) {
-          console.error("Kullanıcı branch bilgisi kontrol hatası:", error);
         }
+      } catch (error) {
+        console.error("Kullanıcı/şube bilgisi kontrol hatası:", error);
+        setBranchName('');
       }
     };
     
-    checkUserBranchId();
+    loadPersonnelData();
   }, [open, selectedPersonnel]);
 
   const loadBranchName = async (branchId: string) => {
@@ -250,13 +257,39 @@ const PersonnelDetailsModal: React.FC<PersonnelDetailsModalProps> = ({
       
       if (snapshot.exists()) {
         const branchData = snapshot.val();
-        setBranchName(branchData.name || 'Bilinmeyen Şube');
+        
+        // Kontrol et: Şube verisi direkt name içeriyor mu yoksa basicInfo yapısında mı
+        if (branchData.name) {
+          setBranchName(branchData.name);
+        } else if (branchData.basicInfo && branchData.basicInfo.name) {
+          setBranchName(branchData.basicInfo.name);
+        } else {
+          // Eğer selectedPersonnel'da branchName varsa onu kullan
+          if (selectedPersonnel.branchName) {
+            setBranchName(selectedPersonnel.branchName);
+          } else {
+            setBranchName('Bilinmeyen Şube');
+            console.log('Şube adı veritabanında bulunamadı:', branchData);
+          }
+        }
       } else {
-        setBranchName('Şube bulunamadı');
+        // Veritabanında şube bulunamadıysa ama personelde branchName varsa onu kullan
+        if (selectedPersonnel.branchName) {
+          setBranchName(selectedPersonnel.branchName);
+        } else {
+          setBranchName('Şube bulunamadı');
+          console.log('Şube veritabanında bulunamadı, branchId:', branchId);
+        }
       }
     } catch (error) {
       console.error('Şube bilgisi yüklenirken hata:', error);
-      setBranchName('Şube bilgisi yüklenemedi');
+      
+      // Hata durumunda bile personeldeki branchName varsa kullan
+      if (selectedPersonnel.branchName) {
+        setBranchName(selectedPersonnel.branchName);
+      } else {
+        setBranchName('Şube bilgisi yüklenemedi');
+      }
     } finally {
       setLoadingBranch(false);
     }
