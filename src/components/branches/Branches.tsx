@@ -222,10 +222,7 @@ const Branches: React.FC = () => {
             const branchesData = snapshot.val();
             const branchesList = Object.entries(branchesData).map(([id, data]: [string, any]) => ({
               id,
-              ...data,
-              basicInfo: data.basicInfo || {},
-              locationInfo: data.locationInfo || {},
-              contactInfo: data.contactInfo || {}
+              ...data
             }));
             
             // Şubeleri oluşturma tarihine göre sırala (yeniden eskiye)
@@ -350,25 +347,19 @@ const Branches: React.FC = () => {
         const branchesRef = ref(database, `companies/${companyId}/branches`);
         const newBranchRef = push(branchesRef);
         
-        // Şube verilerini hazırla
+        // Şube verilerini hazırla - düz yapı (gruplandırma olmadan)
         const branchData = {
           createdAt: Date.now(),
-          basicInfo: {
-            name: branchForm.name,
-            openingDate: branchForm.openingDate ? branchForm.openingDate.toISOString() : null,
-          },
-          locationInfo: {
-            address: branchForm.address,
-            district: branchForm.district || '',
-            city: branchForm.city || '',
-            postalCode: branchForm.postalCode || '',
-            country: branchForm.country,
-          },
-          contactInfo: {
-            phone: branchForm.phone,
-            email: branchForm.email || '',
-            website: branchForm.website || '',
-          }
+          name: branchForm.name,
+          openingDate: branchForm.openingDate ? branchForm.openingDate.toISOString() : null,
+          address: branchForm.address,
+          district: branchForm.district || '',
+          city: branchForm.city || '',
+          postalCode: branchForm.postalCode || '',
+          country: branchForm.country,
+          phone: branchForm.phone,
+          email: branchForm.email || '',
+          website: branchForm.website || ''
         };
         
         // Şubeyi kaydet
@@ -709,7 +700,7 @@ const Branches: React.FC = () => {
                   <Grid item xs={12} md={6} lg={4} key={branch.id}>
                     <Card elevation={2} sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                       <CardHeader
-                        title={branch.basicInfo.name}
+                        title={branch.name}
                         subheader={`Oluşturulma: ${new Date(branch.createdAt).toLocaleDateString('tr-TR')}`}
                         action={
                           <Box sx={{ display: 'flex' }}>
@@ -717,7 +708,7 @@ const Branches: React.FC = () => {
                               <IconButton 
                                 aria-label="QR kod" 
                                 color="primary"
-                                onClick={() => handleOpenQRModal({id: branch.id, name: branch.basicInfo.name})}
+                                onClick={() => handleOpenQRModal({id: branch.id, name: branch.name})}
                               >
                                 <QrCode2Icon />
                               </IconButton>
@@ -726,7 +717,7 @@ const Branches: React.FC = () => {
                               <IconButton 
                                 aria-label="Yönetici Ata" 
                                 color="secondary"
-                                onClick={() => handleOpenAdminModal({id: branch.id, name: branch.basicInfo.name})}
+                                onClick={() => handleOpenAdminModal({id: branch.id, name: branch.name})}
                               >
                                 <PersonAddIcon />
                               </IconButton>
@@ -741,18 +732,18 @@ const Branches: React.FC = () => {
                       <CardContent sx={{ flex: 1 }}>
                         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                           <LocationIcon fontSize="small" sx={{ mr: 1, verticalAlign: 'middle' }} />
-                          {branch.locationInfo.address}
-                          {branch.locationInfo.district && `, ${branch.locationInfo.district}`}
-                          {branch.locationInfo.city && `, ${branch.locationInfo.city}`}
+                          {branch.address}
+                          {branch.district && `, ${branch.district}`}
+                          {branch.city && `, ${branch.city}`}
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
                           <PhoneIcon fontSize="small" sx={{ mr: 1, verticalAlign: 'middle' }} />
-                          {branch.contactInfo.phone}
+                          {branch.phone}
                         </Typography>
-                        {branch.contactInfo.email && (
+                        {branch.email && (
                           <Typography variant="body2" color="text.secondary">
                             <EmailIcon fontSize="small" sx={{ mr: 1, verticalAlign: 'middle' }} />
-                            {branch.contactInfo.email}
+                            {branch.email}
                           </Typography>
                         )}
                       </CardContent>
@@ -762,7 +753,7 @@ const Branches: React.FC = () => {
                           variant="outlined"
                           color="info"
                           startIcon={<GroupIcon />}
-                          onClick={() => handleOpenManagersModal({id: branch.id, name: branch.basicInfo.name})}
+                          onClick={() => handleOpenManagersModal({id: branch.id, name: branch.name})}
                         >
                           Yöneticiler
                         </Button>
