@@ -35,9 +35,12 @@ import {
   Today as TodayIcon,
   DateRange as WeekIcon,
   CalendarMonth as MonthIcon,
-  CalendarToday as YearIcon
+  CalendarToday as YearIcon,
+  Business as BusinessIcon
 } from '@mui/icons-material';
 import TaskGroupsModal from './TaskGroupsModal';
+import { ref, get } from 'firebase/database';
+import { database } from '../../../firebase';
 
 interface AddTaskModalProps {
   open: boolean;
@@ -98,6 +101,11 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [taskGroupsModalOpen, setTaskGroupsModalOpen] = useState(false);
   
+  // Şube filtresi için yeni state'ler
+  const [branches, setBranches] = useState<Array<{id: string, name: string}>>([]);
+  const [selectedBranch, setSelectedBranch] = useState<{id: string, name: string} | null>(null);
+  const [filteredPersonnel, setFilteredPersonnel] = useState<any[]>([]);
+  
   // Haftalık, aylık ve yıllık tekrar seçenekleri için state'ler
   const [weekDays, setWeekDays] = useState<number[]>([1]); // Pazartesi varsayılan
   const [monthDay, setMonthDay] = useState<number>(1); // Ayın ilk günü varsayılan
@@ -120,20 +128,65 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
     { day: 0, dayName: 'Pazar', selected: false, dailyRepetitions: 1, repetitionTimes: ['12:00'] },
   ]);
 
+  // Şubeleri yükle
+  useEffect(() => {
+    const loadBranches = async () => {
+      if (!companyId) return;
+      
+      try {
+        const branchesRef = ref(database, `companies/${companyId}/branches`);
+        const branchesSnapshot = await get(branchesRef);
+        
+        if (branchesSnapshot.exists()) {
+          const branchesData = branchesSnapshot.val();
+          const branchesList = Object.entries(branchesData).map(([id, data]: [string, any]) => ({
+            id,
+            name: data.name || 'İsimsiz Şube',
+          }));
+          setBranches(branchesList);
+        }
+      } catch (error) {
+        console.error('Şube verileri yüklenirken hata:', error);
+      }
+    };
+    
+    if (open) {
+      loadBranches();
+    }
+  }, [companyId, open]);
+
+  // Personel listesini filtrele
+  useEffect(() => {
+    if (selectedBranch) {
+      // Seçili şubedeki personeli filtrele
+      const filtered = personnel.filter(person => person.branchesId === selectedBranch.id);
+      setFilteredPersonnel(filtered);
+      
+      // Eğer şu anki seçili personel bu şubede değilse, seçimi temizle
+      if (selectedPersonnelId) {
+        const personelExists = filtered.some(p => p.id === selectedPersonnelId);
+        if (!personelExists) {
+          setSelectedPersonnelId('');
+        }
+      }
+    } else {
+      // Şube seçili değilse tüm personeli göster
+      setFilteredPersonnel(personnel);
+    }
+  }, [selectedBranch, personnel, selectedPersonnelId]);
+
   // Form alanlarını sıfırla
   const resetForm = () => {
     setTaskName('');
     setTaskDescription('');
     setSelectedPersonnelId('');
+    setSelectedBranch(null);
     setSelectedGroupId('');
     setIsRecurring(false);
     setRepeatType('daily');
     setDailyRepetitions(1);
     setStartTolerance(15);
     setRepetitionTimes(['12:00']);
-    setWeekDays([1]);
-    setMonthDay(1);
-    setYearDate('01-01');
     setError(null);
     
     // Haftalık görev günlerini sıfırla
@@ -402,7 +455,44 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
             <Grid item xs={12} sm={6}>
               <Autocomplete
                 fullWidth
-                value={personnel.find(person => person.id === selectedPersonnelId) || null}
+                value={selectedBranch}
+                onChange={(event, newValue) => {
+                  setSelectedBranch(newValue);
+                }}
+                options={branches}
+                getOptionLabel={(option) => option.name}
+                renderOption={(props, option) => (
+                  <li {...props}>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <BusinessIcon fontSize="small" sx={{ mr: 1, color: 'primary.main', fontSize: '0.875rem' }} />
+                      <Typography variant="body2">{option.name}</Typography>
+                    </Box>
+                  </li>
+                )}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Şube Filtresi (Opsiyonel)"
+                    size="small"
+                    placeholder="Şube seçin..."
+                    InputProps={{
+                      ...params.InputProps,
+                      startAdornment: (
+                        <>
+                          <BusinessIcon sx={{ mr: 1, color: 'text.secondary', fontSize: '1.2rem' }} />
+                          {params.InputProps.startAdornment}
+                        </>
+                      ),
+                    }}
+                  />
+                )}
+              />
+            </Grid>
+
+            <Grid item xs={12} sm={6}>
+              <Autocomplete
+                fullWidth
+                value={filteredPersonnel.find(person => person.id === selectedPersonnelId) || null}
                 onChange={(event, newValue) => {
                   if (newValue) {
                     setSelectedPersonnelId(newValue.id);
@@ -410,7 +500,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
                     setSelectedPersonnelId('');
                   }
                 }}
-                options={personnel}
+                options={filteredPersonnel}
                 getOptionLabel={(option) => option.name}
                 renderOption={(props, option) => (
                   <li {...props}>
@@ -434,6 +524,15 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
                     required
                     size="small"
                     placeholder="Personel ara..."
+                    InputProps={{
+                      ...params.InputProps,
+                      startAdornment: (
+                        <>
+                          <PersonIcon sx={{ mr: 1, color: 'text.secondary', fontSize: '1.2rem' }} />
+                          {params.InputProps.startAdornment}
+                        </>
+                      ),
+                    }}
                   />
                 )}
                 isOptionEqualToValue={(option, value) => option.id === value.id}

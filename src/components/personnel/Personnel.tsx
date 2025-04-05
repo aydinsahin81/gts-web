@@ -590,7 +590,7 @@ const Personnel: React.FC = () => {
         
         if (!personnelSnapshot.exists()) {
           setPersonnel([]);
-          setLoading(false);
+        setLoading(false);
           return;
         }
         
@@ -661,26 +661,26 @@ const Personnel: React.FC = () => {
         // Realtime güncellemeleri dinle - güncellemeler olduğunda tüm süreci tekrarla
         onValue(personnelRef, async (snapshot) => {
           if (!snapshot.exists()) {
-            setPersonnel([]);
-            return;
-          }
-          
+      setPersonnel([]);
+      return;
+    }
+
           const personnelData = snapshot.val();
           
           // Personel listesini hazırla
-          const personnelList = Object.entries(personnelData)
-            .filter(([_, data]: [string, any]) => {
-              const isDeleted = data.isDeleted === true;
-              return showDeleted ? isDeleted : !isDeleted;
-            })
-            .map(([id, data]: [string, any]) => ({
-              id,
-              name: data.name || 'İsimsiz Personel',
-              hasTask: data.hasTask || false,
-              email: data.email || '',
-              phone: data.phone || '',
-              addedAt: data.addedAt || Date.now(),
-              deletedAt: data.deletedAt || null,
+    const personnelList = Object.entries(personnelData)
+      .filter(([_, data]: [string, any]) => {
+        const isDeleted = data.isDeleted === true;
+        return showDeleted ? isDeleted : !isDeleted;
+      })
+      .map(([id, data]: [string, any]) => ({
+        id,
+        name: data.name || 'İsimsiz Personel',
+        hasTask: data.hasTask || false,
+        email: data.email || '',
+        phone: data.phone || '',
+        addedAt: data.addedAt || Date.now(),
+        deletedAt: data.deletedAt || null,
               isDeleted: data.isDeleted || false,
               branchesId: data.branchesId || null,
               branchName: '' 
@@ -724,9 +724,9 @@ const Personnel: React.FC = () => {
             })
           );
           
-          // Ekleme tarihine göre sırala (yeniden eskiye)
+    // Ekleme tarihine göre sırala (yeniden eskiye)
           const sortedPersonnel = [...enhancedPersonnel].sort((a, b) => b.addedAt - a.addedAt);
-          setPersonnel(sortedPersonnel);
+    setPersonnel(sortedPersonnel);
         });
         
       } catch (error) {
@@ -784,19 +784,19 @@ const Personnel: React.FC = () => {
         }
       }
       
-      setSelectedPersonnel(person);
-      setModalOpen(true);
-      setConfirmDelete(false); // Reset delete confirmation state
-      
-      if (person.id) {
+    setSelectedPersonnel(person);
+    setModalOpen(true);
+    setConfirmDelete(false); // Reset delete confirmation state
+    
+    if (person.id) {
         setLoadingTasks(true);
         // Personele ait görevleri yükle
         await loadPersonnelTasks(person.id);
-      }
-    } catch (error) {
-      console.error('Personel bilgileri yüklenirken hata:', error);
-    } finally {
-      setLoadingTasks(false);
+        }
+      } catch (error) {
+        console.error('Personel bilgileri yüklenirken hata:', error);
+      } finally {
+        setLoadingTasks(false);
     }
   };
 
