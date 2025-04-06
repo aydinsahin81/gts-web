@@ -5,6 +5,7 @@ import ManagerSidebar from './ManagerSidebar';
 import Tasks from '../tasks/Tasks';
 import Personnel from '../personnel/Personnel';
 import Shifts from '../vardiya/Shifts';
+import Reports from '../reports/Reports';
 import { useAuth } from '../../contexts/AuthContext';
 
 // İçerik alanını stilize et
@@ -69,6 +70,20 @@ const BranchShifts: React.FC = () => {
   return <Shifts isManager={true} />;
 };
 
+// Şube raporlarını filtreleme bileşeni
+const BranchReports: React.FC = () => {
+  const { userDetails } = useAuth();
+  
+  // Eğer kullanıcının şube bilgisi varsa, o şubeye ait raporları filtrele
+  if (userDetails && userDetails.branchesId) {
+    console.log("Rapor görüntüleniyor, şube ID:", userDetails.branchesId);
+    return <Reports branchId={userDetails.branchesId} isManager={true} />;
+  }
+  
+  // Şube bilgisi yoksa, tüm raporları göster (bu durum olmamalı)
+  return <Reports isManager={true} />;
+};
+
 const ManagerWithSidebar: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [sidebarWidth, setSidebarWidth] = useState(260);
@@ -95,7 +110,7 @@ const ManagerWithSidebar: React.FC = () => {
       case 'shifts':
         return <BranchShifts />;
       case 'reports':
-        return <div>Raporlar İçeriği Buraya Gelecek</div>;
+        return <BranchReports />;
       case 'messages':
         return <div>Mesajlar İçeriği Buraya Gelecek</div>;
       case 'surveys':

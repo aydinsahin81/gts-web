@@ -196,7 +196,12 @@ interface RecurringTaskData {
   }[];
 }
 
-const Reports: React.FC = () => {
+interface ReportsProps {
+  branchId?: string;
+  isManager?: boolean;
+}
+
+const Reports: React.FC<ReportsProps> = ({ branchId, isManager = false }) => {
   const { currentUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [companyId, setCompanyId] = useState<string>('');
@@ -251,20 +256,66 @@ const Reports: React.FC = () => {
         const tasksData = tasksSnapshot.val();
         const tasks: TaskData[] = [];
         
-        Object.entries(tasksData).forEach(([id, data]: [string, any]) => {
+        // Görevleri ayıkla ve personel bilgilerini de çek
+        for (const [id, data] of Object.entries(tasksData)) {
+          const taskData = data as any;
+          
+          // Personel ID'si yoksa görev atanmamış demektir, atla
+          if (!taskData.personnelId) {
+            tasks.push({
+              id,
+              name: taskData.name || 'İsimsiz Görev',
+              description: taskData.description || '',
+              status: taskData.status || 'pending',
+              createdAt: taskData.createdAt || 0,
+              personnelId: '',
+              isRecurring: taskData.isRecurring || false,
+              acceptedAt: taskData.acceptedAt,
+              startedAt: taskData.startedAt,
+              completedAt: taskData.completedAt,
+            });
+            continue;
+          }
+          
+          // Manager modunda ve branchId varsa, personelin şubesini kontrol et
+          if (isManager && branchId) {
+            // Önce personel veritabanından şube bilgisini kontrol et
+            const personnelSnapshot = await get(ref(database, `companies/${companyId}/personnel/${taskData.personnelId}`));
+            let personnelBranchId = '';
+            
+            if (personnelSnapshot.exists()) {
+              const personnelData = personnelSnapshot.val();
+              personnelBranchId = personnelData.branchesId || '';
+            }
+            
+            // Personel veritabanında şube bilgisi yoksa users veritabanından kontrol et
+            if (!personnelBranchId) {
+              const userSnapshot = await get(ref(database, `users/${taskData.personnelId}`));
+              if (userSnapshot.exists()) {
+                const userData = userSnapshot.val();
+                personnelBranchId = userData.branchesId || '';
+              }
+            }
+            
+            // Personelin şubesi manager'ın şubesiyle eşleşmiyorsa atla
+            if (personnelBranchId !== branchId) {
+              continue;
+            }
+          }
+          
           tasks.push({
             id,
-            name: data.name || 'İsimsiz Görev',
-            description: data.description || '',
-            status: data.status || 'pending',
-            createdAt: data.createdAt || 0,
-            personnelId: data.personnelId || '',
-            isRecurring: data.isRecurring || false,
-            acceptedAt: data.acceptedAt,
-            startedAt: data.startedAt,
-            completedAt: data.completedAt,
+            name: taskData.name || 'İsimsiz Görev',
+            description: taskData.description || '',
+            status: taskData.status || 'pending',
+            createdAt: taskData.createdAt || 0,
+            personnelId: taskData.personnelId || '',
+            isRecurring: taskData.isRecurring || false,
+            acceptedAt: taskData.acceptedAt,
+            startedAt: taskData.startedAt,
+            completedAt: taskData.completedAt,
           });
-        });
+        }
         
         // En son oluşturulan görev en üstte gösterilecek
         tasks.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
@@ -278,7 +329,7 @@ const Reports: React.FC = () => {
     };
     
     loadCompanyTasks();
-  }, [currentUser]);
+  }, [currentUser, isManager, branchId]);
 
   // Görev seçildiğinde çağrılacak fonksiyon
   const handleTaskChange = (event: SelectChangeEvent<string>) => {
