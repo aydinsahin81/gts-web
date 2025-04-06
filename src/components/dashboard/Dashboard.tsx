@@ -103,6 +103,12 @@ interface MapViewProps {
   zoom: number;
 }
 
+// Dashboard bileşeni için props tanımı
+interface DashboardProps {
+  branchId?: string | null;
+  isManager?: boolean;
+}
+
 function MapView({ center, zoom }: MapViewProps) {
   const map = useMap();
   if (Array.isArray(center)) {
@@ -252,7 +258,7 @@ const FilterContainer = styled(Box)(({ theme }) => ({
   alignItems: 'flex-end'
 }));
 
-const Dashboard: React.FC = () => {
+const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) => {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalPersonnel: 0,
@@ -341,20 +347,34 @@ const Dashboard: React.FC = () => {
   // Veri güncellemesini işler
   const processData = (personnelData: any, tasksData: any, companyData: any = {}) => {
     // Personel listesi
-    const personnelList = personnelData ? Object.entries(personnelData).map(([id, data]: [string, any]) => ({
+    let personnelList = personnelData ? Object.entries(personnelData).map(([id, data]: [string, any]) => ({
       id,
       ...data,
     })) : [];
     
+    // Eğer yönetici ve branchId varsa, sadece bu şubeye ait personeli filtrele
+    if (isManager && branchId) {
+      personnelList = personnelList.filter(person => person.branchesId === branchId);
+    }
+    
     setPersonnel(personnelList);
     
     // Görev listesi - ana görevleri al (toplam görev sayısı için)
-    const tasksList = tasksData ? Object.entries(tasksData)
+    let tasksList = tasksData ? Object.entries(tasksData)
       .filter(([key]) => key !== 'missedTasks') // missedTasks anahtarını filtrele
       .map(([id, data]: [string, any]) => ({
         id,
         ...data,
       })) : [];
+    
+    // Eğer yönetici ve branchId varsa, sadece bu şubeye ait görevleri filtrele
+    if (isManager && branchId) {
+      tasksList = tasksList.filter(task => {
+        // Görevin bağlı olduğu personel bu şubede mi kontrol et
+        const personnelOfTask = personnelList.find(p => p.id === task.personnelId);
+        return personnelOfTask && personnelOfTask.branchesId === branchId;
+      });
+    }
     
     // Tüm görevleri sakla
     setTasks(tasksList);
@@ -414,8 +434,6 @@ const Dashboard: React.FC = () => {
         Object.entries(taskDates).forEach(([date, timeSlots]: [string, any]) => {
           // Her saat için
           Object.entries(timeSlots).forEach(([time, taskData]: [string, any]) => {
-            missedTasksCount++;
-            
             // İlgili görevi tasks listesinden bul (atanan personeli almak için)
             const task = tasksList.find(t => t.id === taskId);
             
@@ -425,27 +443,33 @@ const Dashboard: React.FC = () => {
             if (task && task.personnelId) {
               personnelId = task.personnelId;
               const person = personnelList.find(p => p.id === task.personnelId);
+              
+              // Eğer bu personel yöneticinin şubesine aitse sayıma dahil et
               if (person) {
-                personnelName = person.name;
-                
-                // Personelin gecikme sayısını artır
-                if (personnelMissedCounts[person.id]) {
-                  personnelMissedCounts[person.id].missedCount += 1;
+                // Eğer yönetici ve branchId varsa, sadece bu şubeye ait missed görevleri say
+                if (!isManager || !branchId || person.branchesId === branchId) {
+                  missedTasksCount++;
+                  personnelName = person.name;
+                  
+                  // Personelin gecikme sayısını artır
+                  if (personnelMissedCounts[person.id]) {
+                    personnelMissedCounts[person.id].missedCount += 1;
+                  }
+                  
+                  // Geciken görevleri listeye ekle
+                  missedTasksList.push({
+                    id: `${taskId}-${date}-${time}`,
+                    name: taskData.taskName,
+                    description: taskData.taskDescription || '',
+                    date: date,
+                    time: time,
+                    missedAt: taskData.missedAt,
+                    personnelId: personnelId,
+                    personnelName: personnelName
+                  });
                 }
               }
             }
-            
-            // Geciken görevleri listeye ekle
-            missedTasksList.push({
-              id: `${taskId}-${date}-${time}`,
-              name: taskData.taskName,
-              description: taskData.taskDescription || '',
-              date: date,
-              time: time,
-              missedAt: taskData.missedAt,
-              personnelId: personnelId,
-              personnelName: personnelName
-            });
           });
         });
       });
@@ -461,42 +485,38 @@ const Dashboard: React.FC = () => {
         Object.entries(taskDates).forEach(([date, timeSlots]: [string, any]) => {
           // Her saat için
           Object.entries(timeSlots).forEach(([time, taskData]: [string, any]) => {
-            completedTasksFromDbCount++; // Tamamlanan görev sayacını artır
-            
             // İlgili görevi tasks listesinden bul (atanan personeli almak için)
             const task = tasksList.find(t => t.id === taskId);
             
             // Personel bilgisini bul
             let personnelName = "Atanmamış";
+            let personnelId = taskData.completedBy || task?.personnelId || null;
+            
             // Öncelikle startedBy veya completedBy bilgisini kullan
-            if (taskData.completedBy) {
-              const person = personnelList.find(p => p.id === taskData.completedBy);
+            if (personnelId) {
+              const person = personnelList.find(p => p.id === personnelId);
+              
+              // Eğer bu personel yöneticinin şubesine aitse sayıma dahil et
               if (person) {
-                personnelName = person.name;
-              }
-            } else if (taskData.startedBy) {
-              const person = personnelList.find(p => p.id === taskData.startedBy);
-              if (person) {
-                personnelName = person.name;
-              }
-            } else if (task && task.personnelId) {
-              const person = personnelList.find(p => p.id === task.personnelId);
-              if (person) {
-                personnelName = person.name;
+                // Eğer yönetici ve branchId varsa, sadece bu şubeye ait tamamlanan görevleri say
+                if (!isManager || !branchId || person.branchesId === branchId) {
+                  completedTasksFromDbCount++; // Tamamlanan görev sayacını artır
+                  personnelName = person.name;
+                  
+                  // Tamamlanan görevleri listeye ekle
+                  completedTasksList.push({
+                    id: `${taskId}-${date}-${time}`,
+                    name: taskData.taskName,
+                    description: taskData.taskDescription || '',
+                    date: date,
+                    time: time,
+                    completedAt: taskData.completedAt,
+                    personnelId: personnelId,
+                    personnelName: personnelName
+                  });
+                }
               }
             }
-            
-            // Tamamlanan görevleri listeye ekle
-            completedTasksList.push({
-              id: `${taskId}-${date}-${time}`,
-              name: taskData.taskName,
-              description: taskData.taskDescription || '',
-              date: date,
-              time: time,
-              completedAt: taskData.completedAt,
-              personnelId: taskData.completedBy || task?.personnelId || null,
-              personnelName: personnelName
-            });
           });
         });
       });
@@ -750,6 +770,15 @@ const Dashboard: React.FC = () => {
           return;
         }
         
+        // Şubeyi kontrol et - branchId props'tan geldiyse onu kullan, 
+        // yoksa kullanıcı verisinden kontrol et (manager değilse)
+        const effectiveBranchId = branchId || (!isManager ? userData.branchesId : null);
+        
+        console.log("Dashboard yükleniyor:", isManager ? "Yönetici modu" : "Normal mod");
+        if (effectiveBranchId) {
+          console.log("Şube ID:", effectiveBranchId);
+        }
+        
         // Personel, görev ve şirket verilerini almak için referanslar
         const personnelRef = ref(database, `companies/${companyId}/personnel`);
         const tasksRef = ref(database, `companies/${companyId}/tasks`);
@@ -828,7 +857,7 @@ const Dashboard: React.FC = () => {
         off(ref(database, `companies/${companyId}`));
       }
     };
-  }, [companyId]);
+  }, [companyId, branchId, isManager]);
   
   if (loading) {
     return (

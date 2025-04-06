@@ -18,6 +18,7 @@ interface DashboardPermissions {
   dashboard_task_locations: boolean;
 }
 
+// ManagerDashboard bileşeni
 const ManagerDashboard: React.FC = () => {
   const [permissions, setPermissions] = useState<DashboardPermissions>({
     dashboard: true,
@@ -35,6 +36,7 @@ const ManagerDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const dashboardRef = useRef<HTMLDivElement>(null);
+  const [branchId, setBranchId] = useState<string | null>(null);
 
   // CSS class'larını saklayacak state
   const [cssFilters, setCssFilters] = useState<Record<string, boolean>>({});
@@ -62,6 +64,10 @@ const ManagerDashboard: React.FC = () => {
         
         const userData = userSnapshot.val();
         const companyId = userData.companyId;
+        
+        // Kullanıcının şube ID'sini al
+        const userBranchId = userData.branchesId || null;
+        setBranchId(userBranchId);
         
         if (!companyId) {
           setError("Şirket bilgisi bulunamadı.");
@@ -249,52 +255,21 @@ const ManagerDashboard: React.FC = () => {
   // Ana dashboard izni yoksa erişim mesajı göster
   if (!permissions.dashboard) {
     return (
-      <Box sx={{ p: 3, textAlign: 'center' }}>
-        <Typography variant="h6">
-          Bu modüle erişim izniniz bulunmamaktadır.
-        </Typography>
-        <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
-          Erişim için yöneticinize başvurun.
-        </Typography>
-      </Box>
-    );
-  }
-
-  // Hiçbir alt izin yoksa bilgilendirme mesajı göster
-  const hasAnySubPermission = 
-    permissions.dashboard_stat_cards || 
-    permissions.dashboard_task_distribution || 
-    permissions.dashboard_personnel_performance || 
-    permissions.dashboard_survey_charts || 
-    permissions.dashboard_missed_tasks || 
-    permissions.dashboard_completed_tasks || 
-    permissions.dashboard_worst_performers || 
-    permissions.dashboard_best_performers || 
-    permissions.dashboard_task_locations;
-  
-  if (!hasAnySubPermission) {
-    return (
-      <Box sx={{ p: 3, textAlign: 'center' }}>
-        <Typography variant="h6">
-          Dashboard modülüne erişiminiz var, ancak hiçbir alt bölüm için izniniz bulunmamaktadır.
-        </Typography>
-        <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
-          Gerekli izinler için yöneticinize başvurun.
-        </Typography>
+      <Box sx={{ p: 3 }}>
+        <Typography>Bu sayfaya erişim izniniz bulunmuyor.</Typography>
       </Box>
     );
   }
   
+  // Dashboard bileşenine JSX
   return (
-    <Box className="manager-dashboard-wrapper" ref={dashboardRef}>
-      {/* Dinamik CSS ile izinlere göre bölümleri filtrele */}
-      <style>{generateCss()}</style>
+    <div className="dashboard-container" ref={dashboardRef}>
+      {/* Dashboard'a branchId prop'unu ilet */}
+      <Dashboard branchId={branchId} isManager={true} />
       
-      {/* Dashboard bileşenini sarmalayıcı div ile wrap et */}
-      <Box className="dashboard-container">
-        <Dashboard />
-      </Box>
-    </Box>
+      {/* Dinamik CSS stillerini oluştur */}
+      <style dangerouslySetInnerHTML={{ __html: generateCss() }} />
+    </div>
   );
 };
 
