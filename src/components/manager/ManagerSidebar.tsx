@@ -10,7 +10,9 @@ import {
   Typography,
   IconButton,
   CircularProgress,
-  Alert
+  Alert,
+  Link,
+  useTheme
 } from '@mui/material';
 import { useAuth } from '../../contexts/AuthContext';
 import { ref, get } from 'firebase/database';
@@ -107,6 +109,7 @@ const ManagerSidebar: React.FC<ManagerSidebarProps> = ({ onTabChange, onCollapse
   const [tabs, setTabs] = useState<TabConfig[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isFirstLoad, setIsFirstLoad] = useState(true);
+  const theme = useTheme();
 
   // İzinlere göre tab ayarlarını yükle
   useEffect(() => {
@@ -304,6 +307,64 @@ const ManagerSidebar: React.FC<ManagerSidebarProps> = ({ onTabChange, onCollapse
               </MenuItem>
             ))}
           </MenuContainer>
+          
+          <Divider sx={{ backgroundColor: 'rgba(255,255,255,0.1)' }} />
+          
+          <Box sx={{ 
+            mt: 'auto', 
+            p: 2, 
+            textAlign: 'center',
+            borderTop: '1px solid rgba(255, 255, 255, 0.1)'
+          }}>
+            <Link 
+              href="https://www.mt-teknoloji.com" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              style={{ textDecoration: 'none' }}
+            >
+              {!isCollapsed ? (
+                <>
+                  <Typography 
+                    variant="body2" 
+                    sx={{ 
+                      color: 'white',
+                      opacity: 0.8,
+                      mb: 0.5
+                    }}
+                  >
+                    Powered by
+                  </Typography>
+                  <Typography 
+                    variant="h6" 
+                    sx={{ 
+                      color: 'white',
+                      fontWeight: 'bold',
+                      '&:hover': {
+                        color: theme.palette.primary.light,
+                        transition: 'color 0.2s'
+                      }
+                    }}
+                  >
+                    AQUASOFT
+                  </Typography>
+                </>
+              ) : (
+                <Typography 
+                  variant="h5" 
+                  sx={{ 
+                    color: 'white',
+                    fontWeight: 'bold',
+                    '&:hover': {
+                      color: theme.palette.primary.light,
+                      transition: 'color 0.2s'
+                    }
+                  }}
+                >
+                  A
+                </Typography>
+              )}
+            </Link>
+          </Box>
         </>
       )}
     </SidebarContainer>
