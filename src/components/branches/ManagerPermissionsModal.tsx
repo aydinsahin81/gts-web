@@ -26,13 +26,18 @@ import {
   ListItem,
   ListItemAvatar,
   ListItemText,
-  Collapse
+  Collapse,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails
 } from '@mui/material';
 import {
   Close as CloseIcon,
   Security as SecurityIcon,
   ExpandMore as ExpandMoreIcon,
-  ExpandLess as ExpandLessIcon
+  ExpandLess as ExpandLessIcon,
+  Check as CheckIcon,
+  Clear as ClearIcon
 } from '@mui/icons-material';
 import { ref, get, set, update } from 'firebase/database';
 import { database } from '../../firebase';
@@ -85,10 +90,15 @@ const ManagerPermissionsModal: React.FC<ManagerPermissionsModalProps> = ({
       description: 'Ana ekran ve özet bilgiler',
       enabled: false,
       subPermissions: [
-        { id: 'dashboard_summary', name: 'Özet Bilgiler', description: 'Genel özet istatistikler', enabled: false },
-        { id: 'dashboard_tasks', name: 'Görev Özeti', description: 'Görevlerin özet görünümü', enabled: false },
-        { id: 'dashboard_personnel', name: 'Personel Özeti', description: 'Personel durumu özeti', enabled: false },
-        { id: 'dashboard_charts', name: 'Grafikler', description: 'Performans grafikleri', enabled: false }
+        { id: 'dashboard_stat_cards', name: 'İstatistik Kartları', description: 'Personel, görev, ilerleme istatistikleri', enabled: false },
+        { id: 'dashboard_task_distribution', name: 'Görev Durumu Dağılımı', description: 'Görev durumları grafiği', enabled: false },
+        { id: 'dashboard_personnel_performance', name: 'Personel Performansı', description: 'Personel performans grafiği', enabled: false },
+        { id: 'dashboard_survey_charts', name: 'Anket Grafikleri', description: 'Anket sonuçları grafikleri', enabled: false },
+        { id: 'dashboard_missed_tasks', name: 'Geciken Son 10 Görev', description: 'Geciken görevler listesi', enabled: false },
+        { id: 'dashboard_completed_tasks', name: 'Tamamlanan Son 10 Görev', description: 'Tamamlanan görevler listesi', enabled: false },
+        { id: 'dashboard_worst_performers', name: 'En Çok Görev Geciktiren Personeller', description: 'Geciken görevleri olan personeller', enabled: false },
+        { id: 'dashboard_best_performers', name: 'En Çok Görev Yapan Personeller', description: 'Tamamlanan görevleri olan personeller', enabled: false },
+        { id: 'dashboard_task_locations', name: 'Görev Tamamlama Konumları (Harita)', description: 'Görev tamamlama konumları haritası', enabled: false }
       ]
     },
     {
@@ -178,10 +188,13 @@ const ManagerPermissionsModal: React.FC<ManagerPermissionsModalProps> = ({
 
   // Alt modül genişletme/daraltma işleyicisi
   const handleExpandModule = (moduleId: string) => {
-    if (expandedModules.includes(moduleId)) {
-      setExpandedModules(expandedModules.filter(id => id !== moduleId));
-    } else {
-      setExpandedModules([...expandedModules, moduleId]);
+    // Sadece dashboard modülü için alt izinleri göster
+    if (moduleId === 'dashboard') {
+      if (expandedModules.includes(moduleId)) {
+        setExpandedModules(expandedModules.filter(id => id !== moduleId));
+      } else {
+        setExpandedModules([...expandedModules, moduleId]);
+      }
     }
   };
 
@@ -194,11 +207,20 @@ const ManagerPermissionsModal: React.FC<ManagerPermissionsModalProps> = ({
           const updatedModule = { ...module, enabled: checked };
           
           // Eğer ana modül devre dışı bırakıldıysa tüm alt izinleri de devre dışı bırak
-          if (!checked && module.subPermissions) {
+          if (!checked && moduleId === 'dashboard' && module.subPermissions) {
             updatedModule.subPermissions = module.subPermissions.map(subPerm => ({
               ...subPerm,
               enabled: false
             }));
+          }
+          
+          // Dashboard modülü için alt izinleri otomatik olarak toggle et
+          if (moduleId === 'dashboard') {
+            if (expandedModules.includes(moduleId)) {
+              setExpandedModules(prev => prev.filter(id => id !== moduleId));
+            } else {
+              setExpandedModules(prev => [...prev, moduleId]);
+            }
           }
           
           return updatedModule;
@@ -210,29 +232,57 @@ const ManagerPermissionsModal: React.FC<ManagerPermissionsModalProps> = ({
 
   // Alt izinleri değiştirme işleyicisi
   const handleSubPermissionChange = (moduleId: string, permissionId: string, checked: boolean) => {
-    setModules(prevModules => {
-      return prevModules.map(module => {
-        if (module.id === moduleId && module.subPermissions) {
-          // Alt izni güncelle
-          const updatedSubPermissions = module.subPermissions.map(subPerm => {
-            if (subPerm.id === permissionId) {
-              return { ...subPerm, enabled: checked };
-            }
-            return subPerm;
-          });
-          
-          // Eğer herhangi bir alt izin etkinleştirilirse ana modülü de etkinleştir
-          const shouldEnableModule = updatedSubPermissions.some(p => p.enabled);
-          
-          return {
-            ...module,
-            enabled: shouldEnableModule || module.enabled,
-            subPermissions: updatedSubPermissions
-          };
-        }
-        return module;
+    // Sadece dashboard modülü için alt izinleri değiştir
+    if (moduleId === 'dashboard') {
+      setModules(prevModules => {
+        return prevModules.map(module => {
+          if (module.id === moduleId && module.subPermissions) {
+            // Alt izni güncelle
+            const updatedSubPermissions = module.subPermissions.map(subPerm => {
+              if (subPerm.id === permissionId) {
+                return { ...subPerm, enabled: checked };
+              }
+              return subPerm;
+            });
+            
+            // Eğer herhangi bir alt izin etkinleştirilirse ana modülü de etkinleştir
+            const shouldEnableModule = updatedSubPermissions.some(p => p.enabled);
+            
+            return {
+              ...module,
+              enabled: shouldEnableModule || module.enabled,
+              subPermissions: updatedSubPermissions
+            };
+          }
+          return module;
+        });
       });
-    });
+    }
+  };
+
+  // Bir modülün tüm alt izinlerini seç/temizle
+  const handleSelectAllSubPermissions = (moduleId: string, select: boolean) => {
+    // Sadece dashboard modülü için tüm alt izinleri seç/temizle
+    if (moduleId === 'dashboard') {
+      setModules(prevModules => {
+        return prevModules.map(module => {
+          if (module.id === moduleId && module.subPermissions) {
+            // Tüm alt izinleri güncelle
+            const updatedSubPermissions = module.subPermissions.map(subPerm => ({
+              ...subPerm,
+              enabled: select
+            }));
+            
+            return {
+              ...module,
+              enabled: select || module.enabled, // Ana modül en az bir alt izin seçiliyse aktif olmalı
+              subPermissions: updatedSubPermissions
+            };
+          }
+          return module;
+        });
+      });
+    }
   };
 
   // Şubedeki yöneticileri getirme
@@ -296,6 +346,11 @@ const ManagerPermissionsModal: React.FC<ManagerPermissionsModalProps> = ({
         
         // Modülleri ve alt izinleri güncelle
         updateModulesFromPermissions(permissionsData);
+        
+        // Dashboard modülü aktifse otomatik genişlet
+        if (permissionsData['dashboard'] === true && !expandedModules.includes('dashboard')) {
+          setExpandedModules(prev => [...prev, 'dashboard']);
+        }
       } else {
         // İzin bulunamadıysa tüm izinleri devre dışı bırak
         resetPermissions();
@@ -318,9 +373,9 @@ const ManagerPermissionsModal: React.FC<ManagerPermissionsModalProps> = ({
         // Ana modül iznini kontrol et
         const moduleEnabled = permissionsData[module.id] === true;
         
-        // Alt izinleri kontrol et
+        // Alt izinleri sadece dashboard için kontrol et
         let updatedSubPermissions = module.subPermissions;
-        if (module.subPermissions && permissionsData[module.id + '_subPermissions']) {
+        if (module.id === 'dashboard' && module.subPermissions && permissionsData[module.id + '_subPermissions']) {
           updatedSubPermissions = module.subPermissions.map(subPerm => {
             const subPermEnabled = permissionsData[module.id + '_subPermissions'][subPerm.id] === true;
             return { ...subPerm, enabled: subPermEnabled };
@@ -339,14 +394,23 @@ const ManagerPermissionsModal: React.FC<ManagerPermissionsModalProps> = ({
   // Tüm izinleri sıfırlama
   const resetPermissions = () => {
     setModules(prevModules => {
-      return prevModules.map(module => ({
-        ...module,
-        enabled: false,
-        subPermissions: module.subPermissions ? module.subPermissions.map(subPerm => ({
-          ...subPerm,
-          enabled: false
-        })) : undefined
-      }));
+      return prevModules.map(module => {
+        if (module.id === 'dashboard') {
+          return {
+            ...module,
+            enabled: false,
+            subPermissions: module.subPermissions ? module.subPermissions.map(subPerm => ({
+              ...subPerm,
+              enabled: false
+            })) : undefined
+          };
+        } else {
+          return {
+            ...module,
+            enabled: false
+          };
+        }
+      });
     });
   };
 
@@ -364,8 +428,8 @@ const ManagerPermissionsModal: React.FC<ManagerPermissionsModalProps> = ({
         // Ana modül iznini ekle
         formattedPermissions[module.id] = module.enabled;
         
-        // Alt izinleri ekle
-        if (module.subPermissions && module.subPermissions.length > 0) {
+        // Alt izinleri sadece dashboard için ekle
+        if (module.id === 'dashboard' && module.subPermissions && module.subPermissions.length > 0) {
           formattedPermissions[module.id + '_subPermissions'] = {};
           
           module.subPermissions.forEach(subPerm => {
@@ -513,14 +577,9 @@ const ManagerPermissionsModal: React.FC<ManagerPermissionsModalProps> = ({
                   <Box key={module.id} sx={{ mb: 2, border: 1, borderColor: 'divider', borderRadius: 1 }}>
                     <ListItem 
                       secondaryAction={
-                        <FormControlLabel
-                          control={
-                            <Checkbox
-                              checked={module.enabled}
-                              onChange={(_, checked) => handleModuleChange(module.id, checked)}
-                            />
-                          }
-                          label="Etkin"
+                        <Checkbox
+                          checked={module.enabled}
+                          onChange={(_, checked) => handleModuleChange(module.id, checked)}
                         />
                       }
                       sx={{ bgcolor: module.enabled ? 'rgba(25, 118, 210, 0.08)' : 'inherit' }}
@@ -534,7 +593,7 @@ const ManagerPermissionsModal: React.FC<ManagerPermissionsModalProps> = ({
                         secondary={module.description}
                       />
                       
-                      {module.subPermissions && module.subPermissions.length > 0 && (
+                      {module.id === 'dashboard' && module.subPermissions && module.subPermissions.length > 0 && (
                         <IconButton
                           edge="end"
                           onClick={() => handleExpandModule(module.id)}
@@ -545,15 +604,37 @@ const ManagerPermissionsModal: React.FC<ManagerPermissionsModalProps> = ({
                       )}
                     </ListItem>
                     
-                    {module.subPermissions && module.subPermissions.length > 0 && (
+                    {module.id === 'dashboard' && module.subPermissions && module.subPermissions.length > 0 && (
                       <Collapse in={expandedModules.includes(module.id)} timeout="auto" unmountOnExit>
                         <Box sx={{ pl: 4, pr: 2, py: 1, bgcolor: 'background.default' }}>
-                          <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                            Alt İzinler
-                          </Typography>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                            <Typography variant="subtitle2">
+                              Alt İzinler
+                            </Typography>
+                            {module.id === 'dashboard' && module.enabled && (
+                              <Box sx={{ display: 'flex', gap: 1 }}>
+                                <Button 
+                                  size="small" 
+                                  variant="outlined" 
+                                  color="primary"
+                                  onClick={() => handleSelectAllSubPermissions(module.id, true)}
+                                >
+                                  Tümünü Seç
+                                </Button>
+                                <Button 
+                                  size="small" 
+                                  variant="outlined" 
+                                  color="error"
+                                  onClick={() => handleSelectAllSubPermissions(module.id, false)}
+                                >
+                                  Tümünü Temizle
+                                </Button>
+                              </Box>
+                            )}
+                          </Box>
                           
                           <FormGroup>
-                            {module.subPermissions.map((permission) => (
+                            {module.id === 'dashboard' && module.subPermissions.map((permission) => (
                               <FormControlLabel
                                 key={permission.id}
                                 control={
