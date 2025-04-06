@@ -79,6 +79,8 @@ interface AddTaskModalProps {
   personnel: any[];
   taskGroups?: any[];
   companyId?: string;
+  branchId?: string;
+  isManager?: boolean;
 }
 
 const AddTaskModal: React.FC<AddTaskModalProps> = ({ 
@@ -88,7 +90,9 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
   onAddWeeklyTask,
   personnel, 
   taskGroups = [], 
-  companyId = '' 
+  companyId = '',
+  branchId,
+  isManager = false
 }) => {
   const [taskName, setTaskName] = useState('');
   const [taskDescription, setTaskDescription] = useState('');
@@ -192,6 +196,18 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
       // Başlangıçta filtrelenmiş görev gruplarını tüm görev grupları olarak ayarla
       setFilteredTaskGroups(taskGroups);
       
+      // Şube müdürü ise ve branchId varsa, şubeyi otomatik olarak seç
+      if (isManager && branchId) {
+        const managerBranch = branches.find(branch => branch.id === branchId);
+        if (managerBranch) {
+          setSelectedBranch(managerBranch);
+          console.log(`Şube müdürü için otomatik şube seçildi: ${managerBranch.name} (${managerBranch.id})`);
+        } else {
+          // Eğer branches yüklenmemişse, branches yüklendiğinde seçilmesi için state'i güncelle
+          console.log(`Şube müdürü için şube bulunamadı, branches yüklendiğinde tekrar denenecek: ${branchId}`);
+        }
+      }
+      
       // Personelin branchesId değerlerini kontrol et (farklı formatlardaki branchesId'leri hesaba kat)
       const personnelWithBranchCount = personnel.filter(p => {
         if (!p.branchesId) return false;
@@ -210,7 +226,18 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
         console.warn('Hiçbir personelin şube bilgisi (branchesId) bulunamadı!');
       }
     }
-  }, [open, personnel, taskGroups]);
+  }, [open, personnel, taskGroups, isManager, branchId, branches]);
+
+  // Şubeler yüklendiğinde, eğer şube müdürü ise ve branchId varsa şubeyi otomatik seç
+  useEffect(() => {
+    if (isManager && branchId && branches.length > 0) {
+      const managerBranch = branches.find(branch => branch.id === branchId);
+      if (managerBranch) {
+        setSelectedBranch(managerBranch);
+        console.log(`Şubeler yüklendikten sonra şube müdürü için şube seçildi: ${managerBranch.name} (${managerBranch.id})`);
+      }
+    }
+  }, [branches, isManager, branchId]);
 
   // Şube değiştiğinde hem personel hem de görev gruplarını filtrele
   useEffect(() => {
@@ -458,8 +485,16 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
     setError(null);
 
     try {
-      // Şube ID'sini belirle (seçiliyse)
-      const branchesId = selectedBranch ? selectedBranch.id : undefined;
+      // Şube ID'sini belirle (seçiliyse veya şube müdürüyse)
+      let branchesId;
+      if (isManager && branchId) {
+        // Şube müdürü ise kendi şubesini kullan
+        branchesId = branchId;
+        console.log(`Şube müdürü için branchId kullanılıyor: ${branchId}`);
+      } else if (selectedBranch) {
+        // Normal durumda seçilen şubeyi kullan
+        branchesId = selectedBranch.id;
+      }
       
       // Haftalık görevleri ayrı bir API çağrısıyla işle
       if (isRecurring && repeatType === 'weekly' && onAddWeeklyTask) {
@@ -619,7 +654,9 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
                 fullWidth
                 value={selectedBranch}
                 onChange={(event, newValue) => {
-                  setSelectedBranch(newValue);
+                  if (!(isManager && branchId)) {
+                    setSelectedBranch(newValue);
+                  }
                 }}
                 options={branches}
                 getOptionLabel={(option) => option.name}
@@ -634,7 +671,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
                 renderInput={(params) => (
                   <TextField
                     {...params}
-                    label="Şube Filtresi (Opsiyonel)"
+                    label={isManager && branchId ? "Şube (Şube müdürü olarak)" : "Şube Filtresi (Opsiyonel)"}
                     size="small"
                     placeholder="Şube seçin..."
                     InputProps={{
@@ -645,9 +682,20 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
                           {params.InputProps.startAdornment}
                         </>
                       ),
+                      readOnly: isManager && branchId ? true : false
                     }}
+                    disabled={isManager && branchId ? true : false}
                   />
                 )}
+                disableClearable={isManager && branchId ? true : false}
+                disabled={isManager && branchId ? true : false}
+                sx={{
+                  '& .MuiInputBase-root.Mui-disabled': {
+                    backgroundColor: '#f5f5f5', // Gri arka plan
+                    color: 'text.primary', // Normal metin rengi
+                    WebkitTextFillColor: 'rgba(0, 0, 0, 0.87)' // Safari için metin rengini düzelt
+                  }
+                }}
               />
               
               {/* Şube seçiliyse bilgi mesajı göster */}
@@ -661,6 +709,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
                   <Box>
                     <Typography variant="caption" display="block" fontWeight="bold">
                       "{selectedBranch.name}" şubesi seçildi
+                      {isManager && branchId ? " (Şube müdürü olarak)" : ""}
                     </Typography>
                     <Typography variant="caption" display="block">
                       Personel: {filteredPersonnel.length} kişi
@@ -741,43 +790,72 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
             </Grid>
 
             <Grid item xs={12} sm={6}>
-              <Box sx={{ display: 'flex', gap: 1 }}>
-                <FormControl fullWidth variant="outlined" size="small">
-                  <InputLabel id="group-select-label">Görev Grubu</InputLabel>
-                  <Select
-                    labelId="group-select-label"
-                    value={selectedGroupId}
-                    onChange={(e) => setSelectedGroupId(e.target.value)}
-                    label="Görev Grubu"
-                  >
-                    <MenuItem value="">
-                      <em>Grup Seçilmedi</em>
-                    </MenuItem>
-                    {filteredTaskGroups.map((group) => (
-                      <MenuItem key={group.id} value={group.id}>
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <CategoryIcon fontSize="small" sx={{ mr: 1, color: 'primary.main', fontSize: '0.875rem' }} />
-                          {group.name}
-                          {group.branchesId && (
-                            <Typography variant="caption" sx={{ ml: 1, color: 'text.secondary' }}>
-                              ({getBranchName(group.branchesId)})
-                            </Typography>
-                          )}
-                        </Box>
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                <Button
-                  variant="outlined"
-                  color="primary"
-                  onClick={handleOpenTaskGroupsModal}
-                  sx={{ minWidth: '40px', px: 0 }}
-                  size="small"
-                >
-                  <AddIcon fontSize="small" />
-                </Button>
-              </Box>
+              <Autocomplete
+                fullWidth
+                value={filteredTaskGroups.find(group => group.id === selectedGroupId) || null}
+                onChange={(event, newValue) => {
+                  if (newValue) {
+                    setSelectedGroupId(newValue.id);
+                  } else {
+                    setSelectedGroupId('');
+                  }
+                }}
+                options={filteredTaskGroups}
+                getOptionLabel={(option) => option.name}
+                renderOption={(props, option) => (
+                  <li {...props}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                      <CategoryIcon fontSize="small" sx={{ mr: 1, color: 'primary.main', fontSize: '0.875rem' }} />
+                      <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                        <Typography variant="body2">{option.name}</Typography>
+                        {option.branchesId && (
+                          <Typography variant="caption" color="text.secondary">
+                            {getBranchName(option.branchesId)}
+                          </Typography>
+                        )}
+                      </Box>
+                    </Box>
+                  </li>
+                )}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Görev Grubu Seçin"
+                    size="small"
+                    placeholder="Grup ara..."
+                    InputProps={{
+                      ...params.InputProps,
+                      startAdornment: (
+                        <>
+                          <CategoryIcon sx={{ mr: 1, color: 'text.secondary', fontSize: '1.2rem' }} />
+                          {params.InputProps.startAdornment}
+                        </>
+                      ),
+                      endAdornment: (
+                        <>
+                          {params.InputProps.endAdornment}
+                          <IconButton 
+                            onClick={handleOpenTaskGroupsModal} 
+                            edge="end" 
+                            size="small"
+                            sx={{ mr: -1 }}
+                          >
+                            <AddIcon fontSize="small" />
+                          </IconButton>
+                        </>
+                      )
+                    }}
+                  />
+                )}
+                isOptionEqualToValue={(option, value) => option.id === value.id}
+                filterOptions={(options, state) => {
+                  const inputValue = state.inputValue.toLowerCase();
+                  return options.filter(option => 
+                    option.name.toLowerCase().includes(inputValue) || 
+                    (option.branchesId && getBranchName(option.branchesId).toLowerCase().includes(inputValue))
+                  );
+                }}
+              />
             </Grid>
 
             <Grid item xs={12}>

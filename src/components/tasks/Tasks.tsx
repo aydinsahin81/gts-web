@@ -1707,17 +1707,15 @@ const Tasks: React.FC<TasksProps> = ({ branchId, isManager = false }) => {
               Grup Ekle
             </Button>
           )}
-          {!isManager && (
-            <Button
-              variant="contained"
-              color="primary"
-              startIcon={<AddIcon />}
-              onClick={() => setAddTaskModalOpen(true)}
-              sx={{ borderRadius: 2 }}
-            >
-              Yeni Görev Ekle
-            </Button>
-          )}
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<AddIcon />}
+            onClick={() => setAddTaskModalOpen(true)}
+            sx={{ borderRadius: 2 }}
+          >
+            Yeni Görev Ekle
+          </Button>
         </Box>
       </HeaderContainer>
 
@@ -2363,28 +2361,27 @@ const Tasks: React.FC<TasksProps> = ({ branchId, isManager = false }) => {
         readOnly={isManager} // Yönetici modu salt okunur
       />
 
-      {/* Yönetici modunda ekleme ve düzenleme fonksiyonlarını devre dışı bırak */}
+      {/* Görev Ekleme Modalı - hem yöneticiler hem de normal kullanıcılar görebilir */}
+      <AddTaskModal
+        open={addTaskModalOpen}
+        onClose={() => setAddTaskModalOpen(false)}
+        onAddTask={handleAddTask}
+        onAddWeeklyTask={handleAddWeeklyTask}
+        personnel={personnel}
+        taskGroups={taskGroups}
+        companyId={companyId || ''}
+        branchId={branchId}
+        isManager={isManager}
+      />
+      
+      {/* Grup ekleme modalı sadece normal kullanıcılar görebilir */}
       {!isManager && (
-        <>
-          {/* Görev Ekleme Modalı */}
-          <AddTaskModal
-            open={addTaskModalOpen}
-            onClose={() => setAddTaskModalOpen(false)}
-            onAddTask={handleAddTask}
-            onAddWeeklyTask={handleAddWeeklyTask}
-            personnel={personnel}
-            taskGroups={taskGroups}
-            companyId={companyId || ''}
-          />
-          
-          {/* Görev Grupları Modalı */}
-          <TaskGroupsModal
-            open={taskGroupsModalOpen}
-            onClose={() => setTaskGroupsModalOpen(false)}
-            companyId={companyId || ''}
-            taskGroups={taskGroups}
-          />
-        </>
+        <TaskGroupsModal
+          open={taskGroupsModalOpen}
+          onClose={() => setTaskGroupsModalOpen(false)}
+          companyId={companyId || ''}
+          taskGroups={taskGroups}
+        />
       )}
       
       {/* Bu modallar her zaman gösterilsin */}
