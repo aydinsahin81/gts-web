@@ -937,7 +937,8 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
         <Grid item xs={12} sm={6} md={3}>
           <StatsCard 
             bgcolor={THEME_COLORS.personnel} 
-            onClick={handleNavigateToPersonnel}
+            onClick={isManager ? undefined : handleNavigateToPersonnel}
+            sx={{ cursor: isManager ? 'default' : 'pointer' }}
           >
             <IconBox bgcolor={THEME_COLORS.personnel}>
               <PeopleIcon />
@@ -956,7 +957,8 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
         <Grid item xs={12} sm={6} md={3}>
           <StatsCard 
             bgcolor={THEME_COLORS.tasks} 
-            onClick={handleNavigateToTasks}
+            onClick={isManager ? undefined : handleNavigateToTasks}
+            sx={{ cursor: isManager ? 'default' : 'pointer' }}
           >
             <IconBox bgcolor={THEME_COLORS.tasks}>
               <TaskIcon />
