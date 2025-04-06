@@ -129,12 +129,18 @@ const SinglePersonMessage: React.FC<SinglePersonMessageProps> = ({
         // Tüm personeli getir
         const personnelList = await NotificationService.getAllPersonnel(userCompanyId);
         
+        // Önce yönetici rolündeki personelleri filtrele (manager veya admin)
+        let filteredList = personnelList.filter(person => {
+          // Eğer role özelliği varsa ve manager veya admin ise filtrele
+          return !(person.role === 'manager' || person.role === 'admin');
+        });
+        
         // Yönetici modunda, sadece kendi şubesindeki personeli filtrele
         if (isManager && branchId) {
           console.log(`Manager modu, şube ID: ${branchId} personeli filtreleniyor`);
           
           // Personel listesinde şube ID'si olanları önce filtrele
-          let branchPersonnel = personnelList.filter(person => person.branchesId === branchId);
+          let branchPersonnel = filteredList.filter(person => person.branchesId === branchId);
           
           // Eğer personelde branchesId yoksa users koleksiyonuna bakarak kontrol et
           if (branchPersonnel.length === 0) {
@@ -142,7 +148,7 @@ const SinglePersonMessage: React.FC<SinglePersonMessageProps> = ({
             
             const filteredPersonnel: Personnel[] = [];
             
-            for (const person of personnelList) {
+            for (const person of filteredList) {
               if (person.branchesId === branchId) {
                 filteredPersonnel.push(person);
                 continue;
@@ -155,6 +161,12 @@ const SinglePersonMessage: React.FC<SinglePersonMessageProps> = ({
                 
                 if (userSnapshot.exists()) {
                   const userData = userSnapshot.val();
+                  // Ayrıca users tablosunda da rol kontrolü yap
+                  if (userData.role === 'manager' || userData.role === 'admin' || userData.userRole === 'manager' || userData.userRole === 'admin') {
+                    // Yönetici ise atla
+                    continue;
+                  }
+                  
                   if (userData.branchesId === branchId) {
                     // Users veritabanından şube ID'sini person nesnesine ekle
                     const updatedPerson: Personnel = {
@@ -176,8 +188,8 @@ const SinglePersonMessage: React.FC<SinglePersonMessageProps> = ({
             setPersonnel(branchPersonnel);
           }
         } else {
-          // Normal mod, tüm personel
-          setPersonnel(personnelList);
+          // Normal mod, yönetici olmayan tüm personel
+          setPersonnel(filteredList);
         }
       } catch (error) {
         console.error('Personel yüklenirken hata:', error);
@@ -494,192 +506,6 @@ const SinglePersonMessage: React.FC<SinglePersonMessageProps> = ({
               recipientCount={selectedPersonId ? 1 : 0}
             />
           </Grid>
-          
-          {/* Gönderilen Bildirimler - Artık companyId varlığına bağlı */}
-          {companyId && (
-            <Grid item xs={12}>
-              <StyledPaper elevation={0} sx={{ mt: 2 }}>
-                <HeaderArea sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Box>
-                    <Typography variant="h6" gutterBottom>
-                      Gönderilen Bildirimler
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Sistemde kayıtlı tüm bildirimler
-                    </Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Button 
-                      variant="outlined" 
-                      size="small" 
-                      onClick={loadAllNotifications}
-                    >
-                      Yenile
-                    </Button>
-                    <Chip 
-                      label={`${notifications.length} Bildirim`} 
-                      color="primary" 
-                      variant="outlined" 
-                      size="small" 
-                    />
-                  </Box>
-                </HeaderArea>
-                
-                {loadingNotifications ? (
-                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-                    <CircularProgress size={24} />
-                  </Box>
-                ) : notifications.length === 0 ? (
-                  <Box sx={{ p: 4, textAlign: 'center' }}>
-                    <Typography color="text.secondary">
-                      Henüz gönderilmiş bildirim bulunmuyor.
-                    </Typography>
-                    <Button 
-                      variant="outlined" 
-                      size="small" 
-                      color="primary" 
-                      onClick={loadAllNotifications}
-                      sx={{ mt: 2 }}
-                    >
-                      Bildirimleri Yenile
-                    </Button>
-                  </Box>
-                ) : (
-                  <List sx={{ width: '100%' }}>
-                    {notifications.map((notification) => {
-                      // Bildirimin durumuna göre renklendirme
-                      const statusColor = notification.status === 'sent' 
-                        ? 'success.light'
-                        : notification.status === 'pending' 
-                          ? 'warning.light' 
-                          : 'success.light';
-                          
-                      const statusText = notification.status === 'sent' 
-                        ? 'Gönderildi'
-                        : notification.status === 'pending' 
-                          ? 'Beklemede' 
-                          : 'Gönderildi';
-                      
-                      // Okundu bilgisi kontrolü
-                      const isReadByAnyone = notification.read && notification.read.length > 0;
-                      const readByNames = isReadByAnyone && notification.read ? 
-                        notification.read.map(id => {
-                          const person = personnel.find(p => p.id === id);
-                          return person ? getPersonFullName(person) : "Bilinmeyen Personel";
-                        }).join(", ") : "";
-                      
-                      return (
-                        <React.Fragment key={notification.id}>
-                          <ListItem
-                            secondaryAction={
-                              <Box>
-                                <Tooltip title="Bildirimi Sil">
-                                  <IconButton 
-                                    edge="end" 
-                                    aria-label="delete"
-                                    onClick={() => handleDeleteClick(notification.id)}
-                                    color="error"
-                                  >
-                                    <DeleteIcon />
-                                  </IconButton>
-                                </Tooltip>
-                              </Box>
-                            }
-                            sx={{ 
-                              borderLeft: '4px solid',
-                              borderLeftColor: statusColor,
-                              backgroundColor: isReadByAnyone ? 'rgba(0, 200, 0, 0.05)' : 'transparent'
-                            }}
-                          >
-                            <ListItemAvatar>
-                              <Avatar sx={{ 
-                                bgcolor: isReadByAnyone ? 'success.main' : statusColor,
-                                color: 'white'
-                              }}>
-                                {isReadByAnyone ? <MarkEmailReadIcon /> : <MarkEmailUnreadIcon />}
-                              </Avatar>
-                            </ListItemAvatar>
-                            <ListItemText
-                              primary={
-                                <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                                  <Typography variant="subtitle1" fontWeight="bold">
-                                    {notification.title}
-                                  </Typography>
-                                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mt: 0.5 }}>
-                                    <Chip 
-                                      label={statusText} 
-                                      size="small" 
-                                      color={
-                                        notification.status === 'sent' 
-                                          ? 'success'
-                                          : notification.status === 'pending' 
-                                            ? 'warning' 
-                                            : 'success'
-                                      }
-                                      sx={{ height: 20, fontSize: '0.7rem' }}
-                                    />
-                                    {isReadByAnyone && (
-                                      <Chip 
-                                        label="Okundu" 
-                                        size="small"
-                                        color="success"
-                                        sx={{ height: 20, fontSize: '0.7rem' }}
-                                      />
-                                    )}
-                                    <Typography variant="caption" color="text.secondary">
-                                      Gönderilme: {formatDate(notification.createdAt)}
-                                    </Typography>
-                                  </Box>
-                                </Box>
-                              }
-                              secondary={
-                                <Box>
-                                  <Typography variant="body2" color="text.primary" sx={{ mt: 1 }}>
-                                    {notification.body}
-                                  </Typography>
-                                  
-                                  <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                                      <strong>Alıcılar:</strong> {notification.recipients ? getRecipientNames(notification.recipients) : "Alıcı belirtilmemiş"}
-                                    </Typography>
-                                    
-                                    {isReadByAnyone && (
-                                      <Typography variant="caption" color="success.main" sx={{ display: 'block' }}>
-                                        <strong>Okuyanlar:</strong> {readByNames}
-                                      </Typography>
-                                    )}
-                                    
-                                    {notification.readAt && (
-                                      <Typography variant="caption" color="text.secondary">
-                                        Okunma: {formatDate(notification.readAt)}
-                                      </Typography>
-                                    )}
-                                    
-                                    {notification.sentAt && (
-                                      <Typography variant="caption" color="text.secondary">
-                                        İşlenme: {formatDate(notification.sentAt)}
-                                      </Typography>
-                                    )}
-                                    
-                                    {notification.sentCount && notification.sentCount > 0 && (
-                                      <Typography variant="caption" color="success.main">
-                                        {notification.sentCount} alıcıya gönderildi
-                                      </Typography>
-                                    )}
-                                  </Box>
-                                </Box>
-                              }
-                            />
-                          </ListItem>
-                          <Divider variant="inset" component="li" />
-                        </React.Fragment>
-                      );
-                    })}
-                  </List>
-                )}
-              </StyledPaper>
-            </Grid>
-          )}
         </Grid>
       )}
       
