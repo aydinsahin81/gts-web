@@ -47,7 +47,12 @@ interface Personnel {
   phone?: string;
 }
 
-const VardiyaListesi: React.FC = () => {
+interface VardiyaListesiProps {
+  branchId?: string;
+  isManager?: boolean;
+}
+
+const VardiyaListesi: React.FC<VardiyaListesiProps> = ({ branchId, isManager = false }) => {
   const { currentUser, userDetails } = useAuth();
   const [open, setOpen] = useState(false);
   const [vardiyaAdi, setVardiyaAdi] = useState('');
@@ -87,30 +92,68 @@ const VardiyaListesi: React.FC = () => {
       }
 
       try {
-        const shiftsRef = ref(database, `companies/${userDetails.companyId}/shifts`);
-        const snapshot = await get(shiftsRef);
-        
+        setLoading(true);
+        const vardiyaRef = ref(database, `companies/${userDetails.companyId}/shifts`);
+        const snapshot = await get(vardiyaRef);
+
         if (snapshot.exists()) {
           const data = snapshot.val();
-          const formattedShifts = Object.keys(data).map(key => ({
-            id: key,
-            ...data[key],
-            personnel: data[key].personnel ? Object.keys(data[key].personnel) : []
+          let vardiyalar = Object.keys(data).map(id => ({
+            id,
+            name: data[id].name || 'İsimsiz Vardiya',
+            startTime: data[id].startTime || '',
+            endTime: data[id].endTime || '',
+            lateTolerance: data[id].lateTolerance || 0,
+            earlyExitTolerance: data[id].earlyExitTolerance || 0,
+            personnel: data[id].personnel || {},
+            branchesId: data[id].branchesId || data[id].branchId || null
           }));
           
-          setVardiyalar(formattedShifts);
+          // Şube yöneticisi için sadece kendi şubesine ait vardiyaları listele
+          if (isManager && branchId) {
+            console.log(`Sadece şube ID'si ${branchId} olan vardiyalar filtreleniyor`);
+            vardiyalar = vardiyalar.filter(vardiya => {
+              // Vardiya şube kontrolü yap
+              const branchesId = vardiya.branchesId;
+              
+              if (!branchesId) {
+                // Şube tanımlanmamışsa tüm şubelere ait olabilir (genel vardiya)
+                return true;
+              }
+              
+              if (typeof branchesId === 'string') {
+                return branchesId === branchId;
+              } else if (typeof branchesId === 'object') {
+                // 'id' özelliği var mı kontrol et
+                if ('id' in branchesId && branchesId.id === branchId) {
+                  return true;
+                }
+                // Objenin anahtarları arasında branchId'yi içeriyor olabilir
+                return Object.keys(branchesId).includes(branchId);
+              }
+              
+              return false;
+            });
+            
+            console.log(`Filtrelenen vardiya sayısı: ${vardiyalar.length}`);
+          }
+
+          setVardiyalar(vardiyalar);
         } else {
           setVardiyalar([]);
         }
       } catch (error) {
-        console.error("Vardiyalar yüklenirken hata:", error);
+        console.error('Vardiyalar yüklenirken hata:', error);
+        setOpenSnackbar(true);
+        setSnackbarMessage('Vardiyalar yüklenirken bir hata oluştu');
+        setSnackbarSeverity('error');
       } finally {
         setLoading(false);
       }
     };
 
     fetchVardiyalar();
-  }, [userDetails]);
+  }, [userDetails, isManager, branchId]);
 
   // Personel listesini getir
   const fetchPersonnel = async () => {

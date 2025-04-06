@@ -30,6 +30,7 @@ import { useAuth } from '../../contexts/AuthContext';
 interface Personnel {
   id: string;
   name: string;
+  branchesId?: string | Record<string, any> | null;
 }
 
 interface ShiftRecord {
@@ -51,7 +52,12 @@ interface PersonnelWorkData {
   };
 }
 
-const ToplamSure: React.FC = () => {
+interface ToplamSureProps {
+  branchId?: string;
+  isManager?: boolean;
+}
+
+const ToplamSure: React.FC<ToplamSureProps> = ({ branchId, isManager = false }) => {
   const { userDetails } = useAuth();
   const [loading, setLoading] = useState(false);
   const [personnelList, setPersonnelList] = useState<Personnel[]>([]);
@@ -75,10 +81,40 @@ const ToplamSure: React.FC = () => {
         
         if (snapshot.exists()) {
           const data = snapshot.val();
-          const personnelArray: Personnel[] = Object.keys(data).map(id => ({
+          let personnelArray: Personnel[] = Object.keys(data).map(id => ({
             id,
-            name: data[id].name || `${data[id].firstName || ''} ${data[id].lastName || ''}`.trim() || id
+            name: data[id].name || `${data[id].firstName || ''} ${data[id].lastName || ''}`.trim() || id,
+            branchesId: data[id].branchesId || data[id].branchId || data[id].branch || null
           }));
+          
+          // Şube yöneticisi ise sadece kendi şubesindeki personeli göster
+          if (isManager && branchId) {
+            console.log(`Toplam Süre: Sadece şube ID'si ${branchId} olan personel filtreleniyor`);
+            personnelArray = personnelArray.filter(person => {
+              // Personelin şube bilgisi veritabanında farklı alanlarda olabilir
+              const personBranchId = person.branchesId;
+              
+              if (!personBranchId) {
+                return false;
+              }
+              
+              if (typeof personBranchId === 'string') {
+                // Şube ID'si string ise doğrudan karşılaştır
+                return personBranchId === branchId;
+              } else if (typeof personBranchId === 'object') {
+                // 'id' özelliği var mı kontrol et
+                if ('id' in personBranchId && personBranchId.id === branchId) {
+                  return true;
+                }
+                // Objenin anahtarları arasında branchId'yi içeriyor olabilir
+                return Object.keys(personBranchId).includes(branchId);
+              }
+              
+              return false;
+            });
+            
+            console.log(`Toplam Süre: Filtrelenen personel sayısı: ${personnelArray.length}`);
+          }
           
           setPersonnelList(personnelArray);
         }
@@ -88,7 +124,7 @@ const ToplamSure: React.FC = () => {
     };
 
     fetchPersonnel();
-  }, [userDetails]);
+  }, [userDetails, isManager, branchId]);
 
   // Tüm personeli seç
   const handleSelectAllPersonnel = (checked: boolean) => {

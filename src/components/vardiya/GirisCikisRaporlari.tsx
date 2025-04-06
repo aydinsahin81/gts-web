@@ -28,7 +28,12 @@ import { ref, get, onValue } from 'firebase/database';
 import { database } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
 
-const GirisCikisRaporlari: React.FC = () => {
+interface GirisCikisRaporlariProps {
+  branchId?: string;
+  isManager?: boolean;
+}
+
+const GirisCikisRaporlari: React.FC<GirisCikisRaporlariProps> = ({ branchId, isManager = false }) => {
   const { currentUser, userDetails } = useAuth();
   const [loading, setLoading] = useState(true);
   const [reports, setReports] = useState<any[]>([]);
@@ -97,6 +102,34 @@ const GirisCikisRaporlari: React.FC = () => {
             Object.keys(dateData).forEach(personelId => {
               const record = dateData[personelId];
               
+              // Personel bilgisini bul
+              const personnel = personnelObj[personelId] || { name: '' };
+              
+              // Şube yöneticisi için sadece kendi şubesindeki personelin kayıtlarını göster
+              if (isManager && branchId) {
+                const personBranchId = personnel.branchesId || personnel.branchId || personnel.branch;
+                
+                let isPersonInBranch = false;
+                
+                if (typeof personBranchId === 'string') {
+                  isPersonInBranch = personBranchId === branchId;
+                } else if (personBranchId && typeof personBranchId === 'object') {
+                  // 'id' özelliği var mı kontrol et
+                  if ('id' in personBranchId && personBranchId.id === branchId) {
+                    isPersonInBranch = true;
+                  } 
+                  // Veya objenin kendisi branchId'yi içeriyor olabilir
+                  else if (Object.keys(personBranchId).includes(branchId)) {
+                    isPersonInBranch = true;
+                  }
+                }
+                
+                // Eğer personel bu şubede değilse, bu kaydı atla
+                if (!isPersonInBranch) {
+                  return;
+                }
+              }
+              
               // Unix timestamp'i saat:dakika formatına dönüştür
               const formatTime = (timestamp: number) => {
                 if (!timestamp) return '--:--';
@@ -161,8 +194,6 @@ const GirisCikisRaporlari: React.FC = () => {
                 statusInfo.exitStatus = 'Devam Ediyor';
               }
               
-              // Personel bilgisini bul
-              const personnel = personnelObj[personelId] || { name: '' };
               const personnelName = personnel.name || personelId;
               
               reportsList.push({
@@ -216,7 +247,7 @@ const GirisCikisRaporlari: React.FC = () => {
     });
     
     return () => personnelUnsubscribe();
-  }, [userDetails]);
+  }, [userDetails, isManager, branchId]);
 
   // Filtreleme işlemi
   useEffect(() => {

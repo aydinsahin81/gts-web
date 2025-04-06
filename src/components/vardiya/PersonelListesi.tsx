@@ -33,6 +33,7 @@ interface Personnel {
   name: string;
   email?: string;
   phone?: string;
+  branchesId?: string | { id?: string } | Record<string, any> | null;
 }
 
 // Vardiya tipi
@@ -44,7 +45,12 @@ interface Shift {
   personnel?: Record<string, boolean>;
 }
 
-const PersonelListesi: React.FC = () => {
+interface PersonelListesiProps {
+  branchId?: string;
+  isManager?: boolean;
+}
+
+const PersonelListesi: React.FC<PersonelListesiProps> = ({ branchId, isManager = false }) => {
   const { currentUser, userDetails } = useAuth();
   const [loading, setLoading] = useState(true);
   const [personnel, setPersonnel] = useState<Personnel[]>([]);
@@ -92,14 +98,45 @@ const PersonelListesi: React.FC = () => {
           setShifts(shiftsArray);
           
           // Personel listesini hazırla (silinen personelleri filtrele)
-          const personnelArray: Personnel[] = Object.entries(personnelData)
+          let personnelArray: Personnel[] = Object.entries(personnelData)
             .filter(([_, personData]: [string, any]) => !personData.isDeleted)
             .map(([id, personData]: [string, any]) => ({
               id,
               name: personData.name || 'İsimsiz Personel',
               email: personData.email || '',
-              phone: personData.phone || ''
+              phone: personData.phone || '',
+              branchesId: personData.branchesId || personData.branchId || personData.branch || null
             }));
+          
+          // Şube yöneticisi ise (isManager=true), sadece kendi şubesindeki personeli göster
+          if (isManager && branchId) {
+            console.log(`Sadece şube ID'si ${branchId} olan personel filtreleniyor`);
+            personnelArray = personnelArray.filter(person => {
+              // Personelin şube bilgisi veritabanında farklı alanlarda olabilir
+              const personBranchId = person.branchesId;
+              
+              if (!personBranchId) {
+                return false;
+              }
+              
+              if (typeof personBranchId === 'string') {
+                // Şube ID'si string ise doğrudan karşılaştır
+                return personBranchId === branchId;
+              } else if (typeof personBranchId === 'object') {
+                // Şube ID'si obje içinde ID olarak saklanıyor olabilir
+                if ('id' in personBranchId && personBranchId.id === branchId) {
+                  return true;
+                }
+                
+                // Veya objenin kendisi branchId'nin kendisi olabilir
+                return Object.keys(personBranchId).includes(branchId);
+              }
+              
+              return false;
+            });
+            
+            console.log(`Filtrelenen personel sayısı: ${personnelArray.length}`);
+          }
           
           setPersonnel(personnelArray);
           setFilteredPersonnel(personnelArray);
@@ -116,7 +153,7 @@ const PersonelListesi: React.FC = () => {
     };
     
     fetchData();
-  }, [userDetails]);
+  }, [userDetails, branchId, isManager]);
   
   // Personelin vardiyasını bul
   const getPersonnelShift = (personnelId: string): Shift | null => {

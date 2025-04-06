@@ -63,7 +63,12 @@ function a11yProps(index: number) {
   };
 }
 
-const Shifts: React.FC = () => {
+interface ShiftsProps {
+  branchId?: string;
+  isManager?: boolean;
+}
+
+const Shifts: React.FC<ShiftsProps> = ({ branchId, isManager = false }) => {
   const [value, setValue] = useState(0);
   const [exporting, setExporting] = useState(false);
   const [downloadingQr, setDownloadingQr] = useState(false);
@@ -117,7 +122,13 @@ const Shifts: React.FC = () => {
         ];
         
         // Özel olarak veri ekleme işlemi için event oluşturup yayınlanacak
-        const event = new CustomEvent('export-personel-to-excel', { detail: { worksheet } });
+        const event = new CustomEvent('export-personel-to-excel', { 
+          detail: { 
+            worksheet,
+            branchId, // Şube filtresi için ID ekleyelim
+            isManager // Yönetici modu bilgisini de ekleyelim
+          } 
+        });
         window.dispatchEvent(event);
       }
       else if (value === 1) { // Vardiya Listesi
@@ -131,7 +142,13 @@ const Shifts: React.FC = () => {
         ];
         
         // Özel olarak veri ekleme işlemi için event oluşturup yayınlanacak
-        const event = new CustomEvent('export-vardiya-to-excel', { detail: { worksheet } });
+        const event = new CustomEvent('export-vardiya-to-excel', { 
+          detail: { 
+            worksheet,
+            branchId,
+            isManager
+          } 
+        });
         window.dispatchEvent(event);
       }
       else if (value === 2) { // Giriş Çıkış Raporları
@@ -145,7 +162,13 @@ const Shifts: React.FC = () => {
         ];
         
         // Özel olarak veri ekleme işlemi için event oluşturup yayınlanacak
-        const event = new CustomEvent('export-report-to-excel', { detail: { worksheet } });
+        const event = new CustomEvent('export-report-to-excel', { 
+          detail: { 
+            worksheet,
+            branchId,
+            isManager
+          } 
+        });
         window.dispatchEvent(event);
       }
       else if (value === 3) { // Toplam Süre
@@ -158,7 +181,13 @@ const Shifts: React.FC = () => {
         ];
         
         // Özel olarak veri ekleme işlemi için event oluşturup yayınlanacak
-        const event = new CustomEvent('export-toplamsure-to-excel', { detail: { worksheet } });
+        const event = new CustomEvent('export-toplamsure-to-excel', { 
+          detail: { 
+            worksheet,
+            branchId,
+            isManager
+          } 
+        });
         window.dispatchEvent(event);
       }
       
@@ -214,8 +243,11 @@ const Shifts: React.FC = () => {
 
   // QR kod indirme işlevi
   const downloadQrCode = async () => {
-    if (!userDetails?.companyId) {
-      alert('Şirket ID bilgisi bulunamadı.');
+    // Şube yöneticisi için şube QR kodunu indirmesini sağlayalım
+    const qrId = isManager && branchId ? branchId : userDetails?.companyId;
+    
+    if (!qrId) {
+      alert('QR kodu oluşturmak için gerekli bilgiler bulunamadı.');
       return;
     }
 
@@ -231,7 +263,7 @@ const Shifts: React.FC = () => {
       // QR kodunu oluştur
       const qrCodeComponent = (
         <QRCodeCanvas
-          value={userDetails.companyId}
+          value={qrId}
           size={512}
           level="H" // Yüksek hata düzeltme seviyesi
           includeMargin={true}
@@ -269,7 +301,8 @@ const Shifts: React.FC = () => {
         // Canvas'ı PNG olarak indir
         const dataUrl = canvas.toDataURL('image/png');
         const link = document.createElement('a');
-        link.download = `Şirket_QR_Kodu_${userDetails.companyId}.png`;
+        const fileName = isManager ? `Şube_QR_Kodu_${branchId}.png` : `Şirket_QR_Kodu_${userDetails?.companyId}.png`;
+        link.download = fileName;
         link.href = dataUrl;
         link.click();
         
@@ -288,7 +321,7 @@ const Shifts: React.FC = () => {
     <Paper sx={{ p: 3, mt: 2, height: 'calc(100vh - 130px)', display: 'flex', flexDirection: 'column' }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h5" component="h1">
-          {getTabTitle()}
+          {isManager ? 'Şube ' : ''}{getTabTitle()}
         </Typography>
         <Box sx={{ display: 'flex', gap: 2 }}>
           <Tooltip title="Yardım ve Açıklamalar">
@@ -305,9 +338,9 @@ const Shifts: React.FC = () => {
             color="success"
             startIcon={<QrCodeIcon />}
             onClick={downloadQrCode}
-            disabled={downloadingQr || !userDetails?.companyId}
+            disabled={downloadingQr || (!userDetails?.companyId && !branchId)}
           >
-            {downloadingQr ? 'İndiriliyor...' : 'QR İndir'}
+            {downloadingQr ? 'İndiriliyor...' : isManager ? 'Şube QR' : 'QR İndir'}
           </Button>
           <Button
             variant="contained"
@@ -333,16 +366,16 @@ const Shifts: React.FC = () => {
         </Box>
         <ScrollableContent>
           <TabPanel value={value} index={0}>
-            <PersonelListesi />
+            <PersonelListesi branchId={branchId} isManager={isManager} />
           </TabPanel>
           <TabPanel value={value} index={1}>
-            <VardiyaListesi />
+            <VardiyaListesi branchId={branchId} isManager={isManager} />
           </TabPanel>
           <TabPanel value={value} index={2}>
-            <GirisCikisRaporlari />
+            <GirisCikisRaporlari branchId={branchId} isManager={isManager} />
           </TabPanel>
           <TabPanel value={value} index={3}>
-            <ToplamSure />
+            <ToplamSure branchId={branchId} isManager={isManager} />
           </TabPanel>
         </ScrollableContent>
       </Box>
@@ -356,11 +389,11 @@ const Shifts: React.FC = () => {
       >
         <DialogTitle sx={{ display: 'flex', alignItems: 'center' }}>
           <InfoIcon sx={{ mr: 1, color: 'primary.main' }} />
-          Vardiya Yönetimi Hakkında Bilgiler
+          {isManager ? 'Şube Vardiya Yönetimi' : 'Vardiya Yönetimi'} Hakkında Bilgiler
         </DialogTitle>
         <DialogContent dividers>
           <Typography paragraph>
-            Vardiya Yönetimi modülü, şirketinizin personel vardiyalarını etkin bir şekilde yönetmenizi sağlayan bir dizi araç içerir.
+            {isManager ? 'Şube Vardiya Yönetimi' : 'Vardiya Yönetimi'} modülü, {isManager ? 'şubenizin' : 'şirketinizin'} personel vardiyalarını etkin bir şekilde yönetmenizi sağlayan bir dizi araç içerir.
             Aşağıda her bir sekmede gerçekleştirebileceğiniz işlemler detaylı olarak açıklanmıştır:
           </Typography>
           
@@ -371,7 +404,7 @@ const Shifts: React.FC = () => {
               </ListItemIcon>
               <ListItemText 
                 primary="Personel Listesi" 
-                secondary="Bu sekmede şirketinize kayıtlı tüm personelleri görüntüleyebilir, arayabilir, filtreleyebilir ve yönetebilirsiniz. Personel ekleme, düzenleme, silme ve vardiyaya atama işlemlerini bu sekme üzerinden gerçekleştirebilirsiniz. Ayrıca belirli bir vardiyaya göre personel filtresi uygulayabilirsiniz."
+                secondary={`Bu sekmede ${isManager ? 'şubenize' : 'şirketinize'} kayıtlı tüm personelleri görüntüleyebilir, arayabilir, filtreleyebilir ve yönetebilirsiniz. Personel ekleme, düzenleme, silme ve vardiyaya atama işlemlerini bu sekme üzerinden gerçekleştirebilirsiniz. Ayrıca belirli bir vardiyaya göre personel filtresi uygulayabilirsiniz.`}
               />
             </ListItem>
             
@@ -383,7 +416,7 @@ const Shifts: React.FC = () => {
               </ListItemIcon>
               <ListItemText 
                 primary="Vardiya Listesi" 
-                secondary="Bu sekmede şirketinize ait vardiyaları oluşturabilir, düzenleyebilir ve yönetebilirsiniz. Her vardiya için özel giriş-çıkış saatleri, gecikme toleransları ve izleme ayarları tanımlayabilirsiniz. Vardiyalara personel atama, kaldırma ve değiştirme işlemleri de bu sekme üzerinden yapılabilir. Vardiya detaylarını ve her vardiyada çalışan personel sayısını görüntüleyebilirsiniz."
+                secondary={`Bu sekmede ${isManager ? 'şubenize' : 'şirketinize'} ait vardiyaları oluşturabilir, düzenleyebilir ve yönetebilirsiniz. Her vardiya için özel giriş-çıkış saatleri, gecikme toleransları ve izleme ayarları tanımlayabilirsiniz. Vardiyalara personel atama, kaldırma ve değiştirme işlemleri de bu sekme üzerinden yapılabilir. Vardiya detaylarını ve her vardiyada çalışan personel sayısını görüntüleyebilirsiniz.`}
               />
             </ListItem>
             
@@ -421,7 +454,7 @@ const Shifts: React.FC = () => {
           </Typography>
           
           <Typography paragraph>
-            <strong>QR İndir:</strong> Şirketinize özel QR kodu oluşturur ve indirir. Bu QR kodu, personel giriş-çıkışlarında kullanılan mobil uygulamaya bağlanmak için kullanılabilir.
+            <strong>{isManager ? 'Şube QR' : 'QR İndir'}:</strong> {isManager ? 'Şubenize' : 'Şirketinize'} özel QR kodu oluşturur ve indirir. Bu QR kodu, personel giriş-çıkışlarında kullanılan mobil uygulamaya bağlanmak için kullanılabilir.
           </Typography>
         </DialogContent>
         <DialogActions>
