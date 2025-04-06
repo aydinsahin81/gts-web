@@ -83,6 +83,11 @@ const VardiyaListesi: React.FC<VardiyaListesiProps> = ({ branchId, isManager = f
   const [deleteVardiyaName, setDeleteVardiyaName] = useState('');
   const [deleteErrorOpen, setDeleteErrorOpen] = useState(false);
 
+  // Şube seçimi için state
+  const [branches, setBranches] = useState<any[]>([]);
+  const [selectedBranch, setSelectedBranch] = useState<any | null>(null);
+  const [loadingBranches, setLoadingBranches] = useState(false);
+
   // Vardiyaları veritabanından getir
   useEffect(() => {
     const fetchVardiyalar = async () => {
@@ -93,6 +98,10 @@ const VardiyaListesi: React.FC<VardiyaListesiProps> = ({ branchId, isManager = f
 
       try {
         setLoading(true);
+        
+        // Önce şubeleri yükle
+        await fetchBranches();
+        
         const vardiyaRef = ref(database, `companies/${userDetails.companyId}/shifts`);
         const snapshot = await get(vardiyaRef);
 
@@ -113,26 +122,8 @@ const VardiyaListesi: React.FC<VardiyaListesiProps> = ({ branchId, isManager = f
           if (isManager && branchId) {
             console.log(`Sadece şube ID'si ${branchId} olan vardiyalar filtreleniyor`);
             vardiyalar = vardiyalar.filter(vardiya => {
-              // Vardiya şube kontrolü yap
-              const branchesId = vardiya.branchesId;
-              
-              if (!branchesId) {
-                // Şube tanımlanmamışsa tüm şubelere ait olabilir (genel vardiya)
-                return true;
-              }
-              
-              if (typeof branchesId === 'string') {
-                return branchesId === branchId;
-              } else if (typeof branchesId === 'object') {
-                // 'id' özelliği var mı kontrol et
-                if ('id' in branchesId && branchesId.id === branchId) {
-                  return true;
-                }
-                // Objenin anahtarları arasında branchId'yi içeriyor olabilir
-                return Object.keys(branchesId).includes(branchId);
-              }
-              
-              return false;
+              // Sadece eşleşen şubeye sahip vardiyaları getir
+              return vardiya.branchesId === branchId;
             });
             
             console.log(`Filtrelenen vardiya sayısı: ${vardiyalar.length}`);
@@ -189,7 +180,9 @@ const VardiyaListesi: React.FC<VardiyaListesiProps> = ({ branchId, isManager = f
       
       if (snapshot.exists()) {
         const data = snapshot.val();
-        const personnelArray = Object.entries(data)
+        
+        // Personnel veritabanından tüm personelleri al
+        let personnelList = Object.entries(data)
           .filter(([id, personData]: [string, any]) => {
             // Silinen personelleri filtrele
             if (personData.isDeleted) return false;
@@ -201,11 +194,45 @@ const VardiyaListesi: React.FC<VardiyaListesiProps> = ({ branchId, isManager = f
             id,
             name: personData.name || 'İsimsiz Personel',
             email: personData.email || '',
-            phone: personData.phone || ''
+            phone: personData.phone || '',
+            branchesId: personData.branchesId || null
           }));
+          
+        // Şube yöneticisi için sadece kendi şubesine bağlı personelleri listeleme
+        if (isManager && branchId) {
+          console.log(`Manager modu: Sadece şube ID'si ${branchId} olan personeller getiriliyor`);
+          
+          // Önce personel veritabanında branchesId'si olanları filtrele
+          const filteredPersonnel = [];
+          
+          // Her personel için şube bilgisini kontrol et
+          for (const person of personnelList) {
+            // Personnel veritabanında branchesId varsa direkt olarak kontrol et
+            if (person.branchesId === branchId) {
+              filteredPersonnel.push(person);
+              continue;
+            }
+            
+            // Eğer personnel veritabanında branchesId yoksa, users veritabanında kontrol et
+            const userRef = ref(database, `users/${person.id}`);
+            const userSnapshot = await get(userRef);
+            
+            if (userSnapshot.exists()) {
+              const userData = userSnapshot.val();
+              if (userData.branchesId === branchId) {
+                // Users'daki branchesId'yi person nesnesine ekle
+                person.branchesId = userData.branchesId;
+                filteredPersonnel.push(person);
+              }
+            }
+          }
+          
+          console.log(`Şube için filtrelenen personel sayısı: ${filteredPersonnel.length}`);
+          personnelList = filteredPersonnel;
+        }
         
-        setPersonnelList(personnelArray);
-        setFilteredPersonnel(personnelArray);
+        setPersonnelList(personnelList);
+        setFilteredPersonnel(personnelList);
       } else {
         setPersonnelList([]);
         setFilteredPersonnel([]);
@@ -248,7 +275,17 @@ const VardiyaListesi: React.FC<VardiyaListesiProps> = ({ branchId, isManager = f
     // Varsa mevcut seçili personelleri belirle
     const vardiya = vardiyalar.find(v => v.id === vardiyaId);
     if (vardiya && vardiya.personnel) {
-      setSelectedPersonnel(vardiya.personnel);
+      console.log("Personnel verisi:", vardiya.personnel);
+      
+      // Personnel bir dizi veya obje olabilir, kontrol et
+      if (Array.isArray(vardiya.personnel)) {
+        setSelectedPersonnel(vardiya.personnel);
+      } else if (typeof vardiya.personnel === 'object') {
+        // Obje formatındaysa (key: true) anahtarları al
+        setSelectedPersonnel(Object.keys(vardiya.personnel));
+      } else {
+        setSelectedPersonnel([]);
+      }
     } else {
       setSelectedPersonnel([]);
     }
@@ -331,6 +368,52 @@ const VardiyaListesi: React.FC<VardiyaListesiProps> = ({ branchId, isManager = f
     }
   };
 
+  // Şubeleri veritabanından getir
+  const fetchBranches = async () => {
+    if (!userDetails?.companyId) return;
+    
+    setLoadingBranches(true);
+    try {
+      const branchesRef = ref(database, `companies/${userDetails.companyId}/branches`);
+      const snapshot = await get(branchesRef);
+      
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        const branchesArray = Object.keys(data).map(id => {
+          // Şube yapısına göre adını kontrol et
+          const branchData = data[id];
+          let branchName = 'İsimsiz Şube';
+          
+          if (branchData.name) {
+            branchName = branchData.name;
+          } else if (branchData.basicInfo && branchData.basicInfo.name) {
+            branchName = branchData.basicInfo.name;
+          }
+          
+          return {
+            id,
+            name: branchName
+          };
+        });
+        
+        setBranches(branchesArray);
+      } else {
+        setBranches([]);
+      }
+    } catch (error) {
+      console.error('Şubeler yüklenirken hata:', error);
+    } finally {
+      setLoadingBranches(false);
+    }
+  };
+
+  // Modal açıldığında şubeleri getir
+  useEffect(() => {
+    if (open && !isManager) {
+      fetchBranches();
+    }
+  }, [open, isManager, userDetails]);
+
   const handleClickOpen = () => {
     setOpen(true);
   };
@@ -343,6 +426,7 @@ const VardiyaListesi: React.FC<VardiyaListesiProps> = ({ branchId, isManager = f
     setGecKalmaToleransi(10);
     setCikisZamani('');
     setErkenCikmaToleransi(10);
+    setSelectedBranch(null);
     setError(null);
   };
 
@@ -377,7 +461,7 @@ const VardiyaListesi: React.FC<VardiyaListesiProps> = ({ branchId, isManager = f
       const shiftId = newShiftRef.key;
       
       // Vardiya verilerini hazırla
-      const shiftData = {
+      const shiftData: any = {
         createdAt: serverTimestamp(),
         name: vardiyaAdi,
         startTime: girisZamani,
@@ -385,6 +469,11 @@ const VardiyaListesi: React.FC<VardiyaListesiProps> = ({ branchId, isManager = f
         endTime: cikisZamani,
         earlyExitTolerance: erkenCikmaToleransi
       };
+      
+      // Eğer şube seçildiyse, şube ID'sini ekle
+      if (selectedBranch) {
+        shiftData.branchesId = selectedBranch.id;
+      }
       
       // Veritabanına kaydet
       await set(newShiftRef, shiftData);
@@ -399,7 +488,8 @@ const VardiyaListesi: React.FC<VardiyaListesiProps> = ({ branchId, isManager = f
           ...shiftData,
           // serverTimestamp yerine şimdiki zamanı kullan
           createdAt: Date.now(),
-          personnel: []
+          personnel: [],
+          branchesId: selectedBranch ? selectedBranch.id : null
         }
       ]);
       
@@ -434,6 +524,23 @@ const VardiyaListesi: React.FC<VardiyaListesiProps> = ({ branchId, isManager = f
     return (
       <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
         <strong>Personel:</strong> {count} kişi
+      </Typography>
+    );
+  };
+
+  // Vardiya kartında şube bilgisini görüntüleme
+  const renderBranchInfo = (vardiya: any) => {
+    if (!vardiya.branchesId) {
+      return null;
+    }
+
+    // Şube adını bul
+    const branch = branches.find(branch => branch.id === vardiya.branchesId);
+    const branchName = branch ? branch.name : 'Bilinmeyen Şube';
+
+    return (
+      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+        <strong>Şube:</strong> {branchName}
       </Typography>
     );
   };
@@ -638,6 +745,8 @@ const VardiyaListesi: React.FC<VardiyaListesiProps> = ({ branchId, isManager = f
                   <strong>Erken Çıkma Toleransı:</strong> {vardiya.earlyExitTolerance} dk
                 </Typography>
                 
+                {renderBranchInfo(vardiya)}
+                
                 {renderPersonnelCount(vardiya)}
                 
                 <Box sx={{ mt: 'auto', pt: 1.5, display: 'flex', justifyContent: 'flex-end' }}>
@@ -711,6 +820,40 @@ const VardiyaListesi: React.FC<VardiyaListesiProps> = ({ branchId, isManager = f
                 required
               />
             </Grid>
+            
+            {/* Şube seçimi - sadece ana admin için görünür */}
+            {!isManager && (
+              <Grid item xs={12}>
+                <Autocomplete
+                  id="branch-select"
+                  options={branches}
+                  getOptionLabel={(option) => option.name}
+                  value={selectedBranch}
+                  onChange={(event, newValue) => {
+                    setSelectedBranch(newValue);
+                  }}
+                  loading={loadingBranches}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Şube (İsteğe Bağlı)"
+                      placeholder="Bir şube seçin veya boş bırakın"
+                      helperText="Vardiyayı belirli bir şubeyle ilişkilendirmek isterseniz seçebilirsiniz"
+                      InputProps={{
+                        ...params.InputProps,
+                        endAdornment: (
+                          <>
+                            {loadingBranches ? <CircularProgress color="inherit" size={20} /> : null}
+                            {params.InputProps.endAdornment}
+                          </>
+                        ),
+                      }}
+                    />
+                  )}
+                  noOptionsText="Şube bulunamadı"
+                />
+              </Grid>
+            )}
             
             <Grid item xs={12} sm={6}>
               <TextField
