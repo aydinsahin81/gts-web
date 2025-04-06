@@ -81,6 +81,12 @@ interface TabPanelProps {
   value: number;
 }
 
+// Surveys bileşeni için prop tipi
+interface SurveysProps {
+  isManager?: boolean;
+  branchId?: string;
+}
+
 function TabPanel(props: TabPanelProps) {
   const { children, value, index, ...other } = props;
 
@@ -120,6 +126,7 @@ interface Survey {
   createdAt: number;
   createdBy: string;
   tasks?: string[];
+  branchId?: string;
 }
 
 // Eski format için geriye uyumluluk interface'i
@@ -149,9 +156,11 @@ interface Task {
   name: string;
   description: string;
   createdAt: number;
+  branchId?: string;
+  branchesId?: string | {[key: string]: boolean};
 }
 
-const Surveys: React.FC = () => {
+const Surveys: React.FC<SurveysProps> = ({ isManager = false, branchId }) => {
   const { currentUser } = useAuth();
   const [isQuestionModalOpen, setIsQuestionModalOpen] = useState(false);
   const [surveys, setSurveys] = useState<Survey[]>([]);
@@ -164,13 +173,57 @@ const Surveys: React.FC = () => {
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
+  const [branchNames, setBranchNames] = useState<{[key: string]: string}>({});
   
   // Tab state'i
   const [tabValue, setTabValue] = useState(0);
 
+  // Şube görevlerini filtreleme için state
+  const [branchTasks, setBranchTasks] = useState<Task[]>([]);
+  
   // Tab değişimini yönet
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
+  };
+
+  // Şube adlarını yükle
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const fetchBranchNames = async () => {
+      try {
+        const userSnapshot = await get(ref(database, `users/${currentUser.uid}`));
+        if (!userSnapshot.exists()) return;
+
+        const userData = userSnapshot.val();
+        const companyId = userData.companyId;
+        if (!companyId) return;
+
+        const branchesRef = ref(database, `companies/${companyId}/branches`);
+        const snapshot = await get(branchesRef);
+        
+        if (snapshot.exists()) {
+          const branches = snapshot.val();
+          const branchNamesMap: {[key: string]: string} = {};
+          
+          Object.entries(branches).forEach(([id, data]: [string, any]) => {
+            branchNamesMap[id] = data.name || 'İsimsiz Şube';
+          });
+          
+          setBranchNames(branchNamesMap);
+        }
+      } catch (error) {
+        console.error('Şube isimleri yüklenirken hata:', error);
+      }
+    };
+
+    fetchBranchNames();
+  }, [currentUser]);
+  
+  // Şube adını almak için yardımcı fonksiyon
+  const getBranchName = (branchId: string | undefined): string => {
+    if (!branchId) return 'Şube Belirtilmemiş';
+    return branchNames[branchId] || 'Bilinmeyen Şube';
   };
 
   // Anketleri realtime olarak yükle
@@ -210,7 +263,8 @@ const Surveys: React.FC = () => {
                   answers: firstQuestion.answers,
                   createdAt: data.createdAt,
                   createdBy: firstQuestion.createdBy,
-                  tasks: data.tasks || []
+                  tasks: data.tasks || [],
+                  branchId: data.branchId // Şube ID'si
                 };
               } else {
                 // Hiçbir format uymuyor, boş bir Survey döndür
@@ -220,7 +274,8 @@ const Surveys: React.FC = () => {
                   answers: [],
                   createdAt: data.createdAt || Date.now(),
                   createdBy: data.createdBy || '',
-                  tasks: data.tasks || []
+                  tasks: data.tasks || [],
+                  branchId: data.branchId // Şube ID'si
                 };
               }
             });
@@ -232,7 +287,26 @@ const Surveys: React.FC = () => {
               return dateB - dateA;
             });
             
-            setSurveys(surveysList);
+            // Şube yöneticisi ise anketleri filtrele
+            let filteredSurveys = surveysList;
+            
+            if (isManager && branchId) {
+              console.log("Şube yöneticisi için anketler filtreleniyor, şube ID:", branchId);
+              
+              // Şube ID'si ile eşleşen anketleri veya şube görevlerine bağlı anketleri filtrele
+              filteredSurveys = surveysList.filter(survey => {
+                // 1. Doğrudan şube ID'si ile eşleşme
+                if (survey.branchId && survey.branchId === branchId) {
+                  return true;
+                }
+                
+                // 2. Görevler aracılığıyla eşleşme kontrolü
+                // Bu kısım, görevler yüklendikten sonra branchTasks'dan filtrelenecek
+                return false;
+              });
+            }
+            
+            setSurveys(filteredSurveys);
           } else {
             setSurveys([]);
           }
@@ -248,7 +322,7 @@ const Surveys: React.FC = () => {
     };
 
     fetchUserData();
-  }, [currentUser]);
+  }, [currentUser, isManager, branchId]);
 
   // Görevleri yükle
   useEffect(() => {
@@ -272,11 +346,38 @@ const Surveys: React.FC = () => {
               id,
               name: task.name,
               description: task.description,
-              createdAt: task.createdAt
+              createdAt: task.createdAt,
+              branchId: task.branchId, // Şube ID'si
+              branchesId: task.branchesId // Çoklu şube ID'si
             }));
-            setTasks(tasksArray);
+            
+            // Şube bazlı filtreleme
+            if (isManager && branchId) {
+              const filteredTasks = tasksArray.filter(task => {
+                // branchesId bir nesne olabilir veya string olabilir
+                if (typeof task.branchesId === 'object' && task.branchesId !== null) {
+                  // Nesne durumunda, anahtarlarını kontrol et
+                  return Object.keys(task.branchesId).includes(branchId);
+                } else if (task.branchesId === branchId) {
+                  // String olarak direk karşılaştır
+                  return true;
+                } else if (task.branchId === branchId) {
+                  // branchId alanını kontrol et
+                  return true;
+                }
+                return false;
+              });
+              
+              console.log(`Şube ID: ${branchId} için ${filteredTasks.length} görev bulundu`);
+              setTasks(filteredTasks);
+              setBranchTasks(filteredTasks);
+            } else {
+              setTasks(tasksArray);
+              setBranchTasks(tasksArray);
+            }
           } else {
             setTasks([]);
+            setBranchTasks([]);
           }
         });
 
@@ -287,7 +388,45 @@ const Surveys: React.FC = () => {
     };
 
     fetchUserData();
-  }, [currentUser]);
+  }, [currentUser, isManager, branchId]);
+
+  // Şube görevleri ile anketleri filtreleme
+  useEffect(() => {
+    if (isManager && branchId && branchTasks.length > 0 && surveys.length > 0) {
+      console.log(`Şube görevleri ile anketler filtreleniyor - Görev sayısı: ${branchTasks.length}, Anket sayısı: ${surveys.length}`);
+      
+      // Şube görevlerinin ID'lerini al
+      const branchTaskIds = branchTasks.map(task => task.id);
+      console.log("Şube görev ID'leri:", branchTaskIds);
+      
+      // Anketleri filtrele - ya doğrudan şube ID'si ile eşleşenler ya da şube görevlerine bağlı olanlar
+      const filteredSurveys = surveys.filter(survey => {
+        // 1. Doğrudan şube ID'si ile eşleşme
+        if (survey.branchId && survey.branchId === branchId) {
+          console.log(`Anket '${survey.title}' doğrudan şube ID'si ile eşleşiyor: ${survey.branchId}`);
+          return true;
+        }
+        
+        // 2. Görevler aracılığıyla eşleşme kontrolü
+        if (survey.tasks && survey.tasks.length > 0) {
+          // Anketin görevlerinden en az biri şube görevlerinde varsa anketi göster
+          const hasMatchingTask = survey.tasks.some(taskId => branchTaskIds.includes(taskId));
+          if (hasMatchingTask) {
+            console.log(`Anket '${survey.title}' görev aracılığıyla eşleşiyor. Anket görevleri:`, survey.tasks);
+          }
+          return hasMatchingTask;
+        }
+        
+        return false;
+      });
+      
+      // Filtrelenmiş anketleri set et (ancak öncekinden farklıysa)
+      if (JSON.stringify(filteredSurveys) !== JSON.stringify(surveys)) {
+        console.log(`Filtrelenmiş anket sayısı: ${filteredSurveys.length} / Toplam: ${surveys.length}`);
+        setSurveys(filteredSurveys);
+      }
+    }
+  }, [isManager, branchId, branchTasks, surveys]);
 
   const handleOpenQuestionModal = () => {
     setIsQuestionModalOpen(true);
@@ -443,6 +582,8 @@ const Surveys: React.FC = () => {
   // Görev seçme modalını aç
   const handleOpenTaskModal = () => {
     if (selectedSurvey) {
+      console.log(`Görev seçme modalı açılıyor, mevcut görevler:`, selectedSurvey.tasks);
+      console.log(`Kullanılabilir görevler:`, branchTasks);
       setSelectedTasks(selectedSurvey.tasks || []);
     }
     setIsTaskModalOpen(true);
@@ -615,6 +756,49 @@ const Surveys: React.FC = () => {
     }
   };
 
+  // Görev seçme modalı içeriğini güncelle
+  const renderTaskSelection = () => {
+    // Şube bazlı filtreleme
+    const displayTasks = isManager && branchId ? branchTasks : tasks;
+    
+    console.log(`Görev seçim modalında gösterilecek görev sayısı: ${displayTasks.length}`);
+    
+    if (displayTasks.length === 0) {
+      return (
+        <Box sx={{ p: 2, textAlign: 'center' }}>
+          <Typography color="text.secondary">
+            {isManager 
+              ? 'Şubenize ait görev bulunamadı. Önce bir görev eklemeniz gerekiyor.'
+              : 'Hiç görev bulunamadı. Önce bir görev eklemeniz gerekiyor.'}
+          </Typography>
+        </Box>
+      );
+    }
+    
+    return (
+      <List>
+        {displayTasks.map((task) => (
+          <React.Fragment key={task.id}>
+            <ListItem>
+              <ListItemText
+                primary={task.name}
+                secondary={task.description}
+              />
+              <ListItemSecondaryAction>
+                <Checkbox
+                  edge="end"
+                  checked={selectedTasks.includes(task.id)}
+                  onChange={() => handleTaskToggle(task.id)}
+                />
+              </ListItemSecondaryAction>
+            </ListItem>
+            <Divider />
+          </React.Fragment>
+        ))}
+      </List>
+    );
+  };
+
   return (
     <ScrollableContent>
       <Box sx={{ pt: 1, pb: 3 }}>
@@ -703,6 +887,7 @@ const Surveys: React.FC = () => {
                         <TableRow>
                           <TableCell>Soru</TableCell>
                           <TableCell>Cevaplar</TableCell>
+                          {!isManager && <TableCell>Şube</TableCell>}
                         </TableRow>
                       </TableHead>
                       <TableBody>
@@ -730,6 +915,22 @@ const Surveys: React.FC = () => {
                                 ))}
                               </Box>
                             </TableCell>
+                            {!isManager && (
+                              <TableCell>
+                                {survey.branchId ? (
+                                  <Chip
+                                    label={getBranchName(survey.branchId)}
+                                    size="small"
+                                    color="primary"
+                                    variant="outlined"
+                                  />
+                                ) : (
+                                  <Typography variant="caption" color="text.secondary">
+                                    Genel Anket
+                                  </Typography>
+                                )}
+                              </TableCell>
+                            )}
                           </TableRow>
                         ))}
                       </TableBody>
@@ -800,7 +1001,7 @@ const Surveys: React.FC = () => {
         </TabPanel>
 
         <TabPanel value={tabValue} index={1}>
-          <SurveyReports />
+          <SurveyReports isManager={isManager} branchId={branchId} />
         </TabPanel>
       </Box>
 
@@ -808,6 +1009,8 @@ const Surveys: React.FC = () => {
       <QuestionModal
         open={isQuestionModalOpen}
         onClose={handleCloseQuestionModal}
+        isManager={isManager}
+        branchId={branchId}
       />
 
       {/* Anket Detay Modalı */}
@@ -823,9 +1026,16 @@ const Surveys: React.FC = () => {
           alignItems: 'center',
           pb: 1
         }}>
-          <Typography variant="h6" component="div">
-            {selectedSurvey?.title}
-          </Typography>
+          <Box>
+            <Typography variant="h6" component="div">
+              {selectedSurvey?.title}
+            </Typography>
+            {selectedSurvey?.branchId && (
+              <Typography variant="caption" color="text.secondary">
+                {getBranchName(selectedSurvey.branchId)}
+              </Typography>
+            )}
+          </Box>
           <Box>
             <Tooltip title="Görev Ekle">
               <IconButton 
@@ -1041,26 +1251,7 @@ const Surveys: React.FC = () => {
           Görev Seç
         </DialogTitle>
         <DialogContent sx={{ maxHeight: '60vh', overflowY: 'auto' }}>
-          <List>
-            {tasks.map((task) => (
-              <React.Fragment key={task.id}>
-                <ListItem>
-                  <ListItemText
-                    primary={task.name}
-                    secondary={task.description}
-                  />
-                  <ListItemSecondaryAction>
-                    <Checkbox
-                      edge="end"
-                      checked={selectedTasks.includes(task.id)}
-                      onChange={() => handleTaskToggle(task.id)}
-                    />
-                  </ListItemSecondaryAction>
-                </ListItem>
-                <Divider />
-              </React.Fragment>
-            ))}
-          </List>
+          {renderTaskSelection()}
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseTaskModal} variant="outlined">

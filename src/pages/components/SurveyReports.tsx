@@ -36,6 +36,7 @@ interface Task {
   name: string;
   description: string;
   personnelId?: string;
+  branchId?: string;
 }
 
 interface Personnel {
@@ -76,7 +77,13 @@ interface ReportItem {
   personnelName: string;
 }
 
-const SurveyReports: React.FC = () => {
+// SurveyReports interface'i
+interface SurveyReportsProps {
+  isManager?: boolean;
+  branchId?: string;
+}
+
+const SurveyReports: React.FC<SurveyReportsProps> = ({ isManager = false, branchId }) => {
   const { currentUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [reportItems, setReportItems] = useState<ReportItem[]>([]);
@@ -139,7 +146,8 @@ const SurveyReports: React.FC = () => {
                   id,
                   name: data.name || 'İsimsiz Görev',
                   description: data.description || '',
-                  personnelId: data.personnelId || ''
+                  personnelId: data.personnelId || '',
+                  branchId: data.branchId || ''
                 };
               });
               
@@ -248,7 +256,8 @@ const SurveyReports: React.FC = () => {
                         id: taskId,
                         name: taskName,
                         description: taskData.description || '',
-                        personnelId: taskData.personnelId || ''
+                        personnelId: taskData.personnelId || '',
+                        branchId: taskData.branchId || ''
                       };
                       // Tasks dizisine ekle
                       tasksData[taskId] = task;
@@ -259,6 +268,12 @@ const SurveyReports: React.FC = () => {
                   }
                 } else {
                   taskName = task.name;
+                }
+                
+                // Şube bazlı filtreleme
+                if (task && isManager && branchId && task.branchId && task.branchId !== branchId) {
+                  // Bu görev yöneticinin şubesine ait değilse atla
+                  continue;
                 }
                 
                 // Her cevap için
@@ -356,7 +371,7 @@ const SurveyReports: React.FC = () => {
     };
 
     fetchData();
-  }, [currentUser]);
+  }, [currentUser, isManager, branchId]);
 
   // Personel adını bulma algoritması - artık kullanılmıyor, doğrudan bağlantı kullanılıyor
   const findPersonnelName = (
@@ -547,6 +562,30 @@ const SurveyReports: React.FC = () => {
       alert('Excel dosyası oluşturulurken bir hata oluştu.');
     }
   };
+
+  // Görevler içinden şube bazlı olanları filtreleme
+  useEffect(() => {
+    if (isManager && branchId && !loading) {
+      console.log(`Şube ID'si için rapor filtreleniyor: ${branchId}`);
+      
+      // Şube görevlerini bul
+      const branchTaskIds = Object.values(tasks)
+        .filter(task => task.branchId === branchId)
+        .map(task => task.id);
+      
+      console.log(`Şube görevleri: ${branchTaskIds.length} adet`);
+      
+      // Sadece bu şubeye ait görevlerin raporlarını filtrele
+      const branchReports = reportItems.filter(item => 
+        branchTaskIds.includes(item.taskId)
+      );
+      
+      if (branchReports.length !== reportItems.length) {
+        console.log(`Filtrelenmiş rapor sayısı: ${branchReports.length} / ${reportItems.length}`);
+        setReportItems(branchReports);
+      }
+    }
+  }, [isManager, branchId, tasks, reportItems.length, loading]);
 
   return (
     <Paper sx={{ p: { xs: 1, sm: 2, md: 3 }, overflowX: 'hidden' }}>

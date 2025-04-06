@@ -27,6 +27,8 @@ import { useAuth } from '../../contexts/AuthContext';
 interface QuestionModalProps {
   open: boolean;
   onClose: () => void;
+  isManager?: boolean;
+  branchId?: string;
 }
 
 interface AnswerItem {
@@ -34,13 +36,14 @@ interface AnswerItem {
   type: 'positive' | 'negative' | 'neutral';
 }
 
-const QuestionModal: React.FC<QuestionModalProps> = ({ open, onClose }) => {
+const QuestionModal: React.FC<QuestionModalProps> = ({ open, onClose, isManager = false, branchId }) => {
   const { currentUser } = useAuth();
   const [questionTitle, setQuestionTitle] = useState('');
   const [answers, setAnswers] = useState<AnswerItem[]>([{ text: '', type: 'neutral' }]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [companyId, setCompanyId] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   // Şirket ID'sini al
   useEffect(() => {
@@ -99,48 +102,77 @@ const QuestionModal: React.FC<QuestionModalProps> = ({ open, onClose }) => {
     }
   };
 
-  const handleSubmit = async () => {
-    if (!companyId) {
-      setError('Şirket bilgisi bulunamadı. Lütfen tekrar giriş yapın.');
+  const handleSaveQuestion = async () => {
+    if (!questionTitle.trim()) {
+      setError('Lütfen bir soru başlığı girin.');
       return;
     }
 
-    // Boş cevapları filtrele
-    const filteredAnswers = answers.filter(answer => answer.text.trim() !== '');
-    
-    if (filteredAnswers.length === 0) {
-      setError('En az bir cevap eklemelisiniz.');
+    if (answers.length === 0) {
+      setError('En az bir cevap ekleyin.');
       return;
     }
 
-    setIsSubmitting(true);
-    setError(null);
+    if (answers.some(answer => !answer.text.trim())) {
+      setError('Boş cevap seçeneği bırakmayın.');
+      return;
+    }
 
     try {
-      const surveyRef = ref(database, `companies/${companyId}/surveys`);
-      const newSurveyRef = push(surveyRef);
+      setIsSubmitting(true);
+      setError(null);
+
+      if (!currentUser) {
+        setError('Kullanıcı oturumu bulunamadı.');
+        return;
+      }
+
+      // Kullanıcının şirket bilgisini al
+      const userSnapshot = await get(ref(database, `users/${currentUser.uid}`));
+      if (!userSnapshot.exists()) {
+        setError('Kullanıcı bilgisi bulunamadı.');
+        return;
+      }
+
+      const userData = userSnapshot.val();
+      const companyId = userData.companyId;
+      if (!companyId) {
+        setError('Şirket bilgisi bulunamadı.');
+        return;
+      }
+
+      // Yeni bir anket oluştur
+      const newSurveyRef = push(ref(database, `companies/${companyId}/surveys`));
       
+      // Anket verisi (yönetici modunda şube ID'si ekle)
       const surveyData = {
         title: questionTitle,
-        answers: filteredAnswers,
+        answers,
         createdAt: Date.now(),
-        createdBy: currentUser?.uid,
-        tasks: [] // Boş tasks dizisi oluştur
+        createdBy: currentUser.uid,
+        ...(isManager && branchId && { branchId }) // Şube yöneticisi ise şube ID'sini ekle
       };
-
-      console.log('Kaydedilecek veri:', surveyData);
-      console.log('Kaydedileceği yol:', `companies/${companyId}/surveys/${newSurveyRef.key}`);
-
+      
+      // Anketi database'e kaydet
       await set(newSurveyRef, surveyData);
-      onClose();
-      setQuestionTitle('');
-      setAnswers([{ text: '', type: 'neutral' }]);
-    } catch (err) {
-      console.error('Soru eklenirken hata:', err);
-      setError('Soru eklenirken bir hata oluştu. Lütfen tekrar deneyin.');
+
+      // Başarılı mesajı göster ve modalı kapat
+      setSuccess('Anket başarıyla eklendi.');
+      setTimeout(() => {
+        resetForm();
+        onClose();
+      }, 1000);
+    } catch (error) {
+      console.error('Anket eklenirken hata:', error);
+      setError('Anket eklenirken bir hata oluştu.');
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const resetForm = () => {
+    setQuestionTitle('');
+    setAnswers([{ text: '', type: 'neutral' }]);
   };
 
   return (
@@ -150,12 +182,20 @@ const QuestionModal: React.FC<QuestionModalProps> = ({ open, onClose }) => {
       maxWidth="md"
       fullWidth
     >
-      <DialogTitle>Yeni Soru Ekle</DialogTitle>
+      <DialogTitle>
+        {isManager && branchId ? 'Şubeye Yeni Anket Ekle' : 'Yeni Anket Ekle'}
+      </DialogTitle>
       <DialogContent>
         <Box sx={{ mt: 2 }}>
           {error && (
             <Alert severity="error" sx={{ mb: 2 }}>
               {error}
+            </Alert>
+          )}
+
+          {success && (
+            <Alert severity="success" sx={{ mb: 2 }}>
+              {success}
             </Alert>
           )}
 
@@ -242,7 +282,7 @@ const QuestionModal: React.FC<QuestionModalProps> = ({ open, onClose }) => {
         </Button>
         <Button 
           variant="contained" 
-          onClick={handleSubmit}
+          onClick={handleSaveQuestion}
           disabled={isSubmitting || !questionTitle.trim() || answers.every(answer => !answer.text.trim())}
           startIcon={isSubmitting ? <CircularProgress size={20} /> : undefined}
         >

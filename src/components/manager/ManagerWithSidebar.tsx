@@ -7,6 +7,8 @@ import Personnel from '../personnel/Personnel';
 import Shifts from '../vardiya/Shifts';
 import Reports from '../reports/Reports';
 import Messages from '../messages/Messages';
+import SinglePersonMessage from '../messages/SinglePersonMessage';
+import Surveys from '../../pages/Surveys';
 import { useAuth } from '../../contexts/AuthContext';
 
 // İçerik alanını stilize et
@@ -29,6 +31,13 @@ const MainContainer = styled(Box)(({ theme }) => ({
   backgroundColor: 'transparent',
   overflow: 'hidden',
 }));
+
+// BranchSurveys bileşeni tipi için detaylı tanımlama
+interface UserDetails {
+  branchesId?: string;
+  companyId?: string;
+  [key: string]: any;
+}
 
 // Şube görevlerini filtreleme bileşeni
 const BranchTasks: React.FC = () => {
@@ -86,22 +95,23 @@ const BranchReports: React.FC = () => {
 };
 
 // Şube mesajlarını filtreleme bileşeni
-const BranchMessages: React.FC = () => {
-  const { userDetails } = useAuth();
-  
-  // Şube yöneticisi için sadece tek personel sekmesi görünecek
-  if (userDetails && userDetails.branchesId) {
-    console.log("Mesajlar görüntüleniyor, şube ID:", userDetails.branchesId);
-    return <Messages isManager={true} branchId={userDetails.branchesId} />;
-  }
-  
-  // Şube bilgisi yoksa, varsayılan görünüm (bu durum olmamalı)
-  return <Messages isManager={true} />;
+const BranchMessages: React.FC<{ userDetails: UserDetails | null }> = ({ userDetails }) => {
+  return (
+    <Messages isManager={true} branchId={userDetails?.branchesId} />
+  );
+};
+
+// Şube anketlerini filtreleme bileşeni
+const BranchSurveys: React.FC<{ userDetails: UserDetails | null }> = ({ userDetails }) => {
+  return (
+    <Surveys isManager={true} branchId={userDetails?.branchesId} />
+  );
 };
 
 const ManagerWithSidebar: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [sidebarWidth, setSidebarWidth] = useState(260);
+  const { userDetails } = useAuth();
 
   // Tab değişikliğini handle et
   const handleTabChange = (tabId: string) => {
@@ -127,9 +137,9 @@ const ManagerWithSidebar: React.FC = () => {
       case 'reports':
         return <BranchReports />;
       case 'messages':
-        return <BranchMessages />;
+        return <BranchMessages userDetails={userDetails} />;
       case 'surveys':
-        return <div>Anketler İçeriği Buraya Gelecek</div>;
+        return <BranchSurveys userDetails={userDetails} />;
       default:
         return <div>Sayfa Bulunamadı</div>;
     }
