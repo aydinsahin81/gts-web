@@ -904,7 +904,7 @@ const Dashboard: React.FC = () => {
   return (
     <ScrollableContent>
       {/* İstatistik Kartları */}
-      <Grid container spacing={1} sx={{ mb: 2 }}>
+      <Grid container spacing={1} sx={{ mb: 2 }} className="stat-cards-section">
         <Grid item xs={12} sm={6} md={3}>
           <StatsCard 
             bgcolor={THEME_COLORS.personnel} 
@@ -984,7 +984,7 @@ const Dashboard: React.FC = () => {
       
       {/* Grafikler */}
       <Grid container spacing={1} sx={{ mb: 2 }}>
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12} md={6} className="task-distribution-section">
           <ChartContainer>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
               <Typography variant="h6" fontWeight="bold">
@@ -1034,7 +1034,7 @@ const Dashboard: React.FC = () => {
           </ChartContainer>
         </Grid>
         
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12} md={6} className="personnel-performance-section">
           <ChartContainer>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
               <Typography variant="h6" fontWeight="bold">
@@ -1102,7 +1102,7 @@ const Dashboard: React.FC = () => {
       </Grid>
       
       {/* Anket Grafikleri */}
-      <Grid container spacing={1} sx={{ mb: 2 }}>
+      <Grid container spacing={1} sx={{ mb: 2 }} className="survey-charts-section">
         <Grid item xs={12}>
           <SurveyCharts />
         </Grid>
@@ -1110,7 +1110,7 @@ const Dashboard: React.FC = () => {
       
       {/* Liste Kartları */}
       <Grid container spacing={1} sx={{ mb: 2 }}>
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12} md={6} className="missed-tasks-section">
           <StyledCard>
             <CardHeader 
               title="Geciken Son 10 Görev" 
@@ -1175,7 +1175,7 @@ const Dashboard: React.FC = () => {
           </StyledCard>
         </Grid>
         
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12} md={6} className="completed-tasks-section">
           <StyledCard>
             <CardHeader 
               title="Tamamlanan Son 10 Görev" 
@@ -1243,7 +1243,7 @@ const Dashboard: React.FC = () => {
       
       {/* En Çok Görev Geciktiren ve Yapan Personeller */}
       <Grid container spacing={1} sx={{ mb: 2 }}>
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12} md={6} className="worst-performers-section">
           <StyledCard>
             <CardHeader 
               title="En Çok Görev Geciktiren Personeller" 
@@ -1292,7 +1292,7 @@ const Dashboard: React.FC = () => {
           </StyledCard>
         </Grid>
         
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12} md={6} className="best-performers-section">
           <StyledCard>
             <CardHeader 
               title="En Çok Görev Yapan Personeller" 
@@ -1346,7 +1346,7 @@ const Dashboard: React.FC = () => {
       </Grid>
       
       {/* Harita bölümü sayfanın en altına taşındı */}
-      <MapCard sx={{ mb: 2 }}>
+      <MapCard sx={{ mb: 2 }} className="task-locations-section">
         <CardHeader 
           title="Görev Tamamlama Konumları" 
           titleTypographyProps={{ fontWeight: 'bold' }}

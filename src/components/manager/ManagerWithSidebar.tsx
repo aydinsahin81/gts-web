@@ -9,6 +9,7 @@ import Reports from '../reports/Reports';
 import Messages from '../messages/Messages';
 import SinglePersonMessage from '../messages/SinglePersonMessage';
 import Surveys from '../../pages/Surveys';
+import ManagerDashboard from '../dashboard/ManagerDashboard';
 import { useAuth } from '../../contexts/AuthContext';
 
 // İçerik alanını stilize et
@@ -127,7 +128,7 @@ const ManagerWithSidebar: React.FC = () => {
   const renderActiveComponent = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <div>Dashboard İçeriği Buraya Gelecek</div>;
+        return <ManagerDashboard />;
       case 'tasks':
         return <BranchTasks />;
       case 'personnel':
