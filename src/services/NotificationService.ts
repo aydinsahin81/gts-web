@@ -35,6 +35,7 @@ export interface Personnel {
   department?: string;
   fcmToken?: string;
   companyId?: string;
+  branchesId?: string;
 }
 
 // İsim getirme yardımcı fonksiyonu
@@ -555,7 +556,8 @@ class NotificationService {
             role: person.role || '',
             department: person.department || '',
             fcmToken: userData.fcmToken || '',
-            companyId
+            companyId,
+            branchesId: person.branchesId || ''
           });
         }
       }

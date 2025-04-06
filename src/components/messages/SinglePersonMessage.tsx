@@ -77,9 +77,15 @@ const HeaderArea = styled(Box)(({ theme }) => ({
 
 interface SinglePersonMessageProps {
   personnelId?: string | null;
+  branchId?: string;
+  isManager?: boolean;
 }
 
-const SinglePersonMessage: React.FC<SinglePersonMessageProps> = ({ personnelId }) => {
+const SinglePersonMessage: React.FC<SinglePersonMessageProps> = ({ 
+  personnelId, 
+  branchId,
+  isManager = false 
+}) => {
   const [personnel, setPersonnel] = useState<Personnel[]>([]);
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -122,7 +128,57 @@ const SinglePersonMessage: React.FC<SinglePersonMessageProps> = ({ personnelId }
         
         // Tüm personeli getir
         const personnelList = await NotificationService.getAllPersonnel(userCompanyId);
-        setPersonnel(personnelList);
+        
+        // Yönetici modunda, sadece kendi şubesindeki personeli filtrele
+        if (isManager && branchId) {
+          console.log(`Manager modu, şube ID: ${branchId} personeli filtreleniyor`);
+          
+          // Personel listesinde şube ID'si olanları önce filtrele
+          let branchPersonnel = personnelList.filter(person => person.branchesId === branchId);
+          
+          // Eğer personelde branchesId yoksa users koleksiyonuna bakarak kontrol et
+          if (branchPersonnel.length === 0) {
+            console.log("Personel listesinde şube bilgisi bulunamadı, users koleksiyonuna bakılıyor");
+            
+            const filteredPersonnel: Personnel[] = [];
+            
+            for (const person of personnelList) {
+              if (person.branchesId === branchId) {
+                filteredPersonnel.push(person);
+                continue;
+              }
+              
+              // Users veritabanında kontrol et
+              try {
+                const userRef = ref(database, `users/${person.id}`);
+                const userSnapshot = await get(userRef);
+                
+                if (userSnapshot.exists()) {
+                  const userData = userSnapshot.val();
+                  if (userData.branchesId === branchId) {
+                    // Users veritabanından şube ID'sini person nesnesine ekle
+                    const updatedPerson: Personnel = {
+                      ...person,
+                      branchesId: userData.branchesId
+                    };
+                    filteredPersonnel.push(updatedPerson);
+                  }
+                }
+              } catch (err) {
+                console.error("Kullanıcı bilgisi alınırken hata:", err);
+              }
+            }
+            
+            console.log(`Şubeye ait ${filteredPersonnel.length} personel bulundu`);
+            setPersonnel(filteredPersonnel);
+          } else {
+            console.log(`Şubeye ait ${branchPersonnel.length} personel bulundu`);
+            setPersonnel(branchPersonnel);
+          }
+        } else {
+          // Normal mod, tüm personel
+          setPersonnel(personnelList);
+        }
       } catch (error) {
         console.error('Personel yüklenirken hata:', error);
         setError('Personel listesi yüklenirken bir hata oluştu.');
@@ -132,7 +188,7 @@ const SinglePersonMessage: React.FC<SinglePersonMessageProps> = ({ personnelId }
     };
     
     loadPersonnel();
-  }, [currentUser]);
+  }, [currentUser, branchId, isManager]);
   
   // personnelId propundan gelen değeri izle
   useEffect(() => {

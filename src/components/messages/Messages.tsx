@@ -83,7 +83,12 @@ function a11yProps(index: number) {
   };
 }
 
-const Messages: React.FC = () => {
+interface MessagesProps {
+  isManager?: boolean;
+  branchId?: string;
+}
+
+const Messages: React.FC<MessagesProps> = ({ isManager = false, branchId }) => {
   const [tabValue, setTabValue] = useState(0);
   const location = useLocation();
   const [selectedPersonnelId, setSelectedPersonnelId] = useState<string | null>(null);
@@ -112,6 +117,26 @@ const Messages: React.FC = () => {
     }
   };
 
+  // Manager modu için sadece SinglePersonMessage göster
+  if (isManager) {
+    return (
+      <ScrollableContent>
+        <PageTitle variant="h1">
+          Mesajlar
+        </PageTitle>
+        
+        <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
+          Şubenizdeki personellere bildirim göndermek için aşağıdaki formu kullanabilirsiniz.
+        </Typography>
+        
+        <Paper elevation={0} sx={{ borderRadius: 2, p: 3 }}>
+          <SinglePersonMessage isManager={true} branchId={branchId} />
+        </Paper>
+      </ScrollableContent>
+    );
+  }
+
+  // Normal mod için tüm tabları göster
   return (
     <ScrollableContent>
       <PageTitle variant="h1">
