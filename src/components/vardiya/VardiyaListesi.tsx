@@ -409,10 +409,28 @@ const VardiyaListesi: React.FC<VardiyaListesiProps> = ({ branchId, isManager = f
 
   // Modal açıldığında şubeleri getir
   useEffect(() => {
-    if (open && !isManager) {
+    if (open) {
       fetchBranches();
+      
+      // Manager ise otomatik kendi şubesini seç
+      if (isManager && branchId) {
+        // Şubeyi bul ve seç
+        const currentBranch = branches.find(branch => branch.id === branchId);
+        if (currentBranch) {
+          setSelectedBranch(currentBranch);
+        } else {
+          // Eğer şube listede henüz yok ise (branches yüklenmemiş olabilir)
+          // fetchBranches tamamlandıktan sonra işlem yap
+          setTimeout(() => {
+            const branch = branches.find(branch => branch.id === branchId);
+            if (branch) {
+              setSelectedBranch(branch);
+            }
+          }, 500);
+        }
+      }
     }
-  }, [open, isManager, userDetails]);
+  }, [open, isManager, branchId, branches]);
 
   const handleClickOpen = () => {
     setOpen(true);
@@ -470,8 +488,13 @@ const VardiyaListesi: React.FC<VardiyaListesiProps> = ({ branchId, isManager = f
         earlyExitTolerance: erkenCikmaToleransi
       };
       
-      // Eğer şube seçildiyse, şube ID'sini ekle
-      if (selectedBranch) {
+      // Eğer şube seçildiyse veya manager modundaysa, şube ID'sini ekle
+      if (isManager && branchId) {
+        // Manager modunda, otomatik olarak kendi şube ID'sini ekle
+        console.log(`Manager modunda vardiya ekleniyor, şube ID'si: ${branchId}`);
+        shiftData.branchesId = branchId;
+      } else if (selectedBranch) {
+        // Admin modunda, seçilen şube ID'sini ekle
         shiftData.branchesId = selectedBranch.id;
       }
       
@@ -489,7 +512,7 @@ const VardiyaListesi: React.FC<VardiyaListesiProps> = ({ branchId, isManager = f
           // serverTimestamp yerine şimdiki zamanı kullan
           createdAt: Date.now(),
           personnel: [],
-          branchesId: selectedBranch ? selectedBranch.id : null
+          branchesId: isManager && branchId ? branchId : (selectedBranch ? selectedBranch.id : null)
         }
       ]);
       
@@ -795,7 +818,11 @@ const VardiyaListesi: React.FC<VardiyaListesiProps> = ({ branchId, isManager = f
         }}
       >
         <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>
-          <Typography variant="h6">Yeni Vardiya Ekle</Typography>
+          <Typography variant="h6">
+            {isManager && selectedBranch ? 
+              `${selectedBranch.name} Şubesine Vardiya Ekle` : 
+              'Yeni Vardiya Ekle'}
+          </Typography>
           <IconButton edge="end" color="inherit" onClick={handleClose} aria-label="close">
             <CloseIcon />
           </IconButton>
@@ -821,39 +848,40 @@ const VardiyaListesi: React.FC<VardiyaListesiProps> = ({ branchId, isManager = f
               />
             </Grid>
             
-            {/* Şube seçimi - sadece ana admin için görünür */}
-            {!isManager && (
-              <Grid item xs={12}>
-                <Autocomplete
-                  id="branch-select"
-                  options={branches}
-                  getOptionLabel={(option) => option.name}
-                  value={selectedBranch}
-                  onChange={(event, newValue) => {
-                    setSelectedBranch(newValue);
-                  }}
-                  loading={loadingBranches}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label="Şube (İsteğe Bağlı)"
-                      placeholder="Bir şube seçin veya boş bırakın"
-                      helperText="Vardiyayı belirli bir şubeyle ilişkilendirmek isterseniz seçebilirsiniz"
-                      InputProps={{
-                        ...params.InputProps,
-                        endAdornment: (
-                          <>
-                            {loadingBranches ? <CircularProgress color="inherit" size={20} /> : null}
-                            {params.InputProps.endAdornment}
-                          </>
-                        ),
-                      }}
-                    />
-                  )}
-                  noOptionsText="Şube bulunamadı"
-                />
-              </Grid>
-            )}
+            {/* Şube seçimi - manager için disabled, ana admin için aktif */}
+            <Grid item xs={12}>
+              <Autocomplete
+                id="branch-select"
+                options={branches}
+                getOptionLabel={(option) => option.name}
+                value={selectedBranch}
+                onChange={(event, newValue) => {
+                  setSelectedBranch(newValue);
+                }}
+                loading={loadingBranches}
+                disabled={isManager}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Şube"
+                    placeholder={isManager ? "Kendi şubeniz" : "Bir şube seçin veya boş bırakın"}
+                    helperText={isManager 
+                      ? "Kendi şubenize vardiya ekliyorsunuz" 
+                      : "Vardiyayı belirli bir şubeyle ilişkilendirmek isterseniz seçebilirsiniz"}
+                    InputProps={{
+                      ...params.InputProps,
+                      endAdornment: (
+                        <>
+                          {loadingBranches ? <CircularProgress color="inherit" size={20} /> : null}
+                          {params.InputProps.endAdornment}
+                        </>
+                      ),
+                    }}
+                  />
+                )}
+                noOptionsText="Şube bulunamadı"
+              />
+            </Grid>
             
             <Grid item xs={12} sm={6}>
               <TextField
