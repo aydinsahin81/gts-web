@@ -27,7 +27,13 @@ import {
   ListItemIcon,
   Checkbox,
   Chip,
-  Tooltip
+  Tooltip,
+  TableContainer,
+  Table,
+  TableHead,
+  TableBody,
+  TableRow,
+  TableCell
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
@@ -534,39 +540,13 @@ const VardiyaListesi: React.FC<VardiyaListesiProps> = ({ branchId, isManager = f
     setOpenSnackbar(false);
   };
 
-  // Vardiya kartında personel sayısını görüntüleme
-  const renderPersonnelCount = (vardiya: any) => {
-    const count = vardiya.personnel ? vardiya.personnel.length : 0;
-    return (
-      <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-        <strong>Personel:</strong> {count} kişi
-      </Typography>
-    );
-  };
-
-  // Vardiya kartında şube bilgisini görüntüleme
-  const renderBranchInfo = (vardiya: any) => {
-    if (!vardiya.branchesId) {
-      return null;
-    }
-
-    // Şube adını bul
-    const branch = branches.find(branch => branch.id === vardiya.branchesId);
-    const branchName = branch ? branch.name : 'Bilinmeyen Şube';
-
-    return (
-      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-        <strong>Şube:</strong> {branchName}
-      </Typography>
-    );
-  };
-
   // Vardiya silme fonksiyonları
   const handleDeleteClick = (vardiya: any) => {
     // Personel atanmış mı kontrol et
-    const hasPersonnel = vardiya.personnel && vardiya.personnel.length > 0;
+    const personnelCount = vardiya.personnel ? 
+      (Array.isArray(vardiya.personnel) ? vardiya.personnel.length : Object.keys(vardiya.personnel).length) : 0;
     
-    if (hasPersonnel) {
+    if (personnelCount > 0) {
       // Personel atanmışsa hata modalını göster
       setDeleteErrorOpen(true);
     } else {
@@ -700,101 +680,129 @@ const VardiyaListesi: React.FC<VardiyaListesiProps> = ({ branchId, isManager = f
           </Button>
         </Paper>
       ) : (
-        <Grid container spacing={2}>
-          {vardiyalar.map((vardiya) => (
-            <Grid item xs={12} sm={6} md={4} key={vardiya.id}>
-              <Paper 
-                sx={{ 
-                  p: 2.5, 
-                  borderRadius: 2,
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-                  height: '100%',
-                  display: 'flex',
-                  flexDirection: 'column'
-                }}
-              >
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
-                  <Typography variant="h6" color="primary" gutterBottom>
-                    {vardiya.name}
-                  </Typography>
-                  <IconButton 
-                    size="small" 
-                    color="primary" 
-                    onClick={() => handleOpenPersonnelModal(vardiya.id)}
-                    sx={{ 
-                      border: '1px solid', 
-                      borderColor: 'primary.main',
-                      borderRadius: '50%',
-                      padding: '4px',
-                      '&:hover': {
-                        backgroundColor: 'primary.main',
-                        color: 'white',
-                      }
-                    }}
-                  >
-                    <PersonIcon fontSize="small" />
-                    <AddIcon fontSize="small" sx={{ position: 'absolute', right: 0, bottom: 0, fontSize: 12, backgroundColor: 'white', borderRadius: '50%' }} />
-                  </IconButton>
-                </Box>
+        <TableContainer component={Paper} sx={{ 
+          boxShadow: '0 2px 10px rgba(0, 0, 0, 0.05)',
+          borderRadius: 2,
+          maxHeight: '65vh'
+        }}>
+          <Table size="small" stickyHeader>
+            <TableHead>
+              <TableRow>
+                <TableCell width="25%">Vardiya Adı</TableCell>
+                <TableCell width="10%">Giriş Saati</TableCell>
+                <TableCell width="10%">Çıkış Saati</TableCell>
+                <TableCell width="15%">Geç Kalma Toleransı</TableCell>
+                <TableCell width="15%">Erken Çıkma Toleransı</TableCell>
+                <TableCell width="15%">Personel Sayısı</TableCell>
+                <TableCell width="10%" align="center">İşlemler</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {vardiyalar.map((vardiya) => {
+                // Personel sayısını hesapla
+                const personnelCount = vardiya.personnel ? 
+                  (Array.isArray(vardiya.personnel) ? vardiya.personnel.length : Object.keys(vardiya.personnel).length) : 0;
                 
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                  <AccessTimeIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />
-                  <Typography variant="body2">
-                    <strong>Giriş:</strong> {vardiya.startTime}
-                  </Typography>
-                </Box>
+                // Şube adını bul
+                const branch = branches.find(branch => branch.id === vardiya.branchesId);
+                const branchName = branch ? branch.name : '';
                 
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                  <AccessTimeIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />
-                  <Typography variant="body2">
-                    <strong>Çıkış:</strong> {vardiya.endTime}
-                  </Typography>
-                </Box>
-                
-                <Divider sx={{ my: 1.5 }} />
-                
-                <Typography variant="body2" sx={{ mb: 0.5 }}>
-                  <strong>Geç Kalma Toleransı:</strong> {vardiya.lateTolerance} dk
-                </Typography>
-                
-                <Typography variant="body2" sx={{ mb: 1 }}>
-                  <strong>Erken Çıkma Toleransı:</strong> {vardiya.earlyExitTolerance} dk
-                </Typography>
-                
-                {renderBranchInfo(vardiya)}
-                
-                {renderPersonnelCount(vardiya)}
-                
-                <Box sx={{ mt: 'auto', pt: 1.5, display: 'flex', justifyContent: 'flex-end' }}>
-                  <Tooltip title={vardiya.personnel && vardiya.personnel.length > 0 ? 
-                    "Personel atanmış vardiyalar silinemez" : "Vardiyayı sil"}>
-                    <span>
-                      <IconButton 
-                        size="small" 
-                        color="error" 
-                        onClick={() => handleDeleteClick(vardiya)}
-                        sx={{ 
-                          border: '1px solid', 
-                          borderColor: 'error.main',
-                          borderRadius: '50%',
-                          padding: '4px',
-                          opacity: vardiya.personnel && vardiya.personnel.length > 0 ? 0.5 : 1,
-                          '&:hover': {
-                            backgroundColor: vardiya.personnel && vardiya.personnel.length > 0 ? 'inherit' : 'error.main',
-                            color: vardiya.personnel && vardiya.personnel.length > 0 ? 'error.main' : 'white',
-                          }
-                        }}
-                        disabled={vardiya.personnel && vardiya.personnel.length > 0}
-                      >
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </span>
-                  </Tooltip>
-                </Box>
-              </Paper>
-            </Grid>
-          ))}
-        </Grid>
+                return (
+                  <TableRow key={vardiya.id} hover>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <IconButton 
+                          size="small" 
+                          color="primary" 
+                          onClick={() => handleOpenPersonnelModal(vardiya.id)}
+                          sx={{ 
+                            mr: 1.5,
+                            border: '1px solid', 
+                            borderColor: 'primary.main',
+                            borderRadius: '50%',
+                            padding: '4px',
+                            '&:hover': {
+                              backgroundColor: 'primary.main',
+                              color: 'white',
+                            }
+                          }}
+                        >
+                          <PersonIcon fontSize="small" />
+                          <AddIcon fontSize="small" sx={{ position: 'absolute', right: 0, bottom: 0, fontSize: 12, backgroundColor: 'white', borderRadius: '50%' }} />
+                        </IconButton>
+                        <Box>
+                          <Typography variant="body2" fontWeight="medium">
+                            {vardiya.name}
+                          </Typography>
+                          {branchName && (
+                            <Typography variant="caption" color="text.secondary">
+                              {branchName}
+                            </Typography>
+                          )}
+                        </Box>
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">
+                        {vardiya.startTime}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">
+                        {vardiya.endTime}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">
+                        {vardiya.lateTolerance || 10} dakika
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">
+                        {vardiya.earlyExitTolerance || 10} dakika
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={`${personnelCount} kişi`}
+                        size="small"
+                        color={personnelCount > 0 ? "primary" : "default"}
+                        variant={personnelCount > 0 ? "filled" : "outlined"}
+                        sx={{ fontSize: '11px', height: 24 }}
+                      />
+                    </TableCell>
+                    <TableCell align="center">
+                      <Tooltip title={personnelCount > 0 ? 
+                        "Personel atanmış vardiyalar silinemez" : "Vardiyayı sil"}>
+                        <span>
+                          <IconButton 
+                            size="small" 
+                            color="error" 
+                            onClick={() => handleDeleteClick(vardiya)}
+                            sx={{ 
+                              border: '1px solid', 
+                              borderColor: 'error.main',
+                              borderRadius: '50%',
+                              padding: '4px',
+                              opacity: personnelCount > 0 ? 0.5 : 1,
+                              '&:hover': {
+                                backgroundColor: personnelCount > 0 ? 'inherit' : 'error.main',
+                                color: personnelCount > 0 ? 'error.main' : 'white',
+                              }
+                            }}
+                            disabled={personnelCount > 0}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </TableContainer>
       )}
 
       {/* Vardiya Ekleme Modal */}
