@@ -22,6 +22,7 @@ import BranchesPage from './pages/Branches';
 import CustomerScreenPage from './pages/CustomerScreen';
 import ManagerPage from './pages/ManagerDashboard';
 import ManagerProfilePage from './pages/ManagerProfile';
+import SuperAdmin from './components/superadmin/SuperAdmin';
 
 // Henüz oluşturulmamış diğer sayfalar için geçici bileşenler
 // const Reports = () => <div>Raporlar Sayfası</div>;
@@ -131,6 +132,7 @@ const App: React.FC = () => {
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/superadmin" element={<SuperAdmin />} />
             
             {/* Public Routes */}
             <Route path="/surveys/:taskId" element={<PublicSurvey />} />

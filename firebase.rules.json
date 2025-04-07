@@ -1,0 +1,162 @@
+{
+  "rules": {
+    "companies": {
+      ".indexOn": ["admin"],
+      ".read": "root.child('users').child(auth.uid).child('role').val() === 'superadmin' || auth != null",
+      ".write": "auth != null",
+      "$companyId": {
+        ".read": "root.child('users').child(auth.uid).child('role').val() === 'superadmin' || auth != null",
+        ".write": "auth != null",
+        "branches": {
+          ".indexOn": ["createdAt"],
+          ".read": "root.child('users').child(auth.uid).child('role').val() === 'superadmin' || auth != null",
+          ".write": "auth != null",
+          "$branchId": {
+            ".read": "root.child('users').child(auth.uid).child('role').val() === 'superadmin' || auth != null",
+            ".write": "auth != null"
+          }
+        },
+        "tasks": {
+          ".indexOn": ["personnelId", "status"],
+          ".read": "root.child('users').child(auth.uid).child('role').val() === 'superadmin' || auth != null",
+          ".write": "auth != null"
+        },
+        "shifts": {
+          ".indexOn": ["name", "createdAt"],
+          ".read": "root.child('users').child(auth.uid).child('role').val() === 'superadmin' || auth != null",
+          ".write": "auth != null",
+          "$shiftId": {
+            ".read": "root.child('users').child(auth.uid).child('role').val() === 'superadmin' || auth != null",
+            ".write": "auth != null",
+            "personnel": {
+              ".indexOn": [".value"],
+              ".read": "root.child('users').child(auth.uid).child('role').val() === 'superadmin' || auth != null",
+              ".write": "auth != null"
+            }
+          }
+        },
+        "vardiyaListesi": {
+          ".indexOn": [".key"],
+          ".read": "root.child('users').child(auth.uid).child('role').val() === 'superadmin' || auth != null",
+          ".write": "auth != null",
+          "$date": {
+            ".indexOn": [".key"],
+            ".read": "root.child('users').child(auth.uid).child('role').val() === 'superadmin' || auth != null",
+            ".write": "auth != null",
+            "$personnelId": {
+              ".read": "root.child('users').child(auth.uid).child('role').val() === 'superadmin' || auth != null",
+              ".write": "auth != null",
+              ".indexOn": ["girisZamani", "cikisZamani", "vardiyaId"]
+            }
+          }
+        },
+        "weeklyTasks": {
+          ".indexOn": ["personnelId", "status"],
+          ".read": "root.child('users').child(auth.uid).child('role').val() === 'superadmin' || auth != null",
+          ".write": "auth != null"
+        },
+        "monthlyTasks": {
+          ".indexOn": ["personnelId", "status"],
+          ".read": "root.child('users').child(auth.uid).child('role').val() === 'superadmin' || auth != null",
+          ".write": "auth != null"
+        },
+        "yearlyTasks": {
+          ".indexOn": ["personnelId", "status"],
+          ".read": "root.child('users').child(auth.uid).child('role').val() === 'superadmin' || auth != null",
+          ".write": "auth != null"
+        },
+        "task_completions": {
+          ".indexOn": ["task_id", "personnelId", "status", "startedAt"],
+          ".read": "root.child('users').child(auth.uid).child('role').val() === 'superadmin' || auth != null",
+          ".write": "auth != null"
+        },
+        "monthly_reports": {
+          ".indexOn": ["year", "month"],
+          ".read": "root.child('users').child(auth.uid).child('role').val() === 'superadmin' || auth != null",
+          ".write": "auth != null"
+        },
+        "completedTasks": {
+          ".indexOn": ["originalTaskId", "timestamp", "personnelId"],
+          ".read": "root.child('users').child(auth.uid).child('role').val() === 'superadmin' || auth != null",
+          ".write": "auth != null"
+        },
+        "completedWeeklyTasks": {
+          ".indexOn": ["originalTaskId", "timestamp", "personnelId", "day"],
+          ".read": "root.child('users').child(auth.uid).child('role').val() === 'superadmin' || auth != null",
+          ".write": "auth != null"
+        },
+        "completedMonthlyTasks": {
+          ".indexOn": ["originalTaskId", "timestamp", "personnelId"],
+          ".read": "root.child('users').child(auth.uid).child('role').val() === 'superadmin' || auth != null",
+          ".write": "auth != null"
+        },
+        "completedYearlyTasks": {
+          ".indexOn": ["originalTaskId", "timestamp", "personnelId"],
+          ".read": "root.child('users').child(auth.uid).child('role').val() === 'superadmin' || auth != null",
+          ".write": "auth != null"
+        },
+        "missedTasks": {
+          ".indexOn": ["originalTaskId", "timestamp", "personnelId"],
+          ".read": "root.child('users').child(auth.uid).child('role').val() === 'superadmin' || auth != null",
+          ".write": "auth != null"
+        },
+        "missedWeeklyTasks": {
+          ".indexOn": ["originalTaskId", "timestamp", "personnelId", "day"],
+          ".read": "root.child('users').child(auth.uid).child('role').val() === 'superadmin' || auth != null",
+          ".write": "auth != null"
+        },
+        "missedMonthlyTasks": {
+          ".indexOn": ["originalTaskId", "timestamp", "personnelId"],
+          ".read": "root.child('users').child(auth.uid).child('role').val() === 'superadmin' || auth != null",
+          ".write": "auth != null"
+        },
+        "missedYearlyTasks": {
+          ".indexOn": ["originalTaskId", "timestamp", "personnelId"],
+          ".read": "root.child('users').child(auth.uid).child('role').val() === 'superadmin' || auth != null",
+          ".write": "auth != null"
+        },
+        "notifications": {
+          ".indexOn": ["status", "createdAt"],
+          ".read": "root.child('users').child(auth.uid).child('role').val() === 'superadmin' || auth != null",
+          ".write": "auth != null"
+        },
+        "surveys": {
+          ".indexOn": ["createdAt", "createdBy"],
+          ".read": "root.child('users').child(auth.uid).child('role').val() === 'superadmin' || true",
+          ".write": "auth != null",
+          "$surveyId": {
+            ".read": "root.child('users').child(auth.uid).child('role').val() === 'superadmin' || true",
+            ".write": "auth != null",
+            "questions": {
+              ".indexOn": ["createdAt", "createdBy"],
+              ".read": "root.child('users').child(auth.uid).child('role').val() === 'superadmin' || true",
+              ".write": "auth != null"
+            }
+          }
+        },
+        "answeredSurveys": {
+          ".indexOn": ["createdAt", "taskId"],
+          ".read": "root.child('users').child(auth.uid).child('role').val() === 'superadmin' || auth != null",
+          ".write": "root.child('users').child(auth.uid).child('role').val() === 'superadmin' || true",
+          "$taskId": {
+            ".read": "root.child('users').child(auth.uid).child('role').val() === 'superadmin' || auth != null",
+            ".write": "root.child('users').child(auth.uid).child('role').val() === 'superadmin' || true",
+            "$responseId": {
+              ".read": "root.child('users').child(auth.uid).child('role').val() === 'superadmin' || auth != null",
+              ".write": "root.child('users').child(auth.uid).child('role').val() === 'superadmin' || true
+            }
+          }
+        }
+      }
+    },
+    "users": {
+      ".indexOn": ["username", "companyId", "employeeId"],
+      ".read": "root.child('users').child(auth.uid).child('role').val() === 'superadmin' || true",
+      ".write": "auth != null",
+      "$uid": {
+        ".read": "root.child('users').child(auth.uid).child('role').val() === 'superadmin' || true",
+        ".write": "auth != null"
+      }
+    }
+  }
+} 

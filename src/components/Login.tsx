@@ -153,7 +153,10 @@ const Login: React.FC = () => {
       const role = userData.role || 'employee';
       
       // Kullanıcı rolü kontrolü ve yönlendirme
-      if (role === 'admin') {
+      if (role === 'superadmin') {
+        // Süper admin kullanıcısını süper admin sayfasına yönlendir
+        navigate('/superadmin');
+      } else if (role === 'admin') {
         // Admin kullanıcısını dashboard'a yönlendir
         navigate('/dashboard');
       } else if (role === 'manager') {
