@@ -36,7 +36,8 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Snackbar
+  Snackbar,
+  Autocomplete
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -539,6 +540,8 @@ const Personnel: React.FC<PersonnelProps> = ({ branchId, isManager = false }) =>
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [infoModalOpen, setInfoModalOpen] = useState(false);
   const [branchName, setBranchName] = useState<string>('Şube');
+  const [selectedBranch, setSelectedBranch] = useState<string | null>(null);
+  const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
   
   const navigate = useNavigate();
 
@@ -832,20 +835,51 @@ const Personnel: React.FC<PersonnelProps> = ({ branchId, isManager = false }) =>
     };
   }, [showDeleted, branchId, isManager]); // branchId ve isManager değiştiğinde de useEffect yeniden çalışacak
 
-  // Arama fonksiyonu
+  // Şubeleri yükleme fonksiyonu
   useEffect(() => {
-    if (!searchTerm.trim()) {
-      setFilteredPersonnel(personnel);
-      return;
-    }
+    const loadBranches = async () => {
+      if (!companyId) return;
+      
+      try {
+        const branchesRef = ref(database, `companies/${companyId}/branches`);
+        const snapshot = await get(branchesRef);
+        
+        if (snapshot.exists()) {
+          const branchesData = snapshot.val();
+          const branchesList = Object.entries(branchesData).map(([id, data]: [string, any]) => ({
+            id,
+            name: data.name || data.basicInfo?.name || 'Bilinmeyen Şube'
+          }));
+          setBranches(branchesList);
+        }
+      } catch (error) {
+        console.error('Şubeler yüklenirken hata:', error);
+      }
+    };
+    
+    loadBranches();
+  }, [companyId]);
 
-    const filtered = personnel.filter(person => 
-      person.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (person.email && person.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (person.phone && person.phone.includes(searchTerm))
-    );
+  // Filtreleme fonksiyonu
+  useEffect(() => {
+    let filtered = personnel;
+    
+    // Arama filtresi
+    if (searchTerm.trim()) {
+      filtered = filtered.filter(person => 
+        person.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (person.email && person.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (person.phone && person.phone.includes(searchTerm))
+      );
+    }
+    
+    // Şube filtresi
+    if (selectedBranch) {
+      filtered = filtered.filter(person => person.branchesId === selectedBranch);
+    }
+    
     setFilteredPersonnel(filtered);
-  }, [searchTerm, personnel]);
+  }, [searchTerm, selectedBranch, personnel]);
 
   // Personel detaylarını gösteren modal
   const handleOpenModal = async (person: any) => {
@@ -1415,8 +1449,13 @@ const Personnel: React.FC<PersonnelProps> = ({ branchId, isManager = false }) =>
         </Box>
       </HeaderContainer>
 
-      {/* Arama Barı */}
-      <Box sx={{ mb: 3 }}>
+      {/* Arama ve Filtre Barı */}
+      <Box sx={{ 
+        mb: 3, 
+        display: 'flex', 
+        gap: 2,
+        flexDirection: { xs: 'column', sm: 'row' }
+      }}>
         <TextField
           fullWidth
           size="small"
@@ -1430,6 +1469,29 @@ const Personnel: React.FC<PersonnelProps> = ({ branchId, isManager = false }) =>
               </InputAdornment>
             ),
           }}
+        />
+        
+        <Autocomplete
+          size="small"
+          options={branches}
+          getOptionLabel={(option) => option.name}
+          value={branches.find(b => b.id === selectedBranch) || null}
+          onChange={(_, newValue) => setSelectedBranch(newValue?.id || null)}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              placeholder="Şube Seçin"
+              InputProps={{
+                ...params.InputProps,
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <BusinessIcon />
+                  </InputAdornment>
+                ),
+              }}
+            />
+          )}
+          sx={{ minWidth: 200 }}
         />
       </Box>
       
