@@ -47,6 +47,8 @@ interface TaskGroupsModalProps {
     createdAt: string;
     branchesId?: string;
   }>;
+  isManager?: boolean;
+  branchId?: string;
 }
 
 interface Branch {
@@ -58,7 +60,9 @@ const TaskGroupsModal: React.FC<TaskGroupsModalProps> = ({
   open,
   onClose,
   companyId,
-  taskGroups = []
+  taskGroups = [],
+  isManager,
+  branchId
 }) => {
   const [groupName, setGroupName] = useState('');
   const [selectedBranchId, setSelectedBranchId] = useState<string>('');
@@ -72,7 +76,10 @@ const TaskGroupsModal: React.FC<TaskGroupsModalProps> = ({
   // Form sıfırlama
   const resetForm = () => {
     setGroupName('');
-    setSelectedBranchId('');
+    // Şube müdürü ise branchId'yi değiştirme, değilse sıfırla
+    if (!isManager || !branchId) {
+      setSelectedBranchId('');
+    }
     setError(null);
   };
 
@@ -99,6 +106,12 @@ const TaskGroupsModal: React.FC<TaskGroupsModalProps> = ({
             name: data.name || 'İsimsiz Şube',
           }));
           setBranches(branchesList);
+          
+          // Şube müdürü ise ve branch ID'si varsa otomatik olarak seç
+          if (isManager && branchId) {
+            console.log(`Şube müdürü için otomatik seçilen şube ID: ${branchId}`);
+            setSelectedBranchId(branchId);
+          }
         }
       } catch (error) {
         console.error('Şube verileri yüklenirken hata:', error);
@@ -108,7 +121,7 @@ const TaskGroupsModal: React.FC<TaskGroupsModalProps> = ({
     if (open) {
       loadBranches();
     }
-  }, [companyId, open]);
+  }, [companyId, open, isManager, branchId]);
 
   // Yeni grup eklendiğinde ilk sayfaya dön
   useEffect(() => {
@@ -138,8 +151,14 @@ const TaskGroupsModal: React.FC<TaskGroupsModalProps> = ({
         createdAt: new Date().toISOString()
       };
 
-      // Eğer şube seçildiyse, branchesId ekle
-      if (selectedBranchId) {
+      // Şube ID'sini ekle:
+      // 1. Şube müdürü ise otomatik olarak kendi şubesini ekle
+      if (isManager && branchId) {
+        console.log(`Şube müdürü için otomatik şube ID ekleniyor: ${branchId}`);
+        (groupData as any).branchesId = branchId;
+      } 
+      // 2. Normal kullanıcı ve şube seçilmişse seçilen şubeyi ekle
+      else if (selectedBranchId) {
         (groupData as any).branchesId = selectedBranchId;
       }
 
@@ -322,6 +341,7 @@ const TaskGroupsModal: React.FC<TaskGroupsModalProps> = ({
               }}
             />
             
+            {/* Şube seçim alanı - şube müdürü ise otomatik seçili ve değiştirilemez */}
             <FormControl fullWidth variant="outlined">
               <InputLabel id="branch-select-label">Şube</InputLabel>
               <Select
@@ -329,20 +349,27 @@ const TaskGroupsModal: React.FC<TaskGroupsModalProps> = ({
                 value={selectedBranchId}
                 onChange={handleBranchChange}
                 label="Şube"
-                disabled={isSubmitting || branches.length === 0}
+                disabled={isSubmitting || branches.length === 0 || (isManager && branchId !== undefined)}
                 startAdornment={
                   <BusinessIcon sx={{ mr: 1, color: 'text.secondary' }} />
                 }
               >
-                <MenuItem value="">
-                  <em>Şube seçiniz (opsiyonel)</em>
-                </MenuItem>
+                {(!isManager || !branchId) && (
+                  <MenuItem value="">
+                    <em>Şube seçiniz (opsiyonel)</em>
+                  </MenuItem>
+                )}
                 {branches.map((branch) => (
                   <MenuItem key={branch.id} value={branch.id}>
                     {branch.name}
                   </MenuItem>
                 ))}
               </Select>
+              {isManager && branchId && (
+                <Typography variant="caption" color="primary" sx={{ mt: 1 }}>
+                  Şube müdürü olarak şubeniz otomatik seçilmiştir
+                </Typography>
+              )}
             </FormControl>
             
             <Button

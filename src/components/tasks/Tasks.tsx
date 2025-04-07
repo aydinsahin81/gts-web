@@ -1696,17 +1696,15 @@ const Tasks: React.FC<TasksProps> = ({ branchId, isManager = false }) => {
           >
             Excel İndir
           </Button>
-          {!isManager && (
-            <Button
-              variant="contained"
-              color="success"
-              startIcon={<CategoryIcon />}
-              onClick={() => setTaskGroupsModalOpen(true)}
-              sx={{ borderRadius: 2 }}
-            >
-              Grup Ekle
-            </Button>
-          )}
+          <Button
+            variant="contained"
+            color="success"
+            startIcon={<CategoryIcon />}
+            onClick={() => setTaskGroupsModalOpen(true)}
+            sx={{ borderRadius: 2 }}
+          >
+            Grup Ekle
+          </Button>
           <Button
             variant="contained"
             color="primary"
@@ -2374,15 +2372,15 @@ const Tasks: React.FC<TasksProps> = ({ branchId, isManager = false }) => {
         isManager={isManager}
       />
       
-      {/* Grup ekleme modalı sadece normal kullanıcılar görebilir */}
-      {!isManager && (
-        <TaskGroupsModal
-          open={taskGroupsModalOpen}
-          onClose={() => setTaskGroupsModalOpen(false)}
-          companyId={companyId || ''}
-          taskGroups={taskGroups}
-        />
-      )}
+      {/* Grup ekleme modalı - şimdi hem yöneticiler hem de normal kullanıcılar görebilir */}
+      <TaskGroupsModal
+        open={taskGroupsModalOpen}
+        onClose={() => setTaskGroupsModalOpen(false)}
+        companyId={companyId || ''}
+        taskGroups={taskGroups}
+        isManager={isManager}
+        branchId={branchId}
+      />
       
       {/* Bu modallar her zaman gösterilsin */}
       {/* QR Kod Yazdırma Modalı */}
