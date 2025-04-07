@@ -28,7 +28,10 @@ import {
   Fade,
   Backdrop,
   Divider,
-  Slide
+  Slide,
+  Alert,
+  Tooltip,
+  LinearProgress
 } from '@mui/material';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -40,9 +43,11 @@ import ViewModuleIcon from '@mui/icons-material/ViewModule';
 import PeopleAltIcon from '@mui/icons-material/PeopleAlt';
 import SaveIcon from '@mui/icons-material/Save';
 import CloseIcon from '@mui/icons-material/Close';
+import TaskIcon from '@mui/icons-material/Task';
 import { ref, get, update } from 'firebase/database';
 import { database } from '../../firebase';
 import CompanyCard from './CompanyCard';
+import TaskService from './TaskService';
 
 const StyledAppBar = styled(AppBar)(({ theme }) => ({
   backgroundColor: '#102648',
@@ -174,6 +179,9 @@ const SuperAdmin: React.FC = () => {
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [newMaxPersonnel, setNewMaxPersonnel] = useState<number>(0);
   const [updating, setUpdating] = useState(false);
+  const [isTaskRunning, setIsTaskRunning] = useState(false);
+  const [taskProgress, setTaskProgress] = useState<string[]>([]);
+  const [taskStatus, setTaskStatus] = useState<'idle' | 'running' | 'completed' | 'error'>('idle');
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
@@ -456,6 +464,39 @@ const SuperAdmin: React.FC = () => {
     </TableContainer>
   );
   
+  // Görevleri kontrol et
+  const handleCheckTasks = async () => {
+    if (isTaskRunning) return;
+    
+    try {
+      setIsTaskRunning(true);
+      setTaskStatus('running');
+      setTaskProgress(['Görev kontrolü başlatılıyor...']);
+      
+      const taskService = TaskService.getInstance();
+      
+      // Progress fonksiyonu
+      const updateProgress = (message: string) => {
+        setTaskProgress(prev => [...prev, message]);
+      };
+      
+      // Tüm şirketlerdeki görevleri kontrol et
+      await taskService.checkAllCompanies(updateProgress);
+      
+      setTaskStatus('completed');
+    } catch (error) {
+      console.error('Görev kontrolü sırasında hata:', error);
+      setTaskProgress(prev => [...prev, `Hata: ${error}`]);
+      setTaskStatus('error');
+    } finally {
+      // 60 saniye sonra durumu sıfırla
+      setTimeout(() => {
+        setIsTaskRunning(false);
+        setTaskStatus('idle');
+      }, 60000);
+    }
+  };
+
   return (
     <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
       <SuperAdminHeader />
@@ -475,26 +516,48 @@ const SuperAdmin: React.FC = () => {
             flexWrap: 'wrap',
             gap: 2
           }}>
-            <TextField
-              variant="outlined"
-              placeholder="Şirket ara..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
-              }}
-              sx={{
-                maxWidth: 400,
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: 2,
-                  bgcolor: 'background.paper'
-                }
-              }}
-            />
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+              <TextField
+                variant="outlined"
+                placeholder="Şirket ara..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                }}
+                sx={{
+                  maxWidth: 400,
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
+                    bgcolor: 'background.paper'
+                  }
+                }}
+              />
+              
+              <Tooltip title="Tüm şirketlerdeki kaçırılan görevleri kontrol et ve işaretle">
+                <span>
+                  <Button
+                    variant="contained"
+                    startIcon={<TaskIcon />}
+                    onClick={handleCheckTasks}
+                    disabled={isTaskRunning}
+                    sx={{
+                      bgcolor: '#102648',
+                      '&:hover': {
+                        bgcolor: '#0D1F3C'
+                      }
+                    }}
+                  >
+                    {isTaskRunning ? 'Kontrol Ediliyor...' : 'Görevleri Kontrol Et'}
+                  </Button>
+                </span>
+              </Tooltip>
+            </Box>
+            
             <Box sx={{ display: 'flex', gap: 1 }}>
               <IconButton 
                 color={viewMode === 'card' ? 'primary' : 'default'} 
@@ -520,6 +583,47 @@ const SuperAdmin: React.FC = () => {
               </IconButton>
             </Box>
           </Box>
+          
+          {/* Görev Kontrolü Durum Bilgisi */}
+          {taskStatus !== 'idle' && (
+            <Box sx={{ mb: 3, mt: 1 }}>
+              <Alert 
+                severity={
+                  taskStatus === 'running' ? 'info' : 
+                  taskStatus === 'completed' ? 'success' : 
+                  'error'
+                }
+                sx={{ mb: 1 }}
+              >
+                {taskStatus === 'running' && 'Görevler kontrol ediliyor...'}
+                {taskStatus === 'completed' && 'Görev kontrolü tamamlandı.'}
+                {taskStatus === 'error' && 'Görev kontrolü sırasında hata oluştu.'}
+              </Alert>
+              
+              {taskStatus === 'running' && (
+                <LinearProgress sx={{ mb: 2 }} />
+              )}
+              
+              <Box 
+                sx={{ 
+                  maxHeight: 150, 
+                  overflowY: 'auto', 
+                  border: '1px solid #e0e0e0', 
+                  borderRadius: 1,
+                  p: 1,
+                  bgcolor: '#f5f5f5',
+                  fontSize: '0.85rem',
+                  fontFamily: 'monospace'
+                }}
+              >
+                {taskProgress.map((line, index) => (
+                  <Box key={index} sx={{ py: 0.5 }}>
+                    {line}
+                  </Box>
+                ))}
+              </Box>
+            </Box>
+          )}
 
           {loading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
