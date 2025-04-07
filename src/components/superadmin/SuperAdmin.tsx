@@ -15,13 +15,22 @@ import {
   TextField,
   InputAdornment,
   Container,
-  CircularProgress
+  CircularProgress,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper
 } from '@mui/material';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import LogoutIcon from '@mui/icons-material/Logout';
 import BusinessIcon from '@mui/icons-material/Business';
 import SearchIcon from '@mui/icons-material/Search';
+import ViewListIcon from '@mui/icons-material/ViewList';
+import ViewModuleIcon from '@mui/icons-material/ViewModule';
 import { ref, get } from 'firebase/database';
 import { database } from '../../firebase';
 import CompanyCard from './CompanyCard';
@@ -136,6 +145,7 @@ const SuperAdmin: React.FC = () => {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
@@ -293,6 +303,66 @@ const SuperAdmin: React.FC = () => {
     return company.name.toLowerCase().includes(searchTerm.toLowerCase());
   });
 
+  // Liste görünümü bileşeni
+  const CompanyListView = () => (
+    <TableContainer component={Paper} sx={{ mt: 2 }}>
+      <Table>
+        <TableHead>
+          <TableRow sx={{ bgcolor: '#f5f5f5' }}>
+            <TableCell>Şirket</TableCell>
+            <TableCell>Admin</TableCell>
+            <TableCell>Email</TableCell>
+            <TableCell>Personel</TableCell>
+            <TableCell>Şubeler</TableCell>
+            <TableCell>Aktif Görevler</TableCell>
+            <TableCell>Tamamlanan</TableCell>
+            <TableCell>Vardiyalar</TableCell>
+            <TableCell>Anketler</TableCell>
+            <TableCell>İşlem</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {filteredCompanies.map((company) => (
+            <TableRow key={company.id} sx={{ '&:hover': { bgcolor: '#f9f9f9' } }}>
+              <TableCell>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Avatar
+                    src={company.logo}
+                    alt={company.name}
+                    sx={{ width: 40, height: 40, bgcolor: '#102648' }}
+                  >
+                    {company.name.charAt(0)}
+                  </Avatar>
+                  <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
+                    {company.name}
+                  </Typography>
+                </Box>
+              </TableCell>
+              <TableCell>{company.admin.name}</TableCell>
+              <TableCell>{company.admin.email}</TableCell>
+              <TableCell>{company.stats.personnelCount}</TableCell>
+              <TableCell>{company.stats.branchCount}</TableCell>
+              <TableCell>{company.stats.activeTasks}</TableCell>
+              <TableCell>{company.stats.completedTasks}</TableCell>
+              <TableCell>{company.stats.shifts}</TableCell>
+              <TableCell>{company.stats.surveys}</TableCell>
+              <TableCell>
+                <IconButton 
+                  size="small" 
+                  color="primary" 
+                  onClick={() => handleViewDetails(company.id)}
+                  sx={{ bgcolor: '#102648', color: 'white', '&:hover': { bgcolor: '#0D1F3C' } }}
+                >
+                  <SearchIcon fontSize="small" />
+                </IconButton>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </TableContainer>
+  );
+  
   return (
     <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
       <SuperAdminHeader />
@@ -303,9 +373,15 @@ const SuperAdmin: React.FC = () => {
         bgcolor: 'background.default'
       }}>
         <Container maxWidth="xl">
-          <Box sx={{ mb: 4 }}>
+          <Box sx={{ 
+            mb: 4, 
+            display: 'flex', 
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: 2
+          }}>
             <TextField
-              fullWidth
               variant="outlined"
               placeholder="Şirket ara..."
               value={searchTerm}
@@ -325,13 +401,37 @@ const SuperAdmin: React.FC = () => {
                 }
               }}
             />
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <IconButton 
+                color={viewMode === 'card' ? 'primary' : 'default'} 
+                onClick={() => setViewMode('card')}
+                sx={{ 
+                  bgcolor: viewMode === 'card' ? '#102648' : 'transparent',
+                  color: viewMode === 'card' ? 'white' : 'inherit',
+                  '&:hover': { bgcolor: viewMode === 'card' ? '#0D1F3C' : 'rgba(0,0,0,0.04)' }
+                }}
+              >
+                <ViewModuleIcon />
+              </IconButton>
+              <IconButton 
+                color={viewMode === 'list' ? 'primary' : 'default'} 
+                onClick={() => setViewMode('list')}
+                sx={{ 
+                  bgcolor: viewMode === 'list' ? '#102648' : 'transparent',
+                  color: viewMode === 'list' ? 'white' : 'inherit',
+                  '&:hover': { bgcolor: viewMode === 'list' ? '#0D1F3C' : 'rgba(0,0,0,0.04)' }
+                }}
+              >
+                <ViewListIcon />
+              </IconButton>
+            </Box>
           </Box>
 
           {loading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
               <CircularProgress />
             </Box>
-          ) : (
+          ) : viewMode === 'card' ? (
             <Grid container spacing={3}>
               {filteredCompanies.map((company) => (
                 <Grid item xs={12} sm={6} md={4} lg={3} key={company.id}>
@@ -342,6 +442,8 @@ const SuperAdmin: React.FC = () => {
                 </Grid>
               ))}
             </Grid>
+          ) : (
+            <CompanyListView />
           )}
         </Container>
       </Box>
