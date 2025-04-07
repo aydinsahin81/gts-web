@@ -22,6 +22,7 @@ const ContentContainer = styled(Box)<{ sidebarWidth: number }>(({ theme, sidebar
     easing: theme.transitions.easing.sharp,
     duration: theme.transitions.duration.enteringScreen,
   }),
+  overflowY: 'auto',
 }));
 
 // Ana konteyner
@@ -151,19 +152,7 @@ const ManagerWithSidebar: React.FC = () => {
       <ManagerSidebar onTabChange={handleTabChange} onCollapse={handleSidebarCollapse} />
       
       <ContentContainer sidebarWidth={sidebarWidth}>
-        <Paper 
-          elevation={0}
-          sx={{ 
-            p: 3, 
-            height: '100%', 
-            borderRadius: 0,
-            overflowY: 'auto',
-            display: 'flex',
-            flexDirection: 'column'
-          }}
-        >
-          {renderActiveComponent()}
-        </Paper>
+        {renderActiveComponent()}
       </ContentContainer>
     </MainContainer>
   );

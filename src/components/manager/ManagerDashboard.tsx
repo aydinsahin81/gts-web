@@ -217,22 +217,13 @@ const ManagerDashboard: React.FC = () => {
           p: 0, 
           mt: 8, // AppBar yüksekliğini hesaba katarak üst kenar boşluğu
           overflow: 'hidden',
+          height: 'calc(100vh - 64px)',
+          display: 'flex',
+          flexDirection: 'column',
         }}
       >
-        <Paper 
-          elevation={0}
-          sx={{ 
-            p: 0, // İç padding'i kaldırıyoruz, çünkü ManagerWithSidebar kendi padding'ini içeriyor
-            height: 'calc(100vh - 64px)', 
-            borderRadius: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden'
-          }}
-        >
-          {/* ManagerWithSidebar bileşenini göster */}
-          <ManagerWithSidebar />
-        </Paper>
+        {/* ManagerWithSidebar bileşenini göster */}
+        <ManagerWithSidebar />
       </Box>
     </>
   );
