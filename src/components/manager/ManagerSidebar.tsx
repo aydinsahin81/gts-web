@@ -39,7 +39,7 @@ const SidebarContainer = styled(Box)<{ isCollapsed: boolean }>(({ theme, isColla
   display: 'flex',
   flexDirection: 'column',
   position: 'relative',
-  borderRadius: '10px 0 0 10px',
+  borderRadius: '0',
   boxShadow: '0 0 10px rgba(0,0,0,0.3)',
   flexShrink: 0,
   transition: theme.transitions.create(['width'], {

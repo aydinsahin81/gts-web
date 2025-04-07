@@ -16,8 +16,8 @@ import { useAuth } from '../../contexts/AuthContext';
 const ContentContainer = styled(Box)<{ sidebarWidth: number }>(({ theme, sidebarWidth }) => ({
   flexGrow: 1,
   height: '100%',
-  marginLeft: 2,
-  width: `calc(100% - ${sidebarWidth + 8}px)`, // Sidebar genişliği + margin
+  marginLeft: 0,
+  width: `calc(100% - ${sidebarWidth}px)`, // Sadece sidebar genişliği
   transition: theme.transitions.create(['width', 'margin'], {
     easing: theme.transitions.easing.sharp,
     duration: theme.transitions.duration.enteringScreen,
@@ -28,7 +28,7 @@ const ContentContainer = styled(Box)<{ sidebarWidth: number }>(({ theme, sidebar
 const MainContainer = styled(Box)(({ theme }) => ({
   display: 'flex',
   width: '100%',
-  height: 'calc(100vh - 180px)', // Header yüksekliğini çıkarıyoruz
+  height: '100vh',
   backgroundColor: 'transparent',
   overflow: 'hidden',
 }));
@@ -156,7 +156,7 @@ const ManagerWithSidebar: React.FC = () => {
           sx={{ 
             p: 3, 
             height: '100%', 
-            borderRadius: 2,
+            borderRadius: 0,
             overflowY: 'auto',
             display: 'flex',
             flexDirection: 'column'
