@@ -15,7 +15,8 @@ import {
   Assignment as AssignmentIcon,
   CheckCircle as CheckCircleIcon,
   AccessTime as AccessTimeIcon,
-  Poll as PollIcon
+  Poll as PollIcon,
+  PeopleAlt as PeopleAltIcon
 } from '@mui/icons-material';
 import StatCard from './StatCard';
 
@@ -37,6 +38,7 @@ interface CompanyCardProps {
     email: string;
   };
   stats: CompanyStats;
+  maxPersonnel?: number;
   onViewDetails: (id: string) => void;
 }
 
@@ -46,6 +48,7 @@ const CompanyCard: React.FC<CompanyCardProps> = ({
   logo,
   admin,
   stats,
+  maxPersonnel,
   onViewDetails
 }) => {
   return (
@@ -148,6 +151,7 @@ const CompanyCard: React.FC<CompanyCardProps> = ({
           variant="contained" 
           fullWidth
           onClick={() => onViewDetails(id)}
+          startIcon={<PeopleAltIcon />}
           sx={{
             bgcolor: '#102648',
             '&:hover': {
@@ -155,7 +159,7 @@ const CompanyCard: React.FC<CompanyCardProps> = ({
             }
           }}
         >
-          Detayları Gör
+          Personel Sayısını Güncelle
         </Button>
       </Box>
     </Card>
