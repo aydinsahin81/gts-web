@@ -175,13 +175,18 @@ const SuperAdmin: React.FC = () => {
                 const stats = await calculateCompanyStats(id);
                 console.log(`Şirket ${id} istatistikleri:`, stats);
                 
+                // Şirket bilgilerini al
+                const companyInfoRef = ref(database, `companies/${id}/info`);
+                const companyInfoSnapshot = await get(companyInfoRef);
+                const companyInfo = companyInfoSnapshot.exists() ? companyInfoSnapshot.val() : {};
+                
                 const companyData = {
                   id,
-                  name: company.name || 'İsimsiz Şirket',
-                  logo: company.logo || '',
+                  name: companyInfo.name || company.name || 'İsimsiz Şirket',
+                  logo: companyInfo.logo || company.logo || '',
                   admin: {
-                    name: company.admin?.name || 'Admin Bilgisi Yok',
-                    email: company.admin?.email || ''
+                    name: companyInfo.admin?.name || company.admin?.name || 'Admin Bilgisi Yok',
+                    email: companyInfo.admin?.email || company.admin?.email || ''
                   },
                   stats
                 };
