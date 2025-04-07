@@ -55,7 +55,8 @@ import {
   ViewList as ViewListIcon,
   Info as InfoIcon,
   Download as DownloadIcon,
-  Business as BusinessIcon
+  Business as BusinessIcon,
+  CheckCircle as CheckCircleIcon
 } from '@mui/icons-material';
 import { ref, get, onValue, off, remove, update, set, push } from 'firebase/database';
 import { database, auth } from '../../firebase';
@@ -559,8 +560,23 @@ const Personnel: React.FC<PersonnelProps> = ({ branchId, isManager = false }) =>
   const [branchName, setBranchName] = useState<string>('Şube');
   const [selectedBranch, setSelectedBranch] = useState<string | null>(null);
   const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
+  const [selectedRole, setSelectedRole] = useState<string | null>(null);
+  const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
   
   const navigate = useNavigate();
+
+  // Rol seçenekleri
+  const roleOptions = [
+    { id: 'admin', name: 'Admin' },
+    { id: 'manager', name: 'Yönetici' },
+    { id: 'employee', name: 'Personel' }
+  ];
+
+  // Durum seçenekleri
+  const statusOptions = [
+    { id: 'hasTask', name: 'Görev Atanmış' },
+    { id: 'available', name: 'Müsait' }
+  ];
 
   // Görünüm modunu localStorage'dan yükle
   useEffect(() => {
@@ -894,9 +910,25 @@ const Personnel: React.FC<PersonnelProps> = ({ branchId, isManager = false }) =>
     if (selectedBranch) {
       filtered = filtered.filter(person => person.branchesId === selectedBranch);
     }
+
+    // Rol filtresi
+    if (selectedRole) {
+      filtered = filtered.filter(person => person.role === selectedRole);
+    }
+
+    // Durum filtresi
+    if (selectedStatus) {
+      filtered = filtered.filter(person => {
+        if (selectedStatus === 'hasTask') {
+          return person.hasTask;
+        } else {
+          return !person.hasTask;
+        }
+      });
+    }
     
     setFilteredPersonnel(filtered);
-  }, [searchTerm, selectedBranch, personnel]);
+  }, [searchTerm, selectedBranch, selectedRole, selectedStatus, personnel]);
 
   // Personel detaylarını gösteren modal
   const handleOpenModal = async (person: any) => {
@@ -1471,7 +1503,8 @@ const Personnel: React.FC<PersonnelProps> = ({ branchId, isManager = false }) =>
         mb: 3, 
         display: 'flex', 
         gap: 2,
-        flexDirection: { xs: 'column', sm: 'row' }
+        alignItems: 'center',
+        flexWrap: 'wrap'
       }}>
         <TextField
           fullWidth
@@ -1486,30 +1519,88 @@ const Personnel: React.FC<PersonnelProps> = ({ branchId, isManager = false }) =>
               </InputAdornment>
             ),
           }}
+          sx={{ 
+            maxWidth: 300,
+            flexGrow: 1
+          }}
         />
         
-        <Autocomplete
-          size="small"
-          options={branches}
-          getOptionLabel={(option) => option.name}
-          value={branches.find(b => b.id === selectedBranch) || null}
-          onChange={(_, newValue) => setSelectedBranch(newValue?.id || null)}
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              placeholder="Şube Seçin"
-              InputProps={{
-                ...params.InputProps,
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <BusinessIcon />
-                  </InputAdornment>
-                ),
-              }}
-            />
-          )}
-          sx={{ minWidth: 200 }}
-        />
+        <Box sx={{ 
+          display: 'flex', 
+          gap: 2,
+          flexWrap: 'wrap',
+          justifyContent: 'flex-end',
+          flexGrow: 1
+        }}>
+          <Autocomplete
+            size="small"
+            options={branches}
+            getOptionLabel={(option) => option.name}
+            value={branches.find(b => b.id === selectedBranch) || null}
+            onChange={(_, newValue) => setSelectedBranch(newValue?.id || null)}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                placeholder="Şube Seçin"
+                InputProps={{
+                  ...params.InputProps,
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <BusinessIcon />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            )}
+            sx={{ minWidth: 200 }}
+          />
+
+          <Autocomplete
+            size="small"
+            options={roleOptions}
+            getOptionLabel={(option) => option.name}
+            value={roleOptions.find(r => r.id === selectedRole) || null}
+            onChange={(_, newValue) => setSelectedRole(newValue?.id || null)}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                placeholder="Rol Seçin"
+                InputProps={{
+                  ...params.InputProps,
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <PersonIcon />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            )}
+            sx={{ minWidth: 200 }}
+          />
+
+          <Autocomplete
+            size="small"
+            options={statusOptions}
+            getOptionLabel={(option) => option.name}
+            value={statusOptions.find(s => s.id === selectedStatus) || null}
+            onChange={(_, newValue) => setSelectedStatus(newValue?.id || null)}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                placeholder="Durum Seçin"
+                InputProps={{
+                  ...params.InputProps,
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <CheckCircleIcon />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            )}
+            sx={{ minWidth: 200 }}
+          />
+        </Box>
       </Box>
       
       {/* Personel Listesi */}
