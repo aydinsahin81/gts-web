@@ -211,16 +211,16 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
         console.log(`Mevcut kullanıcı: ${isManager ? 'Şube Müdürü' : 'Standart Kullanıcı'}`);
         
         if (isManager && branchId) {
-          console.log(`Şube müdürü için filtreleme yapılıyor. Şube ID: ${branchId}`);
+          console.log(`Şube müdürü için SADECE şubeye ait gruplar filtreleniyor. Şube ID: ${branchId}`);
           
-          // Şube müdürü için filtreleme (branchesId'ye göre)
+          // Şube müdürü için filtreleme - SADECE kendi şubesine ait grupları göster
           const managerGroups = allGroups.filter(group => {
             console.log(`Grup kontrol ediliyor: ${group.name}, branchesId: ${JSON.stringify(group.branchesId)}`);
             
-            // branchesId yoksa genel grup kabul et
+            // branchesId yoksa genel grup olduğundan gösterme (filtrele)
             if (!group.branchesId) {
-              console.log(`  ✓ "${group.name}" - Genel grup (branchesId yok)`);
-              return true;
+              console.log(`  ✗ "${group.name}" - Genel grup filtrelendi (gösterilmeyecek)`);
+              return false;
             }
             
             // branchesId bir obje/map ise (Firebase formatı)
@@ -818,11 +818,6 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
                         <CategoryIcon fontSize="small" sx={{ mr: 1, color: 'primary.main', fontSize: '0.875rem' }} />
                         <Box sx={{ display: 'flex', flexDirection: 'column' }}>
                           <Typography variant="body2">{option.name}</Typography>
-                          {option.branchesId && (
-                            <Typography variant="caption" color="text.secondary">
-                              {getBranchName(option.branchesId)}
-                            </Typography>
-                          )}
                         </Box>
                       </Box>
                     </li>
@@ -830,7 +825,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
                   renderInput={(params) => (
                     <TextField
                       {...params}
-                      label="Görev Grubu Seçin"
+                      label="Şube Görev Grubu Seçin"
                       size="small"
                       placeholder="Grup ara..."
                       InputProps={{
@@ -858,14 +853,19 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
                     />
                   )}
                   isOptionEqualToValue={(option, value) => option.id === value.id}
-                  filterOptions={(options, state) => {
-                    const inputValue = state.inputValue.toLowerCase();
-                    return options.filter(option => 
-                      option.name.toLowerCase().includes(inputValue) || 
-                      (option.branchesId && getBranchName(option.branchesId).toLowerCase().includes(inputValue))
-                    );
-                  }}
                 />
+                
+                {/* Şube müdürü için bilgilendirme mesajı */}
+                <Alert 
+                  severity="info" 
+                  variant="outlined" 
+                  sx={{ mt: 1, fontSize: '0.75rem', py: 0.5 }}
+                  icon={<CategoryIcon sx={{ fontSize: '1rem' }} />}
+                >
+                  <Typography variant="caption">
+                    Sadece şubenize ait gruplar gösterilmektedir
+                  </Typography>
+                </Alert>
               </Grid>
             )}
 
@@ -890,11 +890,6 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
                         <CategoryIcon fontSize="small" sx={{ mr: 1, color: 'primary.main', fontSize: '0.875rem' }} />
                         <Box sx={{ display: 'flex', flexDirection: 'column' }}>
                           <Typography variant="body2">{option.name}</Typography>
-                          {!option.branchesId && (
-                            <Typography variant="caption" color="text.secondary">
-                              Genel Grup
-                            </Typography>
-                          )}
                         </Box>
                       </Box>
                     </li>
@@ -911,6 +906,19 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
                           <>
                             <CategoryIcon sx={{ mr: 1, color: 'text.secondary', fontSize: '1.2rem' }} />
                             {params.InputProps.startAdornment}
+                          </>
+                        ),
+                        endAdornment: (
+                          <>
+                            {params.InputProps.endAdornment}
+                            <IconButton 
+                              onClick={handleOpenTaskGroupsModal} 
+                              edge="end" 
+                              size="small"
+                              sx={{ mr: -1 }}
+                            >
+                              <AddIcon fontSize="small" />
+                            </IconButton>
                           </>
                         )
                       }}
@@ -1265,6 +1273,8 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
           onClose={() => setTaskGroupsModalOpen(false)}
           companyId={companyId}
           taskGroups={taskGroups}
+          isManager={isManager}
+          branchId={branchId}
         />
       )}
     </>
