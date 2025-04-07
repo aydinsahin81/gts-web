@@ -1423,6 +1423,14 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
                 </Box>
               )}
               onClose={() => setPersonnelSearchTerm('')}
+              MenuProps={{
+                PaperProps: {
+                  style: {
+                    maxHeight: 250,
+                    overflow: 'auto'
+                  }
+                }
+              }}
             >
               <ListItem>
                 <TextField
@@ -1477,6 +1485,14 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
                 </Box>
               )}
               onClose={() => setTaskSearchTerm('')}
+              MenuProps={{
+                PaperProps: {
+                  style: {
+                    maxHeight: 250,
+                    overflow: 'auto'
+                  }
+                }
+              }}
             >
               <ListItem>
                 <TextField
