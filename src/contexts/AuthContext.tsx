@@ -4,7 +4,9 @@ import {
   signInWithEmailAndPassword, 
   signOut as firebaseSignOut,
   onAuthStateChanged,
-  UserCredential
+  UserCredential,
+  browserLocalPersistence,
+  setPersistence
 } from 'firebase/auth';
 import { auth, database } from '../firebase';
 import { ref, get } from 'firebase/database';
@@ -51,6 +53,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [loading, setLoading] = useState(true);
 
   async function login(email: string, password: string): Promise<UserCredential> {
+    // Kalıcılık ayarını LOGIN işlemi sırasında belirle
+    await setPersistence(auth, browserLocalPersistence);
     return signInWithEmailAndPassword(auth, email, password);
   }
 
@@ -65,18 +69,43 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const snapshot = await get(userRef);
       
       if (snapshot.exists()) {
-        setUserDetails(snapshot.val() as UserDetails);
+        const userData = snapshot.val() as UserDetails;
+        setUserDetails(userData);
+        // Kullanıcı verilerini localStorage'a da kaydet
+        localStorage.setItem('userDetails', JSON.stringify(userData));
       } else {
         console.error("Kullanıcı detayları bulunamadı");
         setUserDetails(null);
+        localStorage.removeItem('userDetails');
       }
     } catch (error) {
       console.error("Kullanıcı detayları yüklenirken hata:", error);
       setUserDetails(null);
+      localStorage.removeItem('userDetails');
     }
   }
 
   useEffect(() => {
+    // Başlangıçta kalıcılık ayarını yapılandır
+    setPersistence(auth, browserLocalPersistence)
+      .then(() => {
+        console.log("Oturum kalıcılığı ayarlandı: LOCAL");
+      })
+      .catch((error) => {
+        console.error("Oturum kalıcılığı ayarlanırken hata:", error);
+      });
+
+    // Kaydedilmiş kullanıcı detaylarını kontrol et
+    const savedUserDetails = localStorage.getItem('userDetails');
+    if (savedUserDetails) {
+      try {
+        setUserDetails(JSON.parse(savedUserDetails));
+      } catch (e) {
+        console.error("Kaydedilmiş kullanıcı verilerini ayrıştırma hatası:", e);
+        localStorage.removeItem('userDetails');
+      }
+    }
+
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
       
@@ -84,6 +113,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         fetchUserDetails(user as User);
       } else {
         setUserDetails(null);
+        localStorage.removeItem('userDetails');
       }
       
       setLoading(false);
