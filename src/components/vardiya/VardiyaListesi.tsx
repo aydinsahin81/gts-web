@@ -397,6 +397,17 @@ const VardiyaListesi: React.FC<VardiyaListesiProps> = ({ branchId, isManager = f
         });
         
         setBranches(branchesArray);
+        
+        // Şube müdürü ise kendi şubesini otomatik seç
+        if (isManager && branchId) {
+          const managerBranch = branchesArray.find(branch => branch.id === branchId);
+          if (managerBranch) {
+            setSelectedBranch(managerBranch);
+            console.log(`Şube müdürü için otomatik şube seçildi: ${managerBranch.name} (${managerBranch.id})`);
+          } else {
+            console.warn(`Şube müdürünün şubesi bulunamadı: ${branchId}`);
+          }
+        }
       } else {
         setBranches([]);
       }
@@ -407,30 +418,12 @@ const VardiyaListesi: React.FC<VardiyaListesiProps> = ({ branchId, isManager = f
     }
   };
 
-  // Modal açıldığında şubeleri getir
+  // Modal açıldığında şubeleri getir - artık branches bağımlılığı yok
   useEffect(() => {
     if (open) {
       fetchBranches();
-      
-      // Manager ise otomatik kendi şubesini seç
-      if (isManager && branchId) {
-        // Şubeyi bul ve seç
-        const currentBranch = branches.find(branch => branch.id === branchId);
-        if (currentBranch) {
-          setSelectedBranch(currentBranch);
-        } else {
-          // Eğer şube listede henüz yok ise (branches yüklenmemiş olabilir)
-          // fetchBranches tamamlandıktan sonra işlem yap
-          setTimeout(() => {
-            const branch = branches.find(branch => branch.id === branchId);
-            if (branch) {
-              setSelectedBranch(branch);
-            }
-          }, 500);
-        }
-      }
     }
-  }, [open, isManager, branchId, branches]);
+  }, [open, isManager, branchId]); // branches bağımlılığını kaldırdık
 
   const handleClickOpen = () => {
     setOpen(true);
