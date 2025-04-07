@@ -82,7 +82,10 @@ const CompanyCard: React.FC<CompanyCardProps> = ({
             {name}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Admin: {admin.name}
+            Admin: {admin?.name || 'Admin Bilgisi Yok'}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Email: {admin?.email || 'Email Bilgisi Yok'}
           </Typography>
         </Box>
       </Box>

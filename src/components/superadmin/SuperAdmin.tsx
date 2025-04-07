@@ -179,15 +179,39 @@ const SuperAdmin: React.FC = () => {
                 const companyInfoRef = ref(database, `companies/${id}/info`);
                 const companyInfoSnapshot = await get(companyInfoRef);
                 const companyInfo = companyInfoSnapshot.exists() ? companyInfoSnapshot.val() : {};
+                console.log(`Şirket ${id} için companyInfo:`, companyInfo);
                 
+                // Admin bilgilerini users koleksiyonundan al
+                let adminInfo = {
+                  name: 'Admin Bilgisi Yok',
+                  email: ''
+                };
+                
+                if (companyInfo && companyInfo.admin) {
+                  console.log(`Şirket ${id} için admin ID:`, companyInfo.admin);
+                  // Admin ID'sini kullanarak direkt users koleksiyonundan bilgileri al
+                  const adminUserRef = ref(database, `users/${companyInfo.admin}`);
+                  const adminUserSnapshot = await get(adminUserRef);
+                  if (adminUserSnapshot.exists()) {
+                    const adminUserData = adminUserSnapshot.val();
+                    console.log(`Admin ${companyInfo.admin} için kullanıcı verisi:`, adminUserData);
+                    adminInfo = {
+                      name: `${adminUserData.firstName} ${adminUserData.lastName}` || 'Admin Bilgisi Yok',
+                      email: adminUserData.email || ''
+                    };
+                    console.log(`Admin bilgileri güncellendi:`, adminInfo);
+                  } else {
+                    console.log(`Admin ${companyInfo.admin} için kullanıcı bulunamadı`);
+                  }
+                } else {
+                  console.log(`Şirket ${id} için admin bilgisi bulunamadı`);
+                }
+
                 const companyData = {
                   id,
                   name: companyInfo.name || company.name || 'İsimsiz Şirket',
                   logo: companyInfo.logo || company.logo || '',
-                  admin: {
-                    name: companyInfo.admin?.name || company.admin?.name || 'Admin Bilgisi Yok',
-                    email: companyInfo.admin?.email || company.admin?.email || ''
-                  },
+                  admin: adminInfo,
                   stats
                 };
                 
