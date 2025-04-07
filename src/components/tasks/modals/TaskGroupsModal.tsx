@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -260,10 +260,43 @@ const TaskGroupsModal: React.FC<TaskGroupsModalProps> = ({
     return branch ? branch.name : '-';
   };
 
-  // Grupları tarihe göre sırala (en son eklenen başta)
-  const sortedGroups = [...taskGroups].sort((a, b) => 
-    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  );
+  // Grupları filtreleyip tarihe göre sırala (en son eklenen başta)
+  const sortedGroups = useMemo(() => {
+    // Önce grupları filtrele
+    let filteredGroups = [...taskGroups];
+    
+    // Şube müdürü ise SADECE kendi şubesinin gruplarını göster (genel grupları gösterme)
+    if (isManager && branchId) {
+      console.log(`Şube müdürü için SADECE şubeye ait gruplar filtreleniyor. Şube ID: ${branchId}`);
+      
+      filteredGroups = taskGroups.filter(group => {
+        // branchesId yoksa gösterme (genel grubu filtrele)
+        if (!group.branchesId) {
+          console.log(`Genel grup filtrelendi (gösterilmeyecek): ${group.name}`);
+          return false;
+        }
+        
+        // branchesId bir obje ise (örn. Firebase formatı)
+        if (typeof group.branchesId === 'object' && group.branchesId !== null) {
+          const hasMatchingBranch = Object.keys(group.branchesId).includes(branchId);
+          console.log(`Nesne branchesId kontrol ediliyor: ${JSON.stringify(group.branchesId)}, Eşleşme: ${hasMatchingBranch}`);
+          return hasMatchingBranch;
+        }
+        
+        // branchesId bir string ise direkt karşılaştır
+        const matched = group.branchesId === branchId;
+        console.log(`String branchesId kontrol ediliyor: "${group.branchesId}" === "${branchId}": ${matched}`);
+        return matched;
+      });
+      
+      console.log(`Şube müdürü için filtrelenen grup sayısı: ${filteredGroups.length}/${taskGroups.length}`);
+    }
+    
+    // Tarihe göre sırala (en son eklenen başta)
+    return filteredGroups.sort((a, b) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+  }, [taskGroups, isManager, branchId]);
 
   // Mevcut sayfadaki grupları hesapla
   const totalPages = Math.ceil(sortedGroups.length / groupsPerPage);
@@ -393,14 +426,27 @@ const TaskGroupsModal: React.FC<TaskGroupsModalProps> = ({
             Mevcut Gruplar
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Toplam: {taskGroups.length} grup
+            Toplam: {sortedGroups.length} grup
           </Typography>
         </Box>
         
-        {taskGroups.length === 0 ? (
+        {/* Şube müdürü için bilgilendirme mesajı */}
+        {isManager && branchId && (
+          <Alert severity="info" sx={{ mb: 2 }} variant="outlined">
+            <Typography variant="body2">
+              <strong>Sadece şubenize ait gruplar gösterilmektedir.</strong> Genel gruplar ve diğer şubelere ait gruplar listelenmemektedir.
+            </Typography>
+          </Alert>
+        )}
+        
+        {sortedGroups.length === 0 ? (
           <Box sx={{ textAlign: 'center', py: 3, color: 'text.secondary' }}>
             <CategoryIcon sx={{ fontSize: 40, mb: 1, opacity: 0.5 }} />
-            <Typography>Henüz hiç grup eklenmemiş</Typography>
+            <Typography>
+              {isManager && branchId 
+                ? "Şubenize ait hiç grup bulunamadı. Sadece şube gruplarını görüntüleyebilirsiniz." 
+                : "Henüz hiç grup eklenmemiş"}
+            </Typography>
           </Box>
         ) : (
           <>
