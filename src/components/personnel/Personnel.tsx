@@ -190,6 +190,7 @@ const PersonnelTable: React.FC<{
             <TableCell width="20%">E-posta</TableCell>
             {!showDeleted && <TableCell width="10%">Durum</TableCell>}
             <TableCell width="15%">Şube</TableCell>
+            <TableCell width="10%">Rol</TableCell>
             <TableCell width="15%" align="right">İşlemler</TableCell>
           </TableRow>
         </TableHead>
@@ -253,6 +254,22 @@ const PersonnelTable: React.FC<{
                   <Typography variant="body2" color="text.secondary">-</Typography>
                 )}
               </TableCell>
+              <TableCell>
+                <Chip 
+                  size="small"
+                  label={person.role === 'employee' ? 'Personel' : person.role || 'Personel'} 
+                  color={
+                    person.role === 'admin' ? 'error' : 
+                    person.role === 'manager' ? 'warning' : 
+                    'default'
+                  }
+                  sx={{ 
+                    fontSize: '11px', 
+                    height: 24,
+                    minWidth: 80
+                  }}
+                />
+              </TableCell>
               <TableCell align="right" onClick={(e) => e.stopPropagation()}>
                 {showDeleted ? (
                   <Tooltip title="İşe Geri Al">
@@ -300,7 +317,7 @@ const PersonnelTable: React.FC<{
           ))}
           {personnel.length === 0 && (
             <TableRow>
-              <TableCell colSpan={showDeleted ? 5 : 6} align="center" sx={{ py: 3 }}>
+              <TableCell colSpan={showDeleted ? 6 : 7} align="center" sx={{ py: 3 }}>
                 <Typography color="text.secondary">
                   {showDeleted ? "Silinen personel bulunmuyor" : "Personel bulunamadı"}
                 </Typography>
