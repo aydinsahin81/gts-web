@@ -267,6 +267,175 @@ const WeeklyTasksTable: React.FC<WeeklyTasksTableProps> = ({
   );
 };
 
+// Tamamlanan haftalık görevler için tablo bileşeni
+const CompletedWeeklyTasksTable: React.FC<{
+  tasks: any[];
+  getStatusColor: (status: string) => string;
+  getStatusIcon: (status: string) => React.ReactNode;
+  getStatusLabel: (status: string) => string;
+}> = ({
+  tasks,
+  getStatusColor,
+  getStatusIcon,
+  getStatusLabel
+}) => {
+  // Tarihi formatlama fonksiyonu
+  const formatTimestamp = (timestamp: number) => {
+    if (!timestamp) return '-';
+    const date = new Date(timestamp);
+    return date.toLocaleString('tr-TR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  };
+
+  // Tarihten haftanın günü kısaltmasını al
+  const getWeekdayShort = (dateStr: string) => {
+    try {
+      if (!dateStr || dateStr === '-') return '';
+      
+      const dateParts = dateStr.split('-');
+      if (dateParts.length !== 3) return '';
+      
+      const year = parseInt(dateParts[0], 10);
+      const month = parseInt(dateParts[1], 10) - 1;
+      const day = parseInt(dateParts[2], 10);
+      
+      const date = new Date(year, month, day);
+      const weekDay = date.getDay();
+      
+      return weekDays.find(d => d.value === weekDay)?.shortLabel || '';
+    } catch (error) {
+      console.error("Tarih formatı hatası:", error);
+      return '';
+    }
+  };
+
+  return (
+    <TableContainer component={Paper} sx={{ 
+      mt: 2, 
+      boxShadow: '0 2px 10px rgba(0, 0, 0, 0.05)',
+      borderRadius: 2,
+      maxHeight: 'calc(100vh - 240px)',
+      overflowY: 'auto'
+    }}>
+      <Table size="small" stickyHeader>
+        <TableHead>
+          <TableRow>
+            <TableCell width="5%">Durum</TableCell>
+            <TableCell width="15%">Görev Adı</TableCell>
+            <TableCell width="10%">Görev Günü</TableCell>
+            <TableCell width="10%">Görev Saati</TableCell>
+            <TableCell width="10%">Tolerans</TableCell>
+            <TableCell width="15%">Personel</TableCell>
+            <TableCell width="15%">Başlama Zamanı</TableCell>
+            <TableCell width="15%">Bitiş Zamanı</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {tasks.map((task) => (
+            <TableRow 
+              key={task.id} 
+              hover
+              sx={{ cursor: 'default' }}
+            >
+              <TableCell>
+                <Avatar
+                  sx={{
+                    width: 32, 
+                    height: 32, 
+                    bgcolor: `${getStatusColor(task.status)}20`,
+                    color: getStatusColor(task.status)
+                  }}
+                >
+                  {getStatusIcon(task.status)}
+                </Avatar>
+              </TableCell>
+              <TableCell>
+                <Typography variant="body2" fontWeight="medium">
+                  {task.name}
+                </Typography>
+              </TableCell>
+              <TableCell>
+                <Typography variant="body2">
+                  {task.taskDate || '-'}
+                </Typography>
+              </TableCell>
+              <TableCell>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  {task.taskDate && (
+                    <Chip
+                      label={getWeekdayShort(task.taskDate)}
+                      size="small"
+                      sx={{ 
+                        height: 20, 
+                        fontSize: '0.7rem', 
+                        bgcolor: 'info.50', 
+                        color: 'info.main',
+                        mr: 0.5
+                      }}
+                    />
+                  )}
+                  <TaskTimeChip
+                    label={task.taskTime || '-'}
+                    size="small"
+                    status="#4CAF50" // Tamamlandığı için yeşil renk
+                  />
+                </Box>
+              </TableCell>
+              <TableCell>
+                <Chip 
+                  label={`${task.startTolerance || 15} dk`}
+                  size="small"
+                  sx={{ 
+                    height: 20, 
+                    fontSize: '0.7rem', 
+                    bgcolor: 'primary.50', 
+                    color: 'primary.main'
+                  }}
+                />
+              </TableCell>
+              <TableCell>
+                <Typography variant="body2" color={task.personnelName ? 'text.secondary' : 'error'} sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center',
+                  fontSize: '0.8rem'
+                }}>
+                  <PersonIcon fontSize="small" sx={{ mr: 0.5, fontSize: 16 }} />
+                  {task.personnelName || 'Atanmamış'}
+                </Typography>
+              </TableCell>
+              <TableCell>
+                <Typography variant="body2" color="text.secondary" fontSize="0.8rem">
+                  {formatTimestamp(task.startedAt)}
+                </Typography>
+              </TableCell>
+              <TableCell>
+                <Typography variant="body2" color="success.main" fontSize="0.8rem" fontWeight="medium">
+                  {formatTimestamp(task.completedAt)}
+                </Typography>
+              </TableCell>
+            </TableRow>
+          ))}
+          {tasks.length === 0 && (
+            <TableRow>
+              <TableCell colSpan={8} align="center" sx={{ py: 3 }}>
+                <Typography color="text.secondary">
+                  Tamamlanan görev bulunamadı
+                </Typography>
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </TableContainer>
+  );
+};
+
 interface WeeklyTasksProps {
   companyId: string | null;
   statusFilter: string;
@@ -356,17 +525,45 @@ const WeeklyTasks: React.FC<WeeklyTasksProps> = ({
         setWeeklyTasks([]);
       }
 
-      // TODO: Tamamlanan haftalık görevleri işle
+      // Tamamlanan haftalık görevleri işle
       if (completedWeeklyTasksSnapshot.exists()) {
-        // Tamamlanan görevleri işleme
-        setCompletedWeeklyTasks([]);
+        const completedTasksData = completedWeeklyTasksSnapshot.val();
+        const completedTasksList: any[] = [];
+        
+        // Tamamlanan görevleri düz bir diziye çevir
+        Object.entries(completedTasksData).forEach(([taskId, dateDatas]: [string, any]) => {
+          Object.entries(dateDatas).forEach(([date, timeDatas]: [string, any]) => {
+            Object.entries(timeDatas).forEach(([time, taskData]: [string, any]) => {
+              completedTasksList.push({
+                id: `${taskId}_${date}_${time}`, // Benzersiz ID oluştur
+                taskId: taskId, // Ana görevin ID'si
+                name: taskData.taskName || 'İsimsiz Görev',
+                description: taskData.taskDescription || '',
+                status: 'completed',
+                taskDate: date,
+                taskTime: time,
+                startedAt: taskData.startedAt,
+                completedAt: taskData.completedAt,
+                personnelId: taskData.personnelId || '',
+                personnelName: taskData.personnelFirstName ? 
+                  `${taskData.personnelFirstName} ${taskData.personnelLastName || ''}` : 
+                  personnelData[taskData.personnelId]?.name || 'Atanmamış',
+                startTolerance: taskData.startTolerance || 15,
+                fromDatabase: true // Veritabanından gelen bir görev olduğunu işaretle
+              });
+            });
+          });
+        });
+        
+        // Görevleri tamamlanma zamanına göre sırala (yeniden eskiye)
+        setCompletedWeeklyTasks(completedTasksList.sort((a, b) => b.completedAt - a.completedAt));
       } else {
         setCompletedWeeklyTasks([]);
       }
 
-      // TODO: Kaçırılan haftalık görevleri işle
+      // Kaçırılan haftalık görevleri işle
       if (missedWeeklyTasksSnapshot.exists()) {
-        // Kaçırılan görevleri işleme
+        // Kaçırılan görevleri işleme (Henüz mevcut değil, ilerde eklenecek)
         setMissedWeeklyTasks([]);
       } else {
         setMissedWeeklyTasks([]);
@@ -414,7 +611,47 @@ const WeeklyTasks: React.FC<WeeklyTasksProps> = ({
       });
     });
 
-    // TODO: Tamamlanan ve kaçırılan görevler için dinleyiciler eklenecek
+    // Tamamlanan görevler için dinleyici
+    onValue(completedWeeklyTasksRef, (snapshot) => {
+      get(personnelRef).then((personnelSnapshot) => {
+        const personnelData = personnelSnapshot.exists() ? personnelSnapshot.val() : {};
+        
+        if (snapshot.exists()) {
+          const completedTasksData = snapshot.val();
+          const completedTasksList: any[] = [];
+          
+          // Tamamlanan görevleri düz bir diziye çevir
+          Object.entries(completedTasksData).forEach(([taskId, dateDatas]: [string, any]) => {
+            Object.entries(dateDatas).forEach(([date, timeDatas]: [string, any]) => {
+              Object.entries(timeDatas).forEach(([time, taskData]: [string, any]) => {
+                completedTasksList.push({
+                  id: `${taskId}_${date}_${time}`, // Benzersiz ID oluştur
+                  taskId: taskId, // Ana görevin ID'si
+                  name: taskData.taskName || 'İsimsiz Görev',
+                  description: taskData.taskDescription || '',
+                  status: 'completed',
+                  taskDate: date,
+                  taskTime: time,
+                  startedAt: taskData.startedAt,
+                  completedAt: taskData.completedAt,
+                  personnelId: taskData.personnelId || '',
+                  personnelName: taskData.personnelFirstName ? 
+                    `${taskData.personnelFirstName} ${taskData.personnelLastName || ''}` : 
+                    personnelData[taskData.personnelId]?.name || 'Atanmamış',
+                  startTolerance: taskData.startTolerance || 15,
+                  fromDatabase: true // Veritabanından gelen bir görev olduğunu işaretle
+                });
+              });
+            });
+          });
+          
+          // Görevleri tamamlanma zamanına göre sırala (yeniden eskiye)
+          setCompletedWeeklyTasks(completedTasksList.sort((a, b) => b.completedAt - a.completedAt));
+        } else {
+          setCompletedWeeklyTasks([]);
+        }
+      });
+    });
 
     // Cleanup
     return () => {
@@ -431,11 +668,9 @@ const WeeklyTasks: React.FC<WeeklyTasksProps> = ({
     // Durum filtresi uygulanıyor
     if (statusFilter !== 'all') {
       if (statusFilter === 'completed') {
-        // Ana görev listesindeki tamamlanan görevler + veritabanındaki tamamlanan görevler
-        result = [
-          ...result.filter(task => task.status === 'completed'),
-          ...completedWeeklyTasks
-        ];
+        // Durum 'completed' olduğunda, tamamlanan haftalık görevler completedWeeklyTasks'dan gelecek
+        // Bu durumda boş dizi döndürüyoruz, çünkü completedWeeklyTasks ayrı bir tablo olarak gösterilecek
+        return [];
       } else if (statusFilter === 'missed') {
         // Ana görev listesindeki kaçırılan görevler + veritabanındaki kaçırılan görevler
         result = [
@@ -462,7 +697,27 @@ const WeeklyTasks: React.FC<WeeklyTasksProps> = ({
     }
     
     return result;
-  }, [weeklyTasks, completedWeeklyTasks, missedWeeklyTasks, statusFilter, personnelFilter, taskSearchTerm]);
+  }, [weeklyTasks, missedWeeklyTasks, statusFilter, personnelFilter, taskSearchTerm]);
+
+  // Tamamlanan görevleri filtrele
+  const filteredCompletedTasks = useMemo(() => {
+    let result = [...completedWeeklyTasks];
+    
+    // Personel filtresi uygulanıyor
+    if (personnelFilter !== 'all') {
+      result = result.filter(task => task.personnelId === personnelFilter);
+    }
+
+    // Görev arama filtresi uygulanıyor
+    if (taskSearchTerm !== '') {
+      result = result.filter(task => 
+        task.name.toLowerCase().includes(taskSearchTerm.toLowerCase()) ||
+        task.description.toLowerCase().includes(taskSearchTerm.toLowerCase())
+      );
+    }
+    
+    return result;
+  }, [completedWeeklyTasks, personnelFilter, taskSearchTerm]);
 
   if (loading) {
     return (
@@ -472,7 +727,7 @@ const WeeklyTasks: React.FC<WeeklyTasksProps> = ({
     );
   }
 
-  if (weeklyTasks.length === 0) {
+  if (weeklyTasks.length === 0 && statusFilter !== 'completed') {
     return (
       <Box sx={{ textAlign: 'center', my: 8 }}>
         <AssignmentIcon sx={{ fontSize: 60, color: 'primary.light', mb: 2 }} />
@@ -482,6 +737,17 @@ const WeeklyTasks: React.FC<WeeklyTasksProps> = ({
               ? 'Henüz hiç haftalık görev eklenmemiş'
               : 'Filtrelere uygun haftalık görev bulunamadı'
           }
+        </Typography>
+      </Box>
+    );
+  }
+
+  if (statusFilter === 'completed' && completedWeeklyTasks.length === 0) {
+    return (
+      <Box sx={{ textAlign: 'center', my: 8 }}>
+        <AssignmentIcon sx={{ fontSize: 60, color: 'primary.light', mb: 2 }} />
+        <Typography variant="h6" color="textSecondary">
+          Tamamlanan haftalık görev bulunamadı
         </Typography>
       </Box>
     );
@@ -644,16 +910,29 @@ const WeeklyTasks: React.FC<WeeklyTasksProps> = ({
           ))}
         </Grid>
       ) : (
-        <WeeklyTasksTable 
-          tasks={filteredTasks}
-          statusFilter={statusFilter}
-          onShowTaskDetail={onShowTaskDetail}
-          onOpenQrPrintModal={onOpenQrPrintModal}
-          getStatusColor={getStatusColor}
-          getStatusIcon={getStatusIcon}
-          getStatusLabel={getStatusLabel}
-          getTaskTimeColor={getTaskTimeColor}
-        />
+        <>
+          {statusFilter === 'completed' ? (
+            // Tamamlanan görevler için özel tablo gösterimi
+            <CompletedWeeklyTasksTable 
+              tasks={filteredCompletedTasks}
+              getStatusColor={getStatusColor}
+              getStatusIcon={getStatusIcon}
+              getStatusLabel={getStatusLabel}
+            />
+          ) : (
+            // Normal görevler için standart tablo gösterimi
+            <WeeklyTasksTable 
+              tasks={filteredTasks}
+              statusFilter={statusFilter}
+              onShowTaskDetail={onShowTaskDetail}
+              onOpenQrPrintModal={onOpenQrPrintModal}
+              getStatusColor={getStatusColor}
+              getStatusIcon={getStatusIcon}
+              getStatusLabel={getStatusLabel}
+              getTaskTimeColor={getTaskTimeColor}
+            />
+          )}
+        </>
       )}
     </>
   );
