@@ -16,8 +16,8 @@ API_KEY="gts_secure_task_key_2023"
 # GTS web uygulaması URL'i
 GTS_URL="https://gts.mt-teknoloji.com"
 
-# curl ile API'yi çağır
-HTTP_STATUS=$(curl -s -o /tmp/curl_response.txt -w "%{http_code}" "$GTS_URL/api/run-task-checker?key=$API_KEY")
+# curl ile API'yi çağır - 5 dakika timeout ekle
+HTTP_STATUS=$(curl -s -o /tmp/curl_response.txt -w "%{http_code}" --max-time 300 "$GTS_URL/api/run-task-checker?key=$API_KEY")
 
 # Yanıt içeriğini kaydet
 RESPONSE=$(cat /tmp/curl_response.txt)

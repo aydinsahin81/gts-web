@@ -143,7 +143,8 @@ const handleApiRequest = async (path: string, req: any, res: any) => {
   }
   
   if (path === '/api/logs' && endpoint.validateApiKey(apiKey)) {
-    res.status(200).json({ logs: endpoint.getLogs() });
+    const logs = await endpoint.getLogs();
+    res.status(200).json({ logs });
     return;
   }
   
@@ -151,46 +152,42 @@ const handleApiRequest = async (path: string, req: any, res: any) => {
   res.status(404).json({ success: false, message: 'Endpoint bulunamadı' });
 };
 
+// Typescript için window nesnesine özel alanlar ekle
+declare global {
+  interface Window {
+    isApiRequest?: boolean;
+    apiPath?: string;
+    apiQuery?: string;
+  }
+}
+
 const App: React.FC = () => {
   // API endpoint'lerini yakala
   useEffect(() => {
-    // URL'deki API isteklerini yakala
-    const handleRouteChange = () => {
-      const url = window.location.pathname;
-      const isApiRequest = url.startsWith('/api/');
+    // Sayfa yüklendiğinde API isteği olup olmadığını kontrol et
+    if (window.isApiRequest) {
+      const path = window.apiPath || '';
+      const queryParams = new URLSearchParams(window.apiQuery || '');
       
-      if (isApiRequest) {
-        // API isteği yakalandı
-        const path = url;
-        
-        // İstek ve yanıt nesnelerini taklit et
-        const req = {
-          query: Object.fromEntries(new URLSearchParams(window.location.search)),
-          headers: {} // Headers API'den alınabilir
-        };
-        
-        const res = {
-          status: (code: number) => ({
-            json: (data: any) => {
-              // API yanıtını ekrana göster
-              document.body.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
-              return { status: code, data };
-            }
-          })
-        };
-        
-        // API isteğini işle
-        handleApiRequest(path, req, res);
-      }
-    };
-    
-    // Sayfa yüklendiğinde ve URL değiştiğinde kontrol et
-    handleRouteChange();
-    window.addEventListener('popstate', handleRouteChange);
-    
-    return () => {
-      window.removeEventListener('popstate', handleRouteChange);
-    };
+      // İstek ve yanıt nesnelerini taklit et
+      const req = {
+        query: Object.fromEntries(queryParams),
+        headers: {}
+      };
+      
+      const res = {
+        status: (code: number) => ({
+          json: (data: any) => {
+            // API yanıtını JSON olarak göster
+            document.body.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+            return { status: code, data };
+          }
+        })
+      };
+      
+      // API isteğini işle
+      handleApiRequest(path, req, res);
+    }
   }, []);
 
   return (

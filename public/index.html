@@ -29,6 +29,20 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- API isteklerini yakala -->
+    <script>
+      // API isteklerini yakala
+      (function() {
+        // URL'in /api/ ile başlayıp başlamadığını kontrol et
+        if (window.location.pathname.startsWith('/api/')) {
+          // API isteği, sayfa yüklendiğinde bunu işle
+          window.isApiRequest = true;
+          window.apiPath = window.location.pathname;
+          window.apiQuery = window.location.search;
+        }
+      })();
+    </script>
   </head>
   <body>
     <noscript>Bu uygulamayı çalıştırmak için JavaScript'i etkinleştirmeniz gerekiyor.</noscript>
