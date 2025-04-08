@@ -476,8 +476,18 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
       return;
     }
 
+    if (!taskDescription.trim()) {
+      setError('Lütfen bir görev açıklaması girin.');
+      return;
+    }
+
     if (!selectedPersonnelId) {
       setError('Lütfen bir personel seçin.');
+      return;
+    }
+    
+    if (!selectedGroupId) {
+      setError('Lütfen bir görev grubu seçin.');
       return;
     }
     
@@ -825,7 +835,8 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
                   renderInput={(params) => (
                     <TextField
                       {...params}
-                      label="Şube Görev Grubu Seçin"
+                      label="Görev Grubu Seçin"
+                      required
                       size="small"
                       placeholder="Grup ara..."
                       InputProps={{
@@ -863,7 +874,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
                   icon={<CategoryIcon sx={{ fontSize: '1rem' }} />}
                 >
                   <Typography variant="caption">
-                    Sadece şubenize ait gruplar gösterilmektedir
+                    Görev eklemek için grup seçimi zorunludur
                   </Typography>
                 </Alert>
               </Grid>
@@ -898,6 +909,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
                     <TextField
                       {...params}
                       label="Şube Görev Grubu Seçin"
+                      required
                       size="small"
                       placeholder="Grup ara..."
                       InputProps={{
@@ -926,6 +938,18 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
                   )}
                   isOptionEqualToValue={(option, value) => option.id === value.id}
                 />
+                
+                {/* Şube müdürü için bilgilendirme mesajı */}
+                <Alert 
+                  severity="info" 
+                  variant="outlined" 
+                  sx={{ mt: 1, fontSize: '0.75rem', py: 0.5 }}
+                  icon={<CategoryIcon sx={{ fontSize: '1rem' }} />}
+                >
+                  <Typography variant="caption">
+                    Sadece şubenize ait gruplar gösterilmektedir. Görev eklemek için grup seçimi zorunludur.
+                  </Typography>
+                </Alert>
               </Grid>
             )}
 
@@ -1257,7 +1281,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
             variant="contained"
             color="primary"
             onClick={handleSubmit}
-            disabled={isSubmitting}
+            disabled={isSubmitting || !taskName.trim() || !taskDescription.trim() || !selectedPersonnelId || !selectedGroupId}
             startIcon={isSubmitting ? <CircularProgress size={16} /> : undefined}
             size="small"
           >
