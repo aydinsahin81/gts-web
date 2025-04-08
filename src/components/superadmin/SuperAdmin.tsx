@@ -31,7 +31,8 @@ import {
   Slide,
   Alert,
   Tooltip,
-  LinearProgress
+  LinearProgress,
+  ButtonGroup
 } from '@mui/material';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -44,10 +45,14 @@ import PeopleAltIcon from '@mui/icons-material/PeopleAlt';
 import SaveIcon from '@mui/icons-material/Save';
 import CloseIcon from '@mui/icons-material/Close';
 import TaskIcon from '@mui/icons-material/Task';
+import HealthAndSafetyIcon from '@mui/icons-material/HealthAndSafety';
+import RestoreIcon from '@mui/icons-material/Restore';
+import HistoryIcon from '@mui/icons-material/History';
 import { ref, get, update } from 'firebase/database';
 import { database } from '../../firebase';
 import CompanyCard from './CompanyCard';
 import TaskService from './TaskService';
+import TaskCheckerEndpoint from '../../api/TaskCheckerEndpoint';
 
 const StyledAppBar = styled(AppBar)(({ theme }) => ({
   backgroundColor: '#102648',
@@ -497,6 +502,31 @@ const SuperAdmin: React.FC = () => {
     }
   };
 
+  // API endpoint isteklerini gönder - yeni pencerede açma yöntemi
+  const openApiInNewTab = (endpoint: string) => {
+    // Tam URL oluştur
+    const baseUrl = window.location.origin;
+    const fullUrl = `${baseUrl}${endpoint}`;
+    
+    // Yeni sekmede aç
+    window.open(fullUrl, '_blank');
+  };
+
+  // Elle kontrol et
+  const handleManualCheck = () => {
+    openApiInNewTab("/api/run-task-checker?key=gts_secure_task_key_2023");
+  };
+
+  // Log kontrolü
+  const handleCheckLogs = () => {
+    openApiInNewTab("/api/logs?key=gts_secure_task_key_2023");
+  };
+
+  // Servis kontrolü
+  const handleHealthCheck = () => {
+    openApiInNewTab("/api/health");
+  };
+
   return (
     <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
       <SuperAdminHeader />
@@ -538,13 +568,32 @@ const SuperAdmin: React.FC = () => {
                 }}
               />
               
-              <Tooltip title="Tüm şirketlerdeki kaçırılan görevleri kontrol et ve işaretle">
-                <span>
+              <ButtonGroup>
+                <Tooltip title="Tüm şirketlerdeki kaçırılan görevleri kontrol et ve işaretle">
+                  <span>
+                    <Button
+                      variant="contained"
+                      startIcon={<TaskIcon />}
+                      onClick={handleCheckTasks}
+                      disabled={isTaskRunning}
+                      sx={{
+                        bgcolor: '#102648',
+                        '&:hover': {
+                          bgcolor: '#0D1F3C'
+                        }
+                      }}
+                    >
+                      {isTaskRunning ? 'Kontrol Ediliyor...' : 'Görevleri Kontrol Et'}
+                    </Button>
+                  </span>
+                </Tooltip>
+                
+                <Tooltip title="API üzerinden görev kontrolünü çalıştır">
                   <Button
                     variant="contained"
-                    startIcon={<TaskIcon />}
-                    onClick={handleCheckTasks}
-                    disabled={isTaskRunning}
+                    startIcon={<RestoreIcon />}
+                    onClick={handleManualCheck}
+                    disabled={false}
                     sx={{
                       bgcolor: '#102648',
                       '&:hover': {
@@ -552,10 +601,44 @@ const SuperAdmin: React.FC = () => {
                       }
                     }}
                   >
-                    {isTaskRunning ? 'Kontrol Ediliyor...' : 'Görevleri Kontrol Et'}
+                    API Kontrolü
                   </Button>
-                </span>
-              </Tooltip>
+                </Tooltip>
+                
+                <Tooltip title="Görev kontrolü loglarını görüntüle">
+                  <Button
+                    variant="contained"
+                    startIcon={<HistoryIcon />}
+                    onClick={handleCheckLogs}
+                    disabled={false}
+                    sx={{
+                      bgcolor: '#102648',
+                      '&:hover': {
+                        bgcolor: '#0D1F3C'
+                      }
+                    }}
+                  >
+                    API Logları
+                  </Button>
+                </Tooltip>
+                
+                <Tooltip title="API servisinin sağlık durumunu kontrol et">
+                  <Button
+                    variant="contained"
+                    startIcon={<HealthAndSafetyIcon />}
+                    onClick={handleHealthCheck}
+                    disabled={false}
+                    sx={{
+                      bgcolor: '#102648',
+                      '&:hover': {
+                        bgcolor: '#0D1F3C'
+                      }
+                    }}
+                  >
+                    Servis Durumu
+                  </Button>
+                </Tooltip>
+              </ButtonGroup>
             </Box>
             
             <Box sx={{ display: 'flex', gap: 1 }}>
@@ -624,7 +707,7 @@ const SuperAdmin: React.FC = () => {
               </Box>
             </Box>
           )}
-
+          
           {loading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
               <CircularProgress />
