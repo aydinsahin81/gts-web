@@ -135,18 +135,19 @@ class TaskService {
       let personnelFullName = 'Atanmamış';
       
       // Görevin atandığı personel ID'sini kontrol et
-      if (taskData.assignedTo) {
+      if (taskData.personnelId) {
         try {
           // Personel bilgilerini veritabanından al
-          const personnelRef = ref(database, `companies/${companyId}/personnel/${taskData.assignedTo}`);
+          const personnelRef = ref(database, `companies/${companyId}/personnel/${taskData.personnelId}`);
           const personnelSnapshot = await get(personnelRef);
           
           if (personnelSnapshot.exists()) {
             const personnelData = personnelSnapshot.val();
-            personnelFullName = `${personnelData.firstName || ''} ${personnelData.lastName || ''}`.trim() || 'Belirsiz Personel';
+            // JSON yapısında name alanını kullan
+            personnelFullName = personnelData.name || 'Belirsiz Personel';
           } else {
             // Eğer personel şirketin personnel koleksiyonunda bulunamazsa, users koleksiyonunda da ara
-            const userRef = ref(database, `users/${taskData.assignedTo}`);
+            const userRef = ref(database, `users/${taskData.personnelId}`);
             const userSnapshot = await get(userRef);
             
             if (userSnapshot.exists()) {
@@ -155,7 +156,7 @@ class TaskService {
             }
           }
         } catch (error) {
-          console.error(`Personel bilgileri alınamadı (${taskData.assignedTo}):`, error);
+          console.error(`Personel bilgileri alınamadı (${taskData.personnelId}):`, error);
         }
       }
       
@@ -170,7 +171,7 @@ class TaskService {
         isRecurring: taskData.isRecurring || false,
         taskDate: dateKey,
         taskTime: timeString,
-        assignedTo: taskData.assignedTo || '',
+        assignedTo: taskData.personnelId || '',
         personnelFullName: personnelFullName
       });
       
@@ -336,18 +337,19 @@ class TaskService {
           
           // Personel bilgisi varsa önceden bul
           let assignedPersonnelInfo = 'Atanmamış';
-          if (taskData.assignedTo) {
+          if (taskData.personnelId) {
             try {
               // Önce şirket personel koleksiyonundan ara
-              const personnelRef = ref(database, `companies/${companyId}/personnel/${taskData.assignedTo}`);
+              const personnelRef = ref(database, `companies/${companyId}/personnel/${taskData.personnelId}`);
               const personnelSnapshot = await get(personnelRef);
               
               if (personnelSnapshot.exists()) {
                 const personnelData = personnelSnapshot.val();
-                assignedPersonnelInfo = `${personnelData.firstName || ''} ${personnelData.lastName || ''}`.trim() || 'Belirsiz Personel';
+                // JSON yapısında name alanını kullan
+                assignedPersonnelInfo = personnelData.name || 'Belirsiz Personel';
               } else {
                 // users koleksiyonundan ara
-                const userRef = ref(database, `users/${taskData.assignedTo}`);
+                const userRef = ref(database, `users/${taskData.personnelId}`);
                 const userSnapshot = await get(userRef);
                 
                 if (userSnapshot.exists()) {
@@ -356,13 +358,13 @@ class TaskService {
                 }
               }
             } catch (error) {
-              console.error(`Personel bilgileri alınamadı (${taskData.assignedTo}):`, error);
+              console.error(`Personel bilgileri alınamadı (${taskData.personnelId}):`, error);
             }
           }
           
           // Yeni kaçırılan zamanları kaydet
           if (newMissedTimes.length > 0) {
-            updateProgress(`"${taskData.name}" görevi (${taskData.assignedTo ? `Personel: ${assignedPersonnelInfo}` : 'Atanmamış'}) için ${newMissedTimes.length} kaçırılan zaman tespit edildi`);
+            updateProgress(`"${taskData.name}" görevi (${taskData.personnelId ? `Personel: ${assignedPersonnelInfo}` : 'Atanmamış'}) için ${newMissedTimes.length} kaçırılan zaman tespit edildi`);
             
             for (const missedTime of newMissedTimes) {
               await this.recordMissedTaskTime(taskId, companyId, missedTime, taskData);
