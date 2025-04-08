@@ -2,6 +2,7 @@ import { database, auth } from '../../firebase';
 import { ref, get, set, remove, update } from 'firebase/database';
 import { format } from 'date-fns';
 import { signInWithEmailAndPassword } from 'firebase/auth';
+import TimeService from '../../services/TimeService';
 
 class TaskService {
   // Singleton pattern
@@ -282,154 +283,182 @@ class TaskService {
       const tasksRef = ref(database, `companies/${companyId}/tasks`);
       const tasksSnapshot = await get(tasksRef);
       
-      if (!tasksSnapshot.exists()) {
-        updateProgress(`Şirket "${companyName}" (${companyId}) için hiç görev bulunamadı`);
-        return 0;
-      }
-      
-      const tasksData = tasksSnapshot.val();
       let totalMissedCount = 0;
       
-      for (const taskId of Object.keys(tasksData)) {
-        const taskData = tasksData[taskId];
+      if (tasksSnapshot.exists()) {
+        const tasksData = tasksSnapshot.val();
         
-        // Sadece tekrarlı ve kabul edilmiş görevleri kontrol et
-        if (taskData.isRecurring && taskData.status === 'accepted') {
-          const repetitionTimes = taskData.repetitionTimes || [];
+        for (const taskId of Object.keys(tasksData)) {
+          const taskData = tasksData[taskId];
           
-          // Zamanları sırala (artan sırada)
-          repetitionTimes.sort();
-          
-          // Kaçırılan ve tamamlanan görev zamanlarını al
-          const missedTimes = await this.getMissedTaskTimes(taskId, companyId);
-          const completedTimes = await this.getCompletedTaskTimes(taskId, companyId);
-          
-          // Başlatılmış ama tamamlanmamış görevlerin durumlarını al
-          const timeStatuses = await this.getCompletedTaskTimeStatuses(taskId, companyId);
-          
-          // Başlatılmış ama tamamlanmamış görevleri bul
-          const startedButNotCompletedTimes: string[] = [];
-          for (const [time, status] of Object.entries(timeStatuses)) {
-            if (status === 'started') {
-              startedButNotCompletedTimes.push(time);
+          // Sadece tekrarlı ve kabul edilmiş görevleri kontrol et
+          if (taskData.isRecurring && taskData.status === 'accepted') {
+            const repetitionTimes = taskData.repetitionTimes || [];
+            
+            // Zamanları sırala (artan sırada)
+            repetitionTimes.sort();
+            
+            // Kaçırılan ve tamamlanan görev zamanlarını al
+            const missedTimes = await this.getMissedTaskTimes(taskId, companyId);
+            const completedTimes = await this.getCompletedTaskTimes(taskId, companyId);
+            
+            // Başlatılmış ama tamamlanmamış görevlerin durumlarını al
+            const timeStatuses = await this.getCompletedTaskTimeStatuses(taskId, companyId);
+            
+            // Başlatılmış ama tamamlanmamış görevleri bul
+            const startedButNotCompletedTimes: string[] = [];
+            for (const [time, status] of Object.entries(timeStatuses)) {
+              if (status === 'started') {
+                startedButNotCompletedTimes.push(time);
+              }
             }
-          }
-          
-          // Yeni kaçırılan zamanları kontrol et
-          const newMissedTimes = this.checkMissedTimes(
-            repetitionTimes,
-            taskData.status,
-            completedTimes,
-            missedTimes
-          );
-          
-          // Başlatılmış ama tamamlanmamış görevlerin içinde zamanı geçmiş olanları bul
-          const expiredStartedTimes: string[] = [];
-          for (const startedTime of startedButNotCompletedTimes) {
-            // Görev zamanını DateTime objesine çevir
-            const timeParts = startedTime.split(':');
-            if (timeParts.length === 2) {
-              const taskHour = parseInt(timeParts[0]) || 0;
-              const taskMinute = parseInt(timeParts[1]) || 0;
-              
-              // Görev saatini bugünün tarihiyle birleştir
-              const now = new Date();
-              const taskDateTime = new Date(
-                now.getFullYear(), now.getMonth(), now.getDate(), taskHour, taskMinute
-              );
-              
-              // Uygun maksimum bitiş zamanını hesapla
-              let endTime: Date;
-              
-              // Başlatılan görevden sonraki görevi bul
-              const currentIndex = repetitionTimes.indexOf(startedTime);
-              if (currentIndex >= 0 && currentIndex < repetitionTimes.length - 1) {
-                // Sonraki görev var, onun zamanını ve toleransını kullan
-                const nextTimeString = repetitionTimes[currentIndex + 1];
-                const nextTimeParts = nextTimeString.split(':');
-                if (nextTimeParts.length === 2) {
-                  const nextHour = parseInt(nextTimeParts[0]) || 0;
-                  const nextMinute = parseInt(nextTimeParts[1]) || 0;
-                  
-                  // Bir sonraki görevin başlangıç zamanı
-                  endTime = new Date(
-                    now.getFullYear(), now.getMonth(), now.getDate(), nextHour, nextMinute
-                  );
-                  
-                  // Sonraki görevin toleransını ekle
-                  const startTolerance = taskData.startTolerance || 15;
-                  endTime.setMinutes(endTime.getMinutes() - startTolerance);
+            
+            // Yeni kaçırılan zamanları kontrol et
+            const newMissedTimes = this.checkMissedTimes(
+              repetitionTimes,
+              taskData.status,
+              completedTimes,
+              missedTimes
+            );
+            
+            // Başlatılmış ama tamamlanmamış görevlerin içinde zamanı geçmiş olanları bul
+            const expiredStartedTimes: string[] = [];
+            for (const startedTime of startedButNotCompletedTimes) {
+              // Görev zamanını DateTime objesine çevir
+              const timeParts = startedTime.split(':');
+              if (timeParts.length === 2) {
+                const taskHour = parseInt(timeParts[0]) || 0;
+                const taskMinute = parseInt(timeParts[1]) || 0;
+                
+                // Görev saatini bugünün tarihiyle birleştir
+                const now = new Date();
+                const taskDateTime = new Date(
+                  now.getFullYear(), now.getMonth(), now.getDate(), taskHour, taskMinute
+                );
+                
+                // Uygun maksimum bitiş zamanını hesapla
+                let endTime: Date;
+                
+                // Başlatılan görevden sonraki görevi bul
+                const currentIndex = repetitionTimes.indexOf(startedTime);
+                if (currentIndex >= 0 && currentIndex < repetitionTimes.length - 1) {
+                  // Sonraki görev var, onun zamanını ve toleransını kullan
+                  const nextTimeString = repetitionTimes[currentIndex + 1];
+                  const nextTimeParts = nextTimeString.split(':');
+                  if (nextTimeParts.length === 2) {
+                    const nextHour = parseInt(nextTimeParts[0]) || 0;
+                    const nextMinute = parseInt(nextTimeParts[1]) || 0;
+                    
+                    // Bir sonraki görevin başlangıç zamanı
+                    endTime = new Date(
+                      now.getFullYear(), now.getMonth(), now.getDate(), nextHour, nextMinute
+                    );
+                    
+                    // Sonraki görevin toleransını ekle
+                    const startTolerance = taskData.startTolerance || 15;
+                    endTime.setMinutes(endTime.getMinutes() - startTolerance);
+                  } else {
+                    // Sonraki görevin zamanı düzgün ayrıştırılamadı, varsayılan olarak 60 dakika kullan
+                    endTime = new Date(taskDateTime.getTime() + 60 * 60 * 1000); // 60 dakika
+                  }
                 } else {
-                  // Sonraki görevin zamanı düzgün ayrıştırılamadı, varsayılan olarak 60 dakika kullan
+                  // Son görev için 60 dakika tolerans kullan
                   endTime = new Date(taskDateTime.getTime() + 60 * 60 * 1000); // 60 dakika
                 }
-              } else {
-                // Son görev için 60 dakika tolerans kullan
-                endTime = new Date(taskDateTime.getTime() + 60 * 60 * 1000); // 60 dakika
-              }
-              
-              // Şu anki zaman, görevin maksimum bitiş zamanını geçti mi?
-              if (now > endTime) {
-                // Zamanı geçmiş, başlatılmış ama tamamlanmamış görev bulundu
-                expiredStartedTimes.push(startedTime);
                 
-                // Bu görevi kaçırılan görevlere ekle
-                if (!missedTimes.includes(startedTime) && !newMissedTimes.includes(startedTime)) {
-                  newMissedTimes.push(startedTime);
+                // Şu anki zaman, görevin maksimum bitiş zamanını geçti mi?
+                if (now > endTime) {
+                  // Zamanı geçmiş, başlatılmış ama tamamlanmamış görev bulundu
+                  expiredStartedTimes.push(startedTime);
+                  
+                  // Bu görevi kaçırılan görevlere ekle
+                  if (!missedTimes.includes(startedTime) && !newMissedTimes.includes(startedTime)) {
+                    newMissedTimes.push(startedTime);
+                  }
                 }
               }
             }
-          }
-          
-          // Personel bilgisi varsa önceden bul
-          let assignedPersonnelInfo = 'Atanmamış';
-          if (taskData.personnelId) {
-            try {
-              // Önce şirket personel koleksiyonundan ara
-              const personnelRef = ref(database, `companies/${companyId}/personnel/${taskData.personnelId}`);
-              const personnelSnapshot = await get(personnelRef);
-              
-              if (personnelSnapshot.exists()) {
-                const personnelData = personnelSnapshot.val();
-                // JSON yapısında name alanını kullan
-                assignedPersonnelInfo = personnelData.name || 'Belirsiz Personel';
-              } else {
-                // users koleksiyonundan ara
-                const userRef = ref(database, `users/${taskData.personnelId}`);
-                const userSnapshot = await get(userRef);
-                
-                if (userSnapshot.exists()) {
-                  const userData = userSnapshot.val();
-                  assignedPersonnelInfo = `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || 'Belirsiz Personel';
-                }
-              }
-            } catch (error) {
-              console.error(`Personel bilgileri alınamadı (${taskData.personnelId}):`, error);
-            }
-          }
-          
-          // Yeni kaçırılan zamanları kaydet
-          if (newMissedTimes.length > 0) {
-            updateProgress(`"${taskData.name}" görevi (${taskData.personnelId ? `Personel: ${assignedPersonnelInfo}` : 'Atanmamış'}) için ${newMissedTimes.length} kaçırılan zaman tespit edildi`);
             
-            for (const missedTime of newMissedTimes) {
-              await this.recordMissedTaskTime(taskId, companyId, missedTime, taskData);
+            // Personel bilgisi varsa önceden bul
+            let assignedPersonnelInfo = 'Atanmamış';
+            if (taskData.personnelId) {
+              try {
+                // Önce şirket personel koleksiyonundan ara
+                const personnelRef = ref(database, `companies/${companyId}/personnel/${taskData.personnelId}`);
+                const personnelSnapshot = await get(personnelRef);
+                
+                if (personnelSnapshot.exists()) {
+                  const personnelData = personnelSnapshot.val();
+                  // JSON yapısında name alanını kullan
+                  assignedPersonnelInfo = personnelData.name || 'Belirsiz Personel';
+                } else {
+                  // users koleksiyonundan ara
+                  const userRef = ref(database, `users/${taskData.personnelId}`);
+                  const userSnapshot = await get(userRef);
+                  
+                  if (userSnapshot.exists()) {
+                    const userData = userSnapshot.val();
+                    assignedPersonnelInfo = `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || 'Belirsiz Personel';
+                  }
+                }
+              } catch (error) {
+                console.error(`Personel bilgileri alınamadı (${taskData.personnelId}):`, error);
+              }
             }
+            
+            // Yeni kaçırılan zamanları kaydet
+            if (newMissedTimes.length > 0) {
+              updateProgress(`"${taskData.name}" görevi (${taskData.personnelId ? `Personel: ${assignedPersonnelInfo}` : 'Atanmamış'}) için ${newMissedTimes.length} kaçırılan zaman tespit edildi`);
+              
+              for (const missedTime of newMissedTimes) {
+                await this.recordMissedTaskTime(taskId, companyId, missedTime, taskData);
+              }
+            }
+            
+            // Başlatılmış ama tamamlanmamış ve zamanı geçmiş görevleri completedTasks'dan sil
+            const dateKey = this.getTodayDateKey();
+            for (const expiredTime of expiredStartedTimes) {
+              console.log(`Zamanı geçmiş başlatılmış görev temizleniyor: ${companyId}/${taskId}/${dateKey}/${expiredTime}`);
+              const completedRef = ref(database, `companies/${companyId}/completedTasks/${taskId}/${dateKey}/${expiredTime}`);
+              await remove(completedRef);
+            }
+            
+            totalMissedCount += newMissedTimes.length;
           }
-          
-          // Başlatılmış ama tamamlanmamış ve zamanı geçmiş görevleri completedTasks'dan sil
-          const dateKey = this.getTodayDateKey();
-          for (const expiredTime of expiredStartedTimes) {
-            console.log(`Zamanı geçmiş başlatılmış görev temizleniyor: ${companyId}/${taskId}/${dateKey}/${expiredTime}`);
-            const completedRef = ref(database, `companies/${companyId}/completedTasks/${taskId}/${dateKey}/${expiredTime}`);
-            await remove(completedRef);
-          }
-          
-          totalMissedCount += newMissedTimes.length;
         }
+      } else {
+        updateProgress(`Şirket "${companyName}" (${companyId}) için hiç günlük görev bulunamadı`);
       }
       
-      updateProgress(`Şirket "${companyName}" (${companyId}) için ${totalMissedCount} kaçırılan görev kaydedildi`);
+      // Haftalık görevleri kontrol et
+      updateProgress(`Şirket "${companyName}" (${companyId}) haftalık görevleri kontrol ediliyor...`);
+      
+      // TimeService'i kullanarak haftalık görevleri kontrol et ve kaçırılanları bul
+      try {
+        const weeklyLogs = await TimeService.checkWeeklyMissedTasks(companyId);
+        
+        // Önemli logları göster
+        const missedWeeklyCount = weeklyLogs.filter(log => log.includes('Görev kaçırılmış olarak işaretlendi')).length;
+        totalMissedCount += missedWeeklyCount;
+        
+        if (missedWeeklyCount > 0) {
+          updateProgress(`Şirket "${companyName}" (${companyId}) için ${missedWeeklyCount} kaçırılan haftalık görev tespit edildi`);
+          
+          // Önemli logları göster
+          for (const log of weeklyLogs) {
+            if (log.includes('Görev kaçırılmış olarak işaretlendi')) {
+              updateProgress(`  - ${log}`);
+            }
+          }
+        } else {
+          updateProgress(`Şirket "${companyName}" (${companyId}) için kaçırılan haftalık görev bulunmadı`);
+        }
+      } catch (error) {
+        console.error(`Haftalık görevler kontrol edilirken hata: ${error}`);
+        updateProgress(`Haftalık görev kontrolü sırasında hata: ${error}`);
+      }
+      
+      updateProgress(`Şirket "${companyName}" (${companyId}) için toplam ${totalMissedCount} kaçırılan görev kaydedildi`);
       return totalMissedCount;
     } catch (e) {
       console.error(`checkAndRecordMissedTasksForCompany hata (${companyId}):`, e);
