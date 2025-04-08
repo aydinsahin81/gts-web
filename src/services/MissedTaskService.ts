@@ -219,11 +219,19 @@ class MissedTaskService {
    * Tüm tekrarlı görevleri kontrol eder ve kaçırılanları kaydeder
    * @param tasks Tekrarlı görevler listesi
    * @param companyId Şirket ID'si
+   * 
+   * NOT: Bu metod artık kullanılmıyor, online başka bir servis tarafından gerçekleştiriliyor.
+   * İleride referans olması için kod korunmuştur.
    */
   public async checkAndRecordMissedTasks(
     tasks: any[],
     companyId: string
   ): Promise<void> {
+    // Bu metod artık kullanılmıyor
+    console.log('checkAndRecordMissedTasks metodu artık kullanılmıyor.');
+    return;
+    
+    // Aşağıdaki kod artık çalıştırılmıyor ancak referans için korunmuştur
     try {
       const now = await TimeService.getCurrentTime();
       
