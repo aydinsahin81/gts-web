@@ -1083,7 +1083,15 @@ const Tasks: React.FC<TasksProps> = ({ branchId, isManager = false }) => {
     try {
       console.log('Görev silme işlemi başladı. TaskId:', taskId, 'PersonnelId:', personnelId);
       
-      // Önce görevi sil
+      // Seçilen görevi bul
+      const task = selectedTask || {};
+      
+      // Eğer haftalık görevse, haftalık görev silme fonksiyonunu çağır
+      if (taskType === 'weekly') {
+        return handleDeleteWeeklyTask(taskId, personnelId);
+      }
+      
+      // Normal görev silme işlemi
       await remove(ref(database, `companies/${companyId}/tasks/${taskId}`));
       console.log('Görev silindi');
       
@@ -1115,6 +1123,56 @@ const Tasks: React.FC<TasksProps> = ({ branchId, isManager = false }) => {
     } catch (error) {
       console.error('Görev silinirken hata:', error);
       throw error; // Hata yönetimi için hatayı yeniden fırlat
+    }
+  };
+  
+  // Haftalık görev silme fonksiyonu
+  const handleDeleteWeeklyTask = async (taskId: string, personnelId: string) => {
+    if (!companyId) {
+      throw new Error('Şirket bilgisi bulunamadı');
+    }
+
+    try {
+      console.log('Haftalık görev silme işlemi başladı. TaskId:', taskId, 'PersonnelId:', personnelId);
+      
+      // Haftalık görevi sil
+      await remove(ref(database, `companies/${companyId}/weeklyTasks/${taskId}`));
+      console.log('Haftalık görev silindi');
+      
+      // Personelin diğer görevlerini kontrol et (normal görevler)
+      const tasksSnapshot = await get(ref(database, `companies/${companyId}/tasks`));
+      const weeklyTasksSnapshot = await get(ref(database, `companies/${companyId}/weeklyTasks`));
+      
+      let hasOtherTasks = false;
+      
+      // Normal görevlerde kontrol
+      if (tasksSnapshot.exists()) {
+        const tasksData = tasksSnapshot.val();
+        hasOtherTasks = Object.values(tasksData).some(
+          (task: any) => task.personnelId === personnelId
+        );
+      }
+      
+      // Haftalık görevlerde kontrol (silinen görev hariç)
+      if (!hasOtherTasks && weeklyTasksSnapshot.exists()) {
+        const weeklyTasksData = weeklyTasksSnapshot.val();
+        hasOtherTasks = Object.entries(weeklyTasksData).some(
+          ([id, task]: [string, any]) => id !== taskId && task.personnelId === personnelId
+        );
+      }
+      
+      // Eğer başka görev yoksa personelin görev durumunu false yap
+      if (!hasOtherTasks) {
+        console.log('Personelin başka görevi yok, hasTask false yapılıyor');
+        await update(ref(database, `companies/${companyId}/personnel/${personnelId}`), {
+          hasTask: false
+        });
+      }
+      
+      console.log('Haftalık görev silme işlemi tamamlandı');
+    } catch (error) {
+      console.error('Haftalık görev silinirken hata:', error);
+      throw error;
     }
   };
 
@@ -2167,6 +2225,7 @@ const Tasks: React.FC<TasksProps> = ({ branchId, isManager = false }) => {
             getStatusIcon={getStatusIcon}
             getStatusLabel={getStatusLabel}
             getTaskTimeColor={getTaskTimeColor}
+            onDeleteTask={handleDeleteTask}
           />
         </>
       )}
@@ -2350,7 +2409,7 @@ const Tasks: React.FC<TasksProps> = ({ branchId, isManager = false }) => {
         open={taskDetailOpen}
         onClose={() => setTaskDetailOpen(false)}
         task={selectedTask}
-        onDelete={!isManager ? handleDeleteTask : undefined} // Yöneticiler silemez
+        onDelete={handleDeleteTask}
         onUpdatePersonnel={!isManager ? handleUpdatePersonnel : undefined} // Yöneticiler personel atayamaz
         personnel={personnel}
         getStatusColor={getStatusColor}

@@ -280,6 +280,7 @@ interface WeeklyTasksProps {
   getStatusIcon: (status: string) => React.ReactNode;
   getStatusLabel: (status: string) => string;
   getTaskTimeColor: (task: any, timeString: string) => string;
+  onDeleteTask?: (taskId: string, personnelId: string) => Promise<void>;
 }
 
 const WeeklyTasks: React.FC<WeeklyTasksProps> = ({
@@ -294,7 +295,8 @@ const WeeklyTasks: React.FC<WeeklyTasksProps> = ({
   getStatusColor,
   getStatusIcon,
   getStatusLabel,
-  getTaskTimeColor
+  getTaskTimeColor,
+  onDeleteTask
 }) => {
   const [loading, setLoading] = useState(true);
   const [weeklyTasks, setWeeklyTasks] = useState<any[]>([]);
