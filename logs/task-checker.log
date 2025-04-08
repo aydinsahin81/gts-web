@@ -1,0 +1,5 @@
+== GTS Görev Kontrolü Log Dosyası ==
+İlk oluşturulma: $(date)
+-------------------------------------------
+Bu dosya, otomatik görev kontrolü işlemlerinin loglarını içerir.
+------------------------------------------- 

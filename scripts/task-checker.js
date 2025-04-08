@@ -1,32 +1,50 @@
-import { database, auth } from '../../firebase';
-import { ref, get, set, remove, update } from 'firebase/database';
-import { format } from 'date-fns';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+// Kaçırılan görevleri kontrol eden bağımsız script
+// Bu dosya Plesk tarafından belirli aralıklarla çalıştırılabilir
+require('dotenv').config();
+const firebase = require('firebase/app');
+const { getAuth, signInWithEmailAndPassword } = require('firebase/auth');
+const { getDatabase, ref, get, set, remove } = require('firebase/database');
 
-class TaskService {
-  // Singleton pattern
-  private static instance: TaskService;
+// Firebase konfigürasyonu
+const firebaseConfig = {
+  apiKey: process.env.FIREBASE_API_KEY || "AIzaSyDYK9d4_UpwAtOlqvqfwjWaDnF2EHXKfeI",
+  authDomain: process.env.FIREBASE_AUTH_DOMAIN || "mtgtsapp.firebaseapp.com",
+  databaseURL: process.env.FIREBASE_DATABASE_URL || "https://mtgtsapp-default-rtdb.firebaseio.com",
+  projectId: process.env.FIREBASE_PROJECT_ID || "mtgtsapp",
+  storageBucket: process.env.FIREBASE_STORAGE_BUCKET || "mtgtsapp.firebasestorage.app",
+  messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID || "338071169045",
+  appId: process.env.FIREBASE_APP_ID || "1:338071169045:web:bef9acd26184a8fddac61c",
+  measurementId: process.env.FIREBASE_MEASUREMENT_ID || "G-61GNYX3GS1"
+};
 
-  private constructor() {}
+// Firebase uygulamasını başlat
+const app = firebase.initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const database = getDatabase(app);
 
-  public static getInstance(): TaskService {
-    if (!TaskService.instance) {
-      TaskService.instance = new TaskService();
-    }
-    return TaskService.instance;
+// Uygulamanın giriş bilgileri (güvenlik için .env dosyasından alınmalı)
+const EMAIL = process.env.SUPER_ADMIN_EMAIL || "superadmin@example.com";
+const PASSWORD = process.env.SUPER_ADMIN_PASSWORD || "password123";
+
+// Tarih formatı yardımcı fonksiyonu
+function formatDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+// TaskService sınıfının temel fonksiyonlarını burada tekrar implement ediyoruz
+class TaskChecker {
+  constructor() {
+    this.isLoggedIn = false;
   }
 
-  // Programatik olarak oturum açma
-  private async loginWithSuperAdminCredentials(email: string, password: string): Promise<boolean> {
+  // Firebase ile oturum aç
+  async login() {
     try {
-      // Mevcut kullanıcıyı kontrol et, zaten oturum açıksa tekrar yapma
-      if (auth.currentUser) {
-        console.log('Zaten oturum açılmış durumda');
-        return true;
-      }
-      
-      // E-posta ve şifre ile oturum aç
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      console.log(`Süper admin olarak giriş yapılıyor (${EMAIL})...`);
+      const userCredential = await signInWithEmailAndPassword(auth, EMAIL, PASSWORD);
       
       // Kullanıcı bilgilerini kontrol et
       const user = userCredential.user;
@@ -54,6 +72,7 @@ class TaskService {
       }
       
       console.log('Süper admin olarak başarıyla oturum açıldı');
+      this.isLoggedIn = true;
       return true;
     } catch (error) {
       console.error('Oturum açma hatası:', error);
@@ -62,12 +81,12 @@ class TaskService {
   }
 
   // Bugünün tarihini YYYY-MM-DD formatında döndür
-  private getTodayDateKey(): string {
-    return format(new Date(), 'yyyy-MM-dd');
+  getTodayDateKey() {
+    return formatDate(new Date());
   }
 
   // Kaçırılan görev zamanlarını veritabanından getir
-  private async getMissedTaskTimes(taskId: string, companyId: string): Promise<string[]> {
+  async getMissedTaskTimes(taskId, companyId) {
     try {
       // Bugünün tarihini al
       const dateKey = this.getTodayDateKey();
@@ -89,7 +108,7 @@ class TaskService {
   }
   
   // Tamamlanmış görev zamanlarını veritabanından getir
-  private async getCompletedTaskTimes(taskId: string, companyId: string): Promise<string[]> {
+  async getCompletedTaskTimes(taskId, companyId) {
     try {
       // Bugünün tarihini al
       const dateKey = this.getTodayDateKey();
@@ -100,7 +119,7 @@ class TaskService {
       
       if (snapshot.exists()) {
         const data = snapshot.val();
-        const allCompletedTimes: string[] = [];
+        const allCompletedTimes = [];
         
         // Tamamlanmış zamanları kontrol et
         for (const timeKey of Object.keys(data)) {
@@ -125,7 +144,7 @@ class TaskService {
   }
   
   // Görev zamanlarının durumlarını kontrol et
-  private async getCompletedTaskTimeStatuses(taskId: string, companyId: string): Promise<Record<string, string>> {
+  async getCompletedTaskTimeStatuses(taskId, companyId) {
     try {
       // Bugünün tarihini al
       const dateKey = this.getTodayDateKey();
@@ -134,7 +153,7 @@ class TaskService {
       const completedTasksRef = ref(database, `companies/${companyId}/completedTasks/${taskId}/${dateKey}`);
       const snapshot = await get(completedTasksRef);
       
-      const timeStatuses: Record<string, string> = {};
+      const timeStatuses = {};
       
       if (snapshot.exists()) {
         const data = snapshot.val();
@@ -165,12 +184,7 @@ class TaskService {
   }
   
   // Görev zamanını kaçırılan olarak kaydet
-  private async recordMissedTaskTime(
-    taskId: string, 
-    companyId: string, 
-    timeString: string,
-    taskData: any
-  ): Promise<void> {
+  async recordMissedTaskTime(taskId, companyId, timeString, taskData) {
     try {
       const now = new Date();
       
@@ -228,13 +242,8 @@ class TaskService {
   }
   
   // Zamanları kontrol et ve kaçırılanları belirle
-  private checkMissedTimes(
-    repetitionTimes: string[], 
-    taskStatus: string,
-    completedTimes: string[],
-    missedTimes: string[]
-  ): string[] {
-    const newMissedTimes: string[] = [];
+  checkMissedTimes(repetitionTimes, taskStatus, completedTimes, missedTimes) {
+    const newMissedTimes = [];
     
     // Şu anki saat
     const now = new Date();
@@ -268,22 +277,18 @@ class TaskService {
     
     return newMissedTimes;
   }
-  
+
   // Şirketin tüm görevlerini kontrol et ve kaçırılanları kaydet
-  private async checkAndRecordMissedTasksForCompany(
-    companyId: string,
-    companyName: string,
-    updateProgress: (message: string) => void
-  ): Promise<number> {
+  async checkAndRecordMissedTasksForCompany(companyId, companyName) {
     try {
-      updateProgress(`Şirket "${companyName}" (${companyId}) görevleri kontrol ediliyor...`);
+      console.log(`Şirket "${companyName}" (${companyId}) görevleri kontrol ediliyor...`);
       
       // Şirketin tüm görevlerini al
       const tasksRef = ref(database, `companies/${companyId}/tasks`);
       const tasksSnapshot = await get(tasksRef);
       
       if (!tasksSnapshot.exists()) {
-        updateProgress(`Şirket "${companyName}" (${companyId}) için hiç görev bulunamadı`);
+        console.log(`Şirket "${companyName}" (${companyId}) için hiç görev bulunamadı`);
         return 0;
       }
       
@@ -308,7 +313,7 @@ class TaskService {
           const timeStatuses = await this.getCompletedTaskTimeStatuses(taskId, companyId);
           
           // Başlatılmış ama tamamlanmamış görevleri bul
-          const startedButNotCompletedTimes: string[] = [];
+          const startedButNotCompletedTimes = [];
           for (const [time, status] of Object.entries(timeStatuses)) {
             if (status === 'started') {
               startedButNotCompletedTimes.push(time);
@@ -324,7 +329,7 @@ class TaskService {
           );
           
           // Başlatılmış ama tamamlanmamış görevlerin içinde zamanı geçmiş olanları bul
-          const expiredStartedTimes: string[] = [];
+          const expiredStartedTimes = [];
           for (const startedTime of startedButNotCompletedTimes) {
             // Görev zamanını DateTime objesine çevir
             const timeParts = startedTime.split(':');
@@ -339,7 +344,7 @@ class TaskService {
               );
               
               // Uygun maksimum bitiş zamanını hesapla
-              let endTime: Date;
+              let endTime;
               
               // Başlatılan görevden sonraki görevi bul
               const currentIndex = repetitionTimes.indexOf(startedTime);
@@ -410,7 +415,7 @@ class TaskService {
           
           // Yeni kaçırılan zamanları kaydet
           if (newMissedTimes.length > 0) {
-            updateProgress(`"${taskData.name}" görevi (${taskData.personnelId ? `Personel: ${assignedPersonnelInfo}` : 'Atanmamış'}) için ${newMissedTimes.length} kaçırılan zaman tespit edildi`);
+            console.log(`"${taskData.name}" görevi (${taskData.personnelId ? `Personel: ${assignedPersonnelInfo}` : 'Atanmamış'}) için ${newMissedTimes.length} kaçırılan zaman tespit edildi`);
             
             for (const missedTime of newMissedTimes) {
               await this.recordMissedTaskTime(taskId, companyId, missedTime, taskData);
@@ -429,31 +434,27 @@ class TaskService {
         }
       }
       
-      updateProgress(`Şirket "${companyName}" (${companyId}) için ${totalMissedCount} kaçırılan görev kaydedildi`);
+      console.log(`Şirket "${companyName}" (${companyId}) için ${totalMissedCount} kaçırılan görev kaydedildi`);
       return totalMissedCount;
     } catch (e) {
       console.error(`checkAndRecordMissedTasksForCompany hata (${companyId}):`, e);
-      updateProgress(`Şirket "${companyName}" (${companyId}) görevleri kontrol edilirken hata: ${e}`);
+      console.log(`Şirket "${companyName}" (${companyId}) görevleri kontrol edilirken hata: ${e}`);
       return 0;
     }
   }
-  
+
   // Tüm şirketlerdeki kaçırılan görevleri kontrol et ve kaydet
-  public async checkAllCompanies(updateProgress: (message: string) => void, credentials?: { email: string, password: string }): Promise<void> {
+  async checkAllCompanies() {
     try {
-      updateProgress('Tüm şirketler için görev kontrolü başlatılıyor...');
+      console.log('Tüm şirketler için görev kontrolü başlatılıyor...');
       
-      // Eğer kimlik bilgileri verilmişse, programatik olarak oturum aç
-      if (credentials && credentials.email && credentials.password) {
-        const isLoggedIn = await this.loginWithSuperAdminCredentials(credentials.email, credentials.password);
-        if (!isLoggedIn) {
-          updateProgress('Süper admin olarak oturum açılamadı. İşlem iptal edildi.');
+      // Firebase ile oturum açıp açık değilse
+      if (!this.isLoggedIn) {
+        const loginSuccess = await this.login();
+        if (!loginSuccess) {
+          console.error('Oturum açılamadı. İşlem iptal edildi.');
           return;
         }
-      } else if (!auth.currentUser) {
-        // Eğer kimlik bilgileri verilmemiş ve oturum açık değilse işlemi durdur
-        updateProgress('Oturum açılmamış. Bu işlemi gerçekleştirmek için süper admin olarak oturum açmalısınız.');
-        return;
       }
       
       // Tüm şirketleri al
@@ -461,14 +462,14 @@ class TaskService {
       const companiesSnapshot = await get(companiesRef);
       
       if (!companiesSnapshot.exists()) {
-        updateProgress('Hiç şirket bulunamadı.');
+        console.log('Hiç şirket bulunamadı.');
         return;
       }
       
       const companiesData = companiesSnapshot.val();
       const companyIds = Object.keys(companiesData);
       
-      updateProgress(`Toplam ${companyIds.length} şirket bulundu.`);
+      console.log(`Toplam ${companyIds.length} şirket bulundu.`);
       
       let totalMissedTasks = 0;
       
@@ -487,16 +488,37 @@ class TaskService {
           console.error(`Şirket adı alınamadı (${companyId}):`, error);
         }
         
-        const missedTasksCount = await this.checkAndRecordMissedTasksForCompany(companyId, companyName, updateProgress);
+        const missedTasksCount = await this.checkAndRecordMissedTasksForCompany(companyId, companyName);
         totalMissedTasks += missedTasksCount;
       }
       
-      updateProgress(`İşlem tamamlandı. Toplam ${totalMissedTasks} kaçırılan görev tespit edildi ve kaydedildi.`);
+      console.log(`İşlem tamamlandı. Toplam ${totalMissedTasks} kaçırılan görev tespit edildi ve kaydedildi.`);
     } catch (e) {
       console.error('Tüm şirketler için görev kontrolü sırasında hata:', e);
-      updateProgress(`Hata: ${e}`);
+      console.log(`Hata: ${e}`);
     }
   }
 }
 
-export default TaskService; 
+// Uygulamayı başlat
+async function runTaskChecker() {
+  console.log("Görev kontrolü başlatılıyor...");
+  console.log("Başlangıç zamanı:", new Date().toLocaleString());
+  
+  try {
+    const taskChecker = new TaskChecker();
+    await taskChecker.checkAllCompanies();
+    
+    console.log("Görev kontrolü tamamlandı");
+    console.log("Bitiş zamanı:", new Date().toLocaleString());
+    
+    // Uygulamadan çık
+    process.exit(0);
+  } catch (error) {
+    console.error("Görev kontrolü sırasında hata oluştu:", error);
+    process.exit(1);
+  }
+}
+
+// Uygulamayı çalıştır
+runTaskChecker(); 

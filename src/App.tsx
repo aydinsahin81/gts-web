@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
@@ -23,6 +23,7 @@ import CustomerScreenPage from './pages/CustomerScreen';
 import ManagerPage from './pages/ManagerDashboard';
 import ManagerProfilePage from './pages/ManagerProfile';
 import SuperAdmin from './components/superadmin/SuperAdmin';
+import TaskCheckerEndpoint from './api/TaskCheckerEndpoint';
 
 // Henüz oluşturulmamış diğer sayfalar için geçici bileşenler
 // const Reports = () => <div>Raporlar Sayfası</div>;
@@ -123,7 +124,75 @@ const RoleRoute = ({ requiredRole }: { requiredRole: string }) => {
   return <Outlet />;
 };
 
+// API endpoint'leri yönlendir - useEffect dışında tanımla
+const handleApiRequest = async (path: string, req: any, res: any) => {
+  const endpoint = TaskCheckerEndpoint.getInstance();
+  
+  // API anahtarını al (query veya header'dan)
+  const apiKey = req.query?.key || req.headers?.['x-api-key'] || '';
+  
+  if (path === '/api/run-task-checker') {
+    const result = await endpoint.runTaskChecker(apiKey);
+    res.status(result.success ? 200 : 401).json(result);
+    return;
+  }
+  
+  if (path === '/api/health') {
+    res.status(200).json(endpoint.getHealth());
+    return;
+  }
+  
+  if (path === '/api/logs' && endpoint.validateApiKey(apiKey)) {
+    res.status(200).json({ logs: endpoint.getLogs() });
+    return;
+  }
+  
+  // Bilinmeyen API endpoint'i
+  res.status(404).json({ success: false, message: 'Endpoint bulunamadı' });
+};
+
 const App: React.FC = () => {
+  // API endpoint'lerini yakala
+  useEffect(() => {
+    // URL'deki API isteklerini yakala
+    const handleRouteChange = () => {
+      const url = window.location.pathname;
+      const isApiRequest = url.startsWith('/api/');
+      
+      if (isApiRequest) {
+        // API isteği yakalandı
+        const path = url;
+        
+        // İstek ve yanıt nesnelerini taklit et
+        const req = {
+          query: Object.fromEntries(new URLSearchParams(window.location.search)),
+          headers: {} // Headers API'den alınabilir
+        };
+        
+        const res = {
+          status: (code: number) => ({
+            json: (data: any) => {
+              // API yanıtını ekrana göster
+              document.body.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+              return { status: code, data };
+            }
+          })
+        };
+        
+        // API isteğini işle
+        handleApiRequest(path, req, res);
+      }
+    };
+    
+    // Sayfa yüklendiğinde ve URL değiştiğinde kontrol et
+    handleRouteChange();
+    window.addEventListener('popstate', handleRouteChange);
+    
+    return () => {
+      window.removeEventListener('popstate', handleRouteChange);
+    };
+  }, []);
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
