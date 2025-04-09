@@ -103,6 +103,7 @@ import * as uuidModule from 'uuid';
 import * as ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import WeeklyTasks from './components/WeeklyTasks';
+import { MonthlyTasks } from './components';
 const uuidv4 = uuidModule.v4;
 
 // Kaydırılabilir ana içerik için styled component
@@ -2389,17 +2390,21 @@ const Tasks: React.FC<TasksProps> = ({ branchId, isManager = false }) => {
             </Box>
           </FilterContainer>
 
-          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
-            <Paper sx={{ p: 4, textAlign: 'center', maxWidth: 500 }}>
-              <MonthIcon sx={{ fontSize: 60, color: 'primary.main', mb: 2 }} />
-              <Typography variant="h5" gutterBottom>
-                Aylık Görevler
-              </Typography>
-              <Typography variant="body1" color="text.secondary" paragraph>
-                Bu bölüm yakında eklenecektir.
-              </Typography>
-            </Paper>
-          </Box>
+          <MonthlyTasks
+            companyId={companyId}
+            statusFilter={statusFilter}
+            personnelFilter={personnelFilter}
+            taskSearchTerm={taskSearchTerm}
+            viewMode={viewMode}
+            personnel={personnel}
+            onShowTaskDetail={handleShowTaskDetail}
+            onOpenQrPrintModal={handleOpenQrPrintModal}
+            getStatusColor={getStatusColor}
+            getStatusIcon={getStatusIcon}
+            getStatusLabel={getStatusLabel}
+            getTaskTimeColor={getTaskTimeColor}
+            onDeleteTask={handleDeleteTask}
+          />
         </>
       )}
 
