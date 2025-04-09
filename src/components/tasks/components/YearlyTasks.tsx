@@ -357,6 +357,7 @@ const YearlyTasks: React.FC<YearlyTasksProps> = ({
                 <TableCell sx={{ color: 'primary.contrastText', fontWeight: 'bold' }}>Personel</TableCell>
                 <TableCell sx={{ color: 'primary.contrastText', fontWeight: 'bold' }}>Şube</TableCell>
                 <TableCell sx={{ color: 'primary.contrastText', fontWeight: 'bold' }}>Görev Grubu</TableCell>
+                <TableCell sx={{ color: 'primary.contrastText', fontWeight: 'bold' }}>Yıllık Plan Görev Detayları</TableCell>
                 <TableCell sx={{ color: 'primary.contrastText', fontWeight: 'bold' }}>İşlemler</TableCell>
               </TableRow>
             </TableHead>
@@ -400,6 +401,19 @@ const YearlyTasks: React.FC<YearlyTasksProps> = ({
                   <TableCell>{task.personnelName || '-'}</TableCell>
                   <TableCell>{task.branchName || getBranchName(task.branchesId) || '-'}</TableCell>
                   <TableCell>{task.groupName || '-'}</TableCell>
+                  <TableCell sx={{ maxWidth: 250 }}>
+                    <Typography 
+                      variant="body2" 
+                      sx={{ 
+                        overflow: 'hidden', 
+                        textOverflow: 'ellipsis', 
+                        whiteSpace: 'nowrap',
+                        maxWidth: '250px' 
+                      }}
+                    >
+                      {task.yearlyPlanDetails || '-'}
+                    </Typography>
+                  </TableCell>
                   <TableCell>
                     <Box sx={{ display: 'flex' }}>
                       <Tooltip title="Detayları Görüntüle">
