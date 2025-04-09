@@ -106,7 +106,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
   const [taskDescription, setTaskDescription] = useState('');
   const [selectedPersonnelId, setSelectedPersonnelId] = useState('');
   const [selectedGroupId, setSelectedGroupId] = useState('');
-  const [isRecurring, setIsRecurring] = useState(false);
+  const [isRecurring, setIsRecurring] = useState(true);
   const [repeatType, setRepeatType] = useState('daily');
   const [dailyRepetitions, setDailyRepetitions] = useState(1);
   const [startTolerance, setStartTolerance] = useState(15);
@@ -408,7 +408,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
     setSelectedPersonnelId('');
     setSelectedBranch(null);
     setSelectedGroupId('');
-    setIsRecurring(false);
+    setIsRecurring(true);
     setRepeatType('daily');
     setDailyRepetitions(1);
     setStartTolerance(15);
