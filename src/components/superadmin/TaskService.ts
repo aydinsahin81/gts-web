@@ -270,6 +270,335 @@ class TaskService {
     return newMissedTimes;
   }
   
+  // Aylık görevleri kontrol eden fonksiyon
+  private async checkMonthlyMissedTasks(companyId: string, updateProgress: (message: string) => void): Promise<number> {
+    try {
+      updateProgress(`Şirket için aylık görevler kontrol ediliyor (${companyId})...`);
+      
+      // Aylık görevleri al
+      const monthlyTasksRef = ref(database, `companies/${companyId}/monthlyTasks`);
+      const monthlyTasksSnapshot = await get(monthlyTasksRef);
+      
+      if (!monthlyTasksSnapshot.exists()) {
+        updateProgress(`Şirket için aylık görev bulunamadı (${companyId})`);
+        return 0;
+      }
+      
+      const monthlyTasksData = monthlyTasksSnapshot.val();
+      let totalMissedMonthlyTasks = 0;
+      const missedTaskLogs: string[] = [];
+      
+      // Bugünün tarihini al
+      const now = new Date();
+      // JS'de 0-11 arası
+      const jsMonthIndex = now.getMonth(); // 0-11 arası (0=Ocak, 11=Aralık)
+      const currentMonth = jsMonthIndex + 1; // 1-12 arası (1=Ocak, 12=Aralık)
+      
+      // Aylık görevlerin ay anahtarlarını incele - detaylı log çıktısını kaldırıyoruz
+      const taskMonthInfo = Object.keys(monthlyTasksData).reduce((acc: Record<string, any>, taskId) => {
+        const task = monthlyTasksData[taskId] as Record<string, any>;
+        const monthKeys = Object.keys(task).filter(key => key.startsWith('month'));
+        if (!acc[taskId]) acc[taskId] = { taskName: task.name || 'İsimsiz Görev', months: monthKeys };
+        return acc;
+      }, {});
+      
+      // Sadece debug modunda log alalım
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`Mevcut aylık görevlerin ay anahtarları:`, taskMonthInfo);
+      }
+      
+      // Veritabanı format tespiti - bir görevdeki ay anahtarlarını kontrol ederek formatı belirle
+      let monthKeyFormat = "";
+      const firstTaskId = Object.keys(monthlyTasksData)[0];
+      
+      if (firstTaskId) {
+        const firstTask = monthlyTasksData[firstTaskId] as Record<string, any>;
+        const monthKeys = Object.keys(firstTask).filter(key => key.startsWith('month'));
+        
+        if (monthKeys.length > 0) {
+          // İlk ay anahtarı örneklerini al
+          const sampleKey = monthKeys[0];
+          
+          // Ay anahtarının formatını belirle
+          if (sampleKey.match(/^month\d{2}$/)) {
+            // "month01", "month02" formatı
+            monthKeyFormat = "two-digit-padded";
+            // Ayrıntılı log kaldırıldı
+          } else if (sampleKey.match(/^month\d$/)) {
+            // "month1", "month2" formatı
+            monthKeyFormat = "one-digit";
+            // Ayrıntılı log kaldırıldı
+          }
+        }
+      }
+      
+      // Veritabanındaki ay anahtarını belirle
+      let currentMonthKey;
+      if (monthKeyFormat === "two-digit-padded") {
+        // İki basamaklı, sıfır dolgulu format: "month01", "month02"...
+        currentMonthKey = `month${currentMonth.toString().padStart(2, '0')}`;
+      } else if (monthKeyFormat === "one-digit") {
+        // Tek basamaklı format: "month1", "month2"...
+        currentMonthKey = `month${currentMonth}`;
+      } else {
+        // Format belirlenemezse, her olası formatı denemeye çalış
+        const possibleFormats = [
+          `month${currentMonth}`,
+          `month${currentMonth.toString().padStart(2, '0')}`,
+          `month${jsMonthIndex}`,
+          `month${jsMonthIndex.toString().padStart(2, '0')}`
+        ];
+        // Ayrıntılı log kaldırıldı
+        
+        // İlk önce iki basamaklı formatı dene (daha yaygın görünüyor)
+        currentMonthKey = `month${currentMonth.toString().padStart(2, '0')}`;
+      }
+      
+      const currentDay = now.getDate(); // 1-31 arası
+      const currentHour = now.getHours();
+      const currentMinute = now.getMinutes();
+      const dateKey = this.getTodayDateKey();
+      
+      // Daha sade log çıktısı
+      // updateProgress(`Bugünkü tarih: ${dateKey}, JS Ay Indexi: ${jsMonthIndex} (${this.getMonthName(jsMonthIndex)}), Gerçek Ay: ${currentMonth}, Aranan Ay Anahtarı: ${currentMonthKey}, Gün: ${currentDay}`);
+      
+      // Olası alternatif ay anahtarları, belirlenemeyen formatlar için
+      const alternativeMonthKeys = [
+        `month${currentMonth}`,
+        `month${currentMonth.toString().padStart(2, '0')}`,
+        `month${jsMonthIndex}`,
+        `month${jsMonthIndex.toString().padStart(2, '0')}`
+      ];
+      
+      // Tüm aylık görevleri dolaş
+      for (const [taskId, taskData] of Object.entries<any>(monthlyTasksData)) {
+        // Sadece kabul edilmiş görevleri kontrol et
+        if (taskData.status !== 'accepted') {
+          continue;
+        }
+        
+        // Ayrıntılı log kaldırıldı
+        // updateProgress(`Aylık görev kontrol ediliyor: ${taskData.name || 'İsimsiz Görev'}`);
+        
+        // Bu görevdeki tüm ay anahtarlarını log'a yazdır - kaldırıldı
+        const taskMonthKeys = Object.keys(taskData).filter(key => key.startsWith('month'));
+        // updateProgress(`Bu görevde tanımlı aylar: ${taskMonthKeys.join(', ') || 'Yok'}`);
+        
+        // Bu ayın verilerini kontrol et - öncelikle belirlenen formatta kontrol et
+        let monthKey = currentMonthKey;
+        let monthData = taskData[monthKey];
+        
+        // Eğer bu formatta ay bulunamazsa, alternatif formatları dene
+        if (!monthData) {
+          for (const altKey of alternativeMonthKeys) {
+            if (taskData[altKey]) {
+              monthKey = altKey;
+              monthData = taskData[altKey];
+              // Ayrıntılı log kaldırıldı
+              // updateProgress(`Alternatif ay anahtarı bulundu: ${altKey}`);
+              break;
+            }
+          }
+        }
+        
+        // Hiçbir formatta ay bulunamazsa, bu görevi atla
+        if (!monthData) {
+          // Ayrıntılı log kaldırıldı
+          // updateProgress(`Görev bu ay için tanımlanmamış (${currentMonthKey} veya alternatifler), atlanıyor`);
+          continue;
+        }
+        
+        // Gün anahtarlarını incele ve format tespiti yap
+        const dayKeys = Object.keys(monthData).filter(key => key.startsWith('day'));
+        // Ayrıntılı log kaldırıldı
+        // updateProgress(`Bu ayda tanımlı günler: ${dayKeys.join(', ') || 'Yok'}`);
+        
+        // Gün formatını belirle
+        let dayKeyFormat = "";
+        if (dayKeys.length > 0) {
+          const sampleDayKey = dayKeys[0];
+          if (sampleDayKey.match(/^day\d{2}$/)) {
+            // "day01", "day02" formatı
+            dayKeyFormat = "two-digit-padded";
+            // Ayrıntılı log kaldırıldı
+            // updateProgress(`Gün formatı: İki basamaklı sıfır dolgulu (day01, day02...)`);
+          } else if (sampleDayKey.match(/^day\d{1,2}$/)) {
+            // "day1", "day2" formatı
+            dayKeyFormat = "one-digit";
+            // Ayrıntılı log kaldırıldı
+            // updateProgress(`Gün formatı: Tek basamaklı (day1, day2...)`);
+          }
+        }
+        
+        // Veritabanındaki gün anahtarını belirle
+        let currentDayKey;
+        if (dayKeyFormat === "two-digit-padded") {
+          // İki basamaklı, sıfır dolgulu format: "day01", "day02"...
+          currentDayKey = `day${currentDay.toString().padStart(2, '0')}`;
+        } else if (dayKeyFormat === "one-digit") {
+          // Tek basamaklı format: "day1", "day2"...
+          currentDayKey = `day${currentDay}`;
+        } else {
+          // Format belirlenemezse, her olası formatı denemeye çalış
+          currentDayKey = `day${currentDay}`; // Varsayılan olarak tek basamaklı kabul et
+        }
+        
+        // Olası alternatif gün anahtarları
+        const alternativeDayKeys = [
+          `day${currentDay}`,
+          `day${currentDay.toString().padStart(2, '0')}`
+        ];
+        
+        // Ayrıntılı log kaldırıldı
+        // updateProgress(`Aranan gün anahtarı: ${currentDayKey}, alternatifler: ${alternativeDayKeys.join(', ')}`);
+        
+        // Bu günün verilerini kontrol et
+        let dayData = monthData[currentDayKey];
+        
+        // Eğer bu formatta gün bulunamazsa, alternatif formatları dene
+        if (!dayData) {
+          for (const altDayKey of alternativeDayKeys) {
+            if (monthData[altDayKey]) {
+              currentDayKey = altDayKey;
+              dayData = monthData[altDayKey];
+              // Ayrıntılı log kaldırıldı
+              // updateProgress(`Alternatif gün anahtarı bulundu: ${altDayKey}`);
+              break;
+            }
+          }
+        }
+        
+        // Hiçbir formatta gün bulunamazsa, bu görevi atla
+        if (!dayData) {
+          // Ayrıntılı log kaldırıldı
+          // updateProgress(`Görev bugün için tanımlanmamış (${currentDayKey} veya alternatifler), atlanıyor`);
+          continue;
+        }
+        
+        // Bugünkü tekrar zamanlarını al
+        const repetitionTimes = dayData.repetitionTimes || [];
+        if (repetitionTimes.length === 0) {
+          // Ayrıntılı log kaldırıldı
+          // updateProgress(`Bugün için tekrar zamanı tanımlanmamış, atlanıyor`);
+          continue;
+        }
+        
+        // Ayrıntılı log kaldırıldı
+        // updateProgress(`Görev bugün için tanımlanmış, tekrar zamanları: ${repetitionTimes.join(', ')}`);
+        
+        // Personel bilgisini al
+        let personnelName = 'Atanmamış';
+        if (taskData.personnelId) {
+          try {
+            // Personel bilgilerini veritabanından al
+            const personnelRef = ref(database, `companies/${companyId}/personnel/${taskData.personnelId}`);
+            const personnelSnapshot = await get(personnelRef);
+            
+            if (personnelSnapshot.exists()) {
+              const personnelData = personnelSnapshot.val();
+              personnelName = personnelData.name || 'Belirsiz Personel';
+            } else {
+              // Users koleksiyonundan kontrol et
+              const userRef = ref(database, `users/${taskData.personnelId}`);
+              const userSnapshot = await get(userRef);
+              
+              if (userSnapshot.exists()) {
+                const userData = userSnapshot.val();
+                personnelName = `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || 'Belirsiz Personel';
+              }
+            }
+          } catch (error) {
+            console.error(`Personel bilgileri alınamadı (${taskData.personnelId}):`, error);
+          }
+        }
+        
+        // Tamamlanan ve kaçırılan görevleri al
+        const completedRef = ref(database, `companies/${companyId}/completedMonthlyTasks/${taskId}/${dateKey}`);
+        const missedRef = ref(database, `companies/${companyId}/missedMonthlyTasks/${taskId}/${dateKey}`);
+        
+        const [completedSnapshot, missedSnapshot] = await Promise.all([
+          get(completedRef),
+          get(missedRef)
+        ]);
+        
+        const completedTimes = completedSnapshot.exists() ? Object.keys(completedSnapshot.val()) : [];
+        const missedTimes = missedSnapshot.exists() ? Object.keys(missedSnapshot.val()) : [];
+        
+        // Ayrıntılı log kaldırıldı
+        // updateProgress(`Tamamlanan zamanlar: ${completedTimes.join(', ') || 'Yok'}`);
+        // updateProgress(`Kaçırılan zamanlar: ${missedTimes.join(', ') || 'Yok'}`);
+        
+        // Her bir zamanı kontrol et
+        for (const timeString of repetitionTimes) {
+          // Zaman formatını kontrol et ve ayrıştır
+          const parts = timeString.split(':');
+          if (parts.length !== 2) continue;
+          
+          const taskHour = parseInt(parts[0]);
+          const taskMinute = parseInt(parts[1]);
+          
+          // Görev zamanı geçmiş mi kontrol et
+          const isTimePassed = (
+            currentHour > taskHour || 
+            (currentHour === taskHour && currentMinute > taskMinute + (taskData.startTolerance || 15))
+          );
+          
+          // Görev zamanı geçmiş, ama tamamlanmamış veya kaçırılmış olarak işaretlenmemiş mi?
+          if (isTimePassed && 
+              !completedTimes.includes(timeString) && 
+              !missedTimes.includes(timeString)) {
+            // Ayrıntılı log kaldırıldı
+            // updateProgress(`Kaçırılan görev zamanı tespit edildi: ${timeString}`);
+            
+            // Kaçırılan görev zamanını kaydet
+            const missedTaskRef = ref(database, `companies/${companyId}/missedMonthlyTasks/${taskId}/${dateKey}/${timeString}`);
+            
+            await set(missedTaskRef, {
+              missedAt: now.getTime(),
+              taskName: taskData.name,
+              taskDescription: taskData.description,
+              taskDate: dateKey,
+              taskTime: timeString,
+              personnelId: taskData.personnelId || '',
+              personnelFullName: personnelName,
+              startTolerance: taskData.startTolerance || 15
+            });
+            
+            // Sadece önemli log
+            const logMessage = `Görev kaçırılmış olarak işaretlendi: ${taskId} - ${timeString}`;
+            updateProgress(`  - ${logMessage}`);
+            missedTaskLogs.push(logMessage);
+            totalMissedMonthlyTasks++;
+          }
+        }
+      }
+      
+      if (totalMissedMonthlyTasks > 0) {
+        updateProgress(`Toplam ${totalMissedMonthlyTasks} kaçırılan aylık görev zamanı tespit edildi ve kaydedildi`);
+        // Önemli logları çıktıla
+        for (const log of missedTaskLogs) {
+          if (process.env.NODE_ENV === 'development') {
+            console.log(log);
+          }
+        }
+      }
+      return totalMissedMonthlyTasks;
+    } catch (error) {
+      console.error('Aylık görevler kontrol edilirken hata:', error);
+      updateProgress(`Aylık görevleri kontrol ederken hata oluştu: ${error}`);
+      return 0;
+    }
+  }
+
+  // Ay adını döndüren yardımcı fonksiyon
+  private getMonthName(monthNumber: number): string {
+    const months = [
+      'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
+      'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'
+    ];
+    return months[monthNumber];
+  }
+  
   // Şirketin tüm görevlerini kontrol et ve kaçırılanları kaydet
   private async checkAndRecordMissedTasksForCompany(
     companyId: string,
@@ -456,6 +785,24 @@ class TaskService {
       } catch (error) {
         console.error(`Haftalık görevler kontrol edilirken hata: ${error}`);
         updateProgress(`Haftalık görev kontrolü sırasında hata: ${error}`);
+      }
+      
+      // Aylık görevleri kontrol et
+      updateProgress(`Şirket "${companyName}" (${companyId}) aylık görevleri kontrol ediliyor...`);
+      
+      // Aylık görevleri kontrol et ve kaçırılanları bul
+      try {
+        const missedMonthlyCount = await this.checkMonthlyMissedTasks(companyId, updateProgress);
+        totalMissedCount += missedMonthlyCount;
+        
+        if (missedMonthlyCount > 0) {
+          updateProgress(`Şirket "${companyName}" (${companyId}) için ${missedMonthlyCount} kaçırılan aylık görev tespit edildi`);
+        } else {
+          updateProgress(`Şirket "${companyName}" (${companyId}) için kaçırılan aylık görev bulunmadı`);
+        }
+      } catch (error) {
+        console.error(`Aylık görevler kontrol edilirken hata: ${error}`);
+        updateProgress(`Aylık görev kontrolü sırasında hata: ${error}`);
       }
       
       updateProgress(`Şirket "${companyName}" (${companyId}) için toplam ${totalMissedCount} kaçırılan görev kaydedildi`);

@@ -52,15 +52,23 @@ interface AddTaskModalProps {
     completionType: string;
     isRecurring: boolean;
     repeatType: string;
-    dailyRepetitions: number;
+    dailyRepetitions?: number;
     startTolerance: number;
-    repetitionTimes: string[];
+    repetitionTimes?: string[];
     groupId?: string;
-    // Haftalık, aylık ve yıllık tekrar seçenekleri için ek alanlar
     weekDays?: number[];
     monthDay?: number;
     yearDate?: string;
     branchesId?: string;
+    monthlyData?: {
+      month: number;
+      monthName: string;
+      days: {
+        day: number;
+        dailyRepetitions: number;
+        repetitionTimes: string[];
+      }[];
+    }[];
   }) => Promise<void>;
   onAddWeeklyTask?: (taskData: {
     name: string;
@@ -136,6 +144,32 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
 
   // Görev grupları için filtreleme state'i ekleyelim
   const [filteredTaskGroups, setFilteredTaskGroups] = useState<any[]>([]);
+
+  // Aylık görevler için yeni state'ler
+  const [selectedMonths, setSelectedMonths] = useState<number[]>([]);
+  const [monthlyTaskDays, setMonthlyTaskDays] = useState<{
+    month: number;
+    monthName: string;
+    days: number[];
+    dailyRepetitions: number;
+    repetitionTimes: string[];
+  }[]>([]);
+
+  // Aylar listesi
+  const months = [
+    { value: 0, label: 'Ocak' },
+    { value: 1, label: 'Şubat' },
+    { value: 2, label: 'Mart' },
+    { value: 3, label: 'Nisan' },
+    { value: 4, label: 'Mayıs' },
+    { value: 5, label: 'Haziran' },
+    { value: 6, label: 'Temmuz' },
+    { value: 7, label: 'Ağustos' },
+    { value: 8, label: 'Eylül' },
+    { value: 9, label: 'Ekim' },
+    { value: 10, label: 'Kasım' },
+    { value: 11, label: 'Aralık' }
+  ];
 
   // Şube adını getir - branchesId'den şube adını bulmak için yardımcı fonksiyon
   const getBranchName = (branchId: string | null | object): string => {
@@ -468,6 +502,90 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
     setWeeklyTaskDays(updatedDays);
   };
 
+  // Ay seçimi değiştiğinde
+  const handleMonthChange = (monthValue: number) => {
+    if (selectedMonths.includes(monthValue)) {
+      // Ay seçimi kaldırıldıysa
+      setSelectedMonths(selectedMonths.filter(m => m !== monthValue));
+      setMonthlyTaskDays(monthlyTaskDays.filter(m => m.month !== monthValue));
+    } else {
+      // Yeni ay eklendiyse
+      setSelectedMonths([...selectedMonths, monthValue]);
+      const monthName = months.find(m => m.value === monthValue)?.label || '';
+      setMonthlyTaskDays([
+        ...monthlyTaskDays,
+        {
+          month: monthValue,
+          monthName,
+          days: [],
+          dailyRepetitions: 1,
+          repetitionTimes: ['12:00']
+        }
+      ]);
+    }
+  };
+
+  // Ayın günleri değiştiğinde
+  const handleMonthDayChange = (monthValue: number, day: number) => {
+    setMonthlyTaskDays(monthlyTaskDays.map(monthData => {
+      if (monthData.month === monthValue) {
+        if (monthData.days.includes(day)) {
+          // Gün seçimi kaldırıldıysa
+          return {
+            ...monthData,
+            days: monthData.days.filter(d => d !== day)
+          };
+        } else {
+          // Yeni gün eklendiyse
+          return {
+            ...monthData,
+            days: [...monthData.days, day]
+          };
+        }
+      }
+      return monthData;
+    }));
+  };
+
+  // Ayın günlük tekrar sayısı değiştiğinde
+  const handleMonthDayRepetitionChange = (monthValue: number, repetitions: number) => {
+    setMonthlyTaskDays(monthlyTaskDays.map(monthData => {
+      if (monthData.month === monthValue) {
+        const newTimes = [...monthData.repetitionTimes];
+        if (repetitions > newTimes.length) {
+          // Yeni saat ekle
+          for (let i = newTimes.length; i < repetitions; i++) {
+            newTimes.push('12:00');
+          }
+        } else if (repetitions < newTimes.length) {
+          // Fazla saatleri kaldır
+          newTimes.length = repetitions;
+        }
+        return {
+          ...monthData,
+          dailyRepetitions: repetitions,
+          repetitionTimes: newTimes
+        };
+      }
+      return monthData;
+    }));
+  };
+
+  // Ayın gün saati değiştiğinde
+  const handleMonthDayTimeChange = (monthValue: number, timeIndex: number, newTime: string) => {
+    setMonthlyTaskDays(monthlyTaskDays.map(monthData => {
+      if (monthData.month === monthValue) {
+        const newTimes = [...monthData.repetitionTimes];
+        newTimes[timeIndex] = newTime;
+        return {
+          ...monthData,
+          repetitionTimes: newTimes
+        };
+      }
+      return monthData;
+    }));
+  };
+
   // Görev ekle
   const handleSubmit = async () => {
     // Validation
@@ -491,11 +609,19 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
       return;
     }
     
-    // Haftalık görev için en az bir gün seçili olmalı
-    if (isRecurring && repeatType === 'weekly') {
-      if (!weeklyTaskDays.some(day => day.selected)) {
-        setError('Lütfen en az bir hafta günü seçin.');
+    // Aylık görev için en az bir ay seçili olmalı
+    if (isRecurring && repeatType === 'monthly') {
+      if (selectedMonths.length === 0) {
+        setError('Lütfen en az bir ay seçin.');
         return;
+      }
+      
+      // Her seçili ay için en az bir gün seçili olmalı
+      for (const monthData of monthlyTaskDays) {
+        if (monthData.days.length === 0) {
+          setError(`Lütfen ${monthData.monthName} ayı için en az bir gün seçin.`);
+          return;
+        }
       }
     }
 
@@ -514,8 +640,32 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
         branchesId = selectedBranch.id;
       }
       
-      // Haftalık görevleri ayrı bir API çağrısıyla işle
-      if (isRecurring && repeatType === 'weekly' && onAddWeeklyTask) {
+      // Aylık görevleri ayrı bir API çağrısıyla işle
+      if (isRecurring && repeatType === 'monthly') {
+        // Seçili ayları ve günleri düzenle
+        const monthlyData = monthlyTaskDays.map(monthData => ({
+          month: monthData.month,
+          monthName: monthData.monthName,
+          days: monthData.days.map(day => ({
+            day,
+            dailyRepetitions: monthData.dailyRepetitions,
+            repetitionTimes: monthData.repetitionTimes
+          }))
+        }));
+          
+        await onAddTask({
+          name: taskName,
+          description: taskDescription,
+          personnelId: selectedPersonnelId,
+          completionType: 'qr', // QR kodu zorunlu
+          isRecurring,
+          repeatType,
+          startTolerance,
+          monthlyData,
+          groupId: selectedGroupId || undefined,
+          branchesId // Şube ID'sini ekle
+        });
+      } else if (isRecurring && repeatType === 'weekly' && onAddWeeklyTask) {
         // Seçili günleri filtrele
         const selectedDays = weeklyTaskDays
           .filter(day => day.selected)
@@ -1173,20 +1323,101 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
                 {/* Aylık tekrar seçenekleri */}
                 {repeatType === 'monthly' && (
                   <>
-                    <Grid item xs={12} sm={6}>
-                      <FormControl fullWidth variant="outlined" size="small">
-                        <InputLabel>Ayın Günü</InputLabel>
-                        <Select
-                          value={monthDay.toString()}
-                          onChange={(e) => setMonthDay(Number(e.target.value))}
-                          label="Ayın Günü"
-                        >
-                          {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
-                            <MenuItem key={day} value={day}>{day}</MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
+                    <Grid item xs={12}>
+                      <Typography variant="subtitle2" fontWeight="medium" gutterBottom>
+                        Aylar
+                      </Typography>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                        {months.map((month) => (
+                          <Button
+                            key={month.value}
+                            variant={selectedMonths.includes(month.value) ? "contained" : "outlined"}
+                            color="primary"
+                            onClick={() => handleMonthChange(month.value)}
+                            sx={{ minWidth: '100px', py: 0.3, px: 1, fontSize: '0.75rem' }}
+                            size="small"
+                          >
+                            {month.label}
+                          </Button>
+                        ))}
+                      </Box>
                     </Grid>
+
+                    {selectedMonths.map((monthValue) => {
+                      const monthData = monthlyTaskDays.find(m => m.month === monthValue);
+                      if (!monthData) return null;
+
+                      return (
+                        <Grid item xs={12} key={monthValue} sx={{ mt: 1 }}>
+                          <Paper 
+                            variant="outlined" 
+                            sx={{ p: 1.5, borderRadius: 1, borderColor: 'primary.light' }}
+                          >
+                            <Typography variant="subtitle2" color="primary" gutterBottom>
+                              {monthData.monthName} Ayı Ayarları
+                            </Typography>
+
+                            <Grid container spacing={1}>
+                              <Grid item xs={12}>
+                                <Typography variant="body2" gutterBottom>
+                                  Ayın Günleri:
+                                </Typography>
+                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                  {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                                    <Button
+                                      key={day}
+                                      variant={monthData.days.includes(day) ? "contained" : "outlined"}
+                                      color="primary"
+                                      onClick={() => handleMonthDayChange(monthValue, day)}
+                                      sx={{ minWidth: '40px', py: 0.3, px: 1, fontSize: '0.75rem' }}
+                                      size="small"
+                                    >
+                                      {day}
+                                    </Button>
+                                  ))}
+                                </Box>
+                              </Grid>
+
+                              <Grid item xs={12} sm={6}>
+                                <FormControl fullWidth variant="outlined" size="small">
+                                  <InputLabel>Günlük Tekrar Sayısı</InputLabel>
+                                  <Select
+                                    value={monthData.dailyRepetitions.toString()}
+                                    onChange={(e) => handleMonthDayRepetitionChange(monthValue, Number(e.target.value))}
+                                    label="Günlük Tekrar Sayısı"
+                                  >
+                                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
+                                      <MenuItem key={num} value={num}>{num}</MenuItem>
+                                    ))}
+                                  </Select>
+                                </FormControl>
+                              </Grid>
+
+                              <Grid item xs={12}>
+                                <Typography variant="body2" gutterBottom>
+                                  Tekrar Saatleri:
+                                </Typography>
+                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                  {Array.from({ length: monthData.dailyRepetitions }).map((_, timeIndex) => (
+                                    <TextField
+                                      key={timeIndex}
+                                      label={`${timeIndex + 1}. Tekrar Saati`}
+                                      type="time"
+                                      value={monthData.repetitionTimes[timeIndex]}
+                                      onChange={(e) => handleMonthDayTimeChange(monthValue, timeIndex, e.target.value)}
+                                      InputLabelProps={{ shrink: true }}
+                                      inputProps={{ step: 300 }}
+                                      size="small"
+                                      fullWidth
+                                    />
+                                  ))}
+                                </Box>
+                              </Grid>
+                            </Grid>
+                          </Paper>
+                        </Grid>
+                      );
+                    })}
 
                     <Grid item xs={12} sm={6}>
                       <FormControl fullWidth variant="outlined" size="small">
@@ -1201,19 +1432,6 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
                           ))}
                         </Select>
                       </FormControl>
-                    </Grid>
-
-                    <Grid item xs={12}>
-                      <TextField
-                        label="Tekrar Saati"
-                        type="time"
-                        value={repetitionTimes[0]}
-                        onChange={(e) => handleTimeChange(0, e.target.value)}
-                        InputLabelProps={{ shrink: true }}
-                        inputProps={{ step: 300 }}
-                        fullWidth
-                        size="small"
-                      />
                     </Grid>
                   </>
                 )}
