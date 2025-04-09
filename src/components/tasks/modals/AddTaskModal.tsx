@@ -39,7 +39,7 @@ import {
   Business as BusinessIcon
 } from '@mui/icons-material';
 import TaskGroupsModal from './TaskGroupsModal';
-import { ref, get } from 'firebase/database';
+import { ref, get, set, push } from 'firebase/database';
 import { database } from '../../../firebase';
 
 interface AddTaskModalProps {
@@ -69,6 +69,7 @@ interface AddTaskModalProps {
         repetitionTimes: string[];
       }[];
     }[];
+    yearlyPlanDetails?: string;
   }) => Promise<void>;
   onAddWeeklyTask?: (taskData: {
     name: string;
@@ -124,6 +125,8 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
   const [weekDays, setWeekDays] = useState<number[]>([1]); // Pazartesi varsayılan
   const [monthDay, setMonthDay] = useState<number>(1); // Ayın ilk günü varsayılan
   const [yearDate, setYearDate] = useState<string>('01-01'); // 1 Ocak varsayılan
+  const [yearlyPlanDetails, setYearlyPlanDetails] = useState<string>(''); // Yıllık görev detayları
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear()); // Yıl seçimi için
 
   // Haftalık görevler için yeni state'ler
   const [weeklyTaskDays, setWeeklyTaskDays] = useState<{
@@ -413,6 +416,8 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
     setDailyRepetitions(1);
     setStartTolerance(15);
     setRepetitionTimes(['12:00']);
+    setYearlyPlanDetails('');
+    setSelectedYear(new Date().getFullYear());
     setError(null);
     
     // Haftalık görev günlerini sıfırla
@@ -624,6 +629,12 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
         }
       }
     }
+    
+    // Yıllık görev için plan detayları kontrolü
+    if (isRecurring && repeatType === 'yearly' && !yearlyPlanDetails.trim()) {
+      setError('Lütfen yıllık görev için plan detaylarını girin.');
+      return;
+    }
 
     setIsSubmitting(true);
     setError(null);
@@ -701,8 +712,45 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
           weekDays: isRecurring && repeatType === 'weekly' ? weekDays : undefined,
           monthDay: isRecurring && repeatType === 'monthly' ? monthDay : undefined,
           yearDate: isRecurring && repeatType === 'yearly' ? yearDate : undefined,
+          yearlyPlanDetails: isRecurring && repeatType === 'yearly' ? yearlyPlanDetails : undefined,
           branchesId // Şube ID'sini ekle
         });
+        
+        // Eğer yıllık görev ise yearlyTasks koleksiyonuna ayrıca kaydet
+        if (isRecurring && repeatType === 'yearly') {
+          try {
+            // Veritabanında yearlyTasks koleksiyonuna kaydet
+            const yearlyTasksRef = ref(database, `companies/${companyId}/yearlyTasks`);
+            const newTaskRef = push(yearlyTasksRef);
+            
+            // Personel ve grup bilgilerini bul
+            const personel = personnel.find(p => p.id === selectedPersonnelId);
+            const group = filteredTaskGroups.find(g => g.id === selectedGroupId);
+            
+            // Yıllık görev verilerini hazırla
+            const yearlyTaskData = {
+              name: taskName,
+              description: taskDescription,
+              personnelId: selectedPersonnelId,
+              personnelName: personel?.name || '',
+              groupId: selectedGroupId,
+              groupName: group?.name || '',
+              branchesId: branchesId || '',
+              branchName: getBranchName(branchesId || ''),
+              planDate: `${selectedYear}-${yearDate}`, // Tam tarih (yıl-ay-gün)
+              yearlyPlanDetails: yearlyPlanDetails,
+              createdAt: Date.now()
+            };
+            
+            // Veriyi kaydet
+            await set(newTaskRef, yearlyTaskData);
+            console.log('Yıllık görev planı başarıyla kaydedildi:', yearlyTaskData);
+          } catch (error) {
+            console.error('Yıllık görev kaydedilirken hata:', error);
+            setError('Yıllık görev planı kaydedilirken bir hata oluştu. Lütfen tekrar deneyin.');
+            throw error;
+          }
+        }
       }
       
       onClose();
@@ -1439,50 +1487,71 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
                 {/* Yıllık tekrar seçenekleri */}
                 {repeatType === 'yearly' && (
                   <>
-                    <Grid item xs={12} sm={6}>
-                      <TextField
-                        label="Yıllık Tarih"
-                        type="date"
-                        value={`2024-${yearDate}`} // Herhangi bir yıl ekleyerek geçerli tarih formatı oluştur
-                        onChange={(e) => {
-                          // Tarihten sadece ay ve günü al
-                          const date = new Date(e.target.value);
-                          const month = (date.getMonth() + 1).toString().padStart(2, '0');
-                          const day = date.getDate().toString().padStart(2, '0');
-                          setYearDate(`${month}-${day}`);
-                        }}
-                        InputLabelProps={{ shrink: true }}
-                        fullWidth
-                        size="small"
-                      />
-                    </Grid>
-
-                    <Grid item xs={12} sm={6}>
-                      <FormControl fullWidth variant="outlined" size="small">
-                        <InputLabel>Başlama Toleransı (dk)</InputLabel>
-                        <Select
-                          value={startTolerance.toString()}
-                          onChange={(e) => setStartTolerance(Number(e.target.value))}
-                          label="Başlama Toleransı (dk)"
-                        >
-                          {[5, 10, 15, 20, 30, 45, 60].map((num) => (
-                            <MenuItem key={num} value={num}>{num} dakika</MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
+                    <Grid item xs={12}>
+                      <Typography variant="subtitle2" fontWeight="medium" gutterBottom>
+                        Yıllık Plan Tarihi
+                      </Typography>
+                      <Grid container spacing={2}>
+                        <Grid item xs={12} sm={4}>
+                          <FormControl fullWidth variant="outlined" size="small">
+                            <InputLabel>Yıl</InputLabel>
+                            <Select
+                              value={selectedYear.toString()}
+                              onChange={(e) => setSelectedYear(Number(e.target.value))}
+                              label="Yıl"
+                            >
+                              {Array.from(
+                                { length: 10 }, 
+                                (_, i) => new Date().getFullYear() + i
+                              ).map((year) => (
+                                <MenuItem key={year} value={year}>{year}</MenuItem>
+                              ))}
+                            </Select>
+                          </FormControl>
+                        </Grid>
+                        <Grid item xs={12} sm={8}>
+                          <TextField
+                            label="Tarih"
+                            type="date"
+                            value={`${selectedYear}-${yearDate}`}
+                            onChange={(e) => {
+                              // Tarihten sadece ay ve günü al
+                              const date = new Date(e.target.value);
+                              const month = (date.getMonth() + 1).toString().padStart(2, '0');
+                              const day = date.getDate().toString().padStart(2, '0');
+                              setYearDate(`${month}-${day}`);
+                            }}
+                            InputLabelProps={{ shrink: true }}
+                            fullWidth
+                            size="small"
+                          />
+                        </Grid>
+                      </Grid>
                     </Grid>
 
                     <Grid item xs={12}>
-                      <TextField
-                        label="Tekrar Saati"
-                        type="time"
-                        value={repetitionTimes[0]}
-                        onChange={(e) => handleTimeChange(0, e.target.value)}
-                        InputLabelProps={{ shrink: true }}
-                        inputProps={{ step: 300 }}
-                        fullWidth
-                        size="small"
-                      />
+                      <Paper 
+                        variant="outlined" 
+                        sx={{ p: 2, mt: 2, borderRadius: 1, borderColor: 'primary.light' }}
+                      >
+                        <Typography variant="subtitle1" color="primary" fontWeight="medium" gutterBottom>
+                          Yıllık Plan Görev Detayları
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" paragraph>
+                          Bu alana yıllık görevin ayrıntılarını ve planlama detaylarını girebilirsiniz.
+                        </Typography>
+                        <TextField
+                          label="Görev Detayları"
+                          multiline
+                          rows={4}
+                          fullWidth
+                          value={yearlyPlanDetails}
+                          onChange={(e) => setYearlyPlanDetails(e.target.value)}
+                          placeholder="Yıllık görev için planlama detaylarını girin..."
+                          variant="outlined"
+                          size="small"
+                        />
+                      </Paper>
                     </Grid>
                   </>
                 )}
