@@ -449,6 +449,25 @@ interface TasksProps {
   isManager?: boolean;
 }
 
+interface TaskData {
+  name: string;
+  description: string;
+  personnelId: string;
+  status: string;
+  isRecurring: boolean;
+  completionType: string;
+  createdAt: number;
+  repeatType?: string;
+  startTolerance?: number;
+  dailyRepetitions?: number;
+  repetitionTimes?: string[];
+  weekDays?: number[];
+  monthDay?: number;
+  yearDate?: string;
+  groupId?: string;
+  branchesId?: string;
+}
+
 const Tasks: React.FC<TasksProps> = ({ branchId, isManager = false }) => {
   // State tanımlamaları
   const [loading, setLoading] = useState(true);
@@ -1195,14 +1214,23 @@ const Tasks: React.FC<TasksProps> = ({ branchId, isManager = false }) => {
     completionType: string;
     isRecurring: boolean;
     repeatType: string;
-    dailyRepetitions: number;
+    dailyRepetitions?: number;
     startTolerance: number;
-    repetitionTimes: string[];
+    repetitionTimes?: string[];
     groupId?: string;
     weekDays?: number[];
     monthDay?: number;
     yearDate?: string;
     branchesId?: string; // Şube ID'si parametresi
+    monthlyData?: {
+      month: number;
+      monthName: string;
+      days: {
+        day: number;
+        dailyRepetitions: number;
+        repetitionTimes: string[];
+      }[];
+    }[];
   }) => {
     if (!companyId) {
       throw new Error('Şirket bilgisi bulunamadı');
@@ -1212,31 +1240,12 @@ const Tasks: React.FC<TasksProps> = ({ branchId, isManager = false }) => {
       console.log('Görev ekleme işlemi başladı:', taskData);
       
       // Firebase'de yeni görev referansı oluştur
-      const newTaskRef = ref(database, `companies/${companyId}/tasks`);
-      const newTaskKey = push(newTaskRef).key;
+      const tasksRef = ref(database, `companies/${companyId}/tasks`);
+      const newTaskRef = push(tasksRef);
+      const newTaskKey = newTaskRef.key;
       
       if (!newTaskKey) {
         throw new Error('Görev ID oluşturulamadı');
-      }
-      
-      // Görevi kaydet
-      interface TaskData {
-        name: string;
-        description: string;
-        personnelId: string;
-        status: string;
-        isRecurring: boolean;
-        completionType: string;
-        createdAt: number;
-        repeatType?: string;
-        dailyRepetitions?: number;
-        startTolerance?: number;
-        repetitionTimes?: string[];
-        groupId?: string;
-        weekDays?: number[];
-        monthDay?: number;
-        yearDate?: string;
-        branchesId?: string; // Şube ID'si 
       }
       
       const taskToSave: TaskData = {
@@ -1258,17 +1267,94 @@ const Tasks: React.FC<TasksProps> = ({ branchId, isManager = false }) => {
       // Tekrarlı görevleri ekle
       if (taskData.isRecurring) {
         taskToSave.repeatType = taskData.repeatType;
-        taskToSave.dailyRepetitions = taskData.dailyRepetitions;
         taskToSave.startTolerance = taskData.startTolerance;
-        taskToSave.repetitionTimes = taskData.repetitionTimes;
         
-        // Farklı tekrar tipleri için özel alanlar
-        if (taskData.repeatType === 'weekly' && taskData.weekDays) {
-          taskToSave.weekDays = taskData.weekDays;
-        } else if (taskData.repeatType === 'monthly' && taskData.monthDay) {
-          taskToSave.monthDay = taskData.monthDay;
-        } else if (taskData.repeatType === 'yearly' && taskData.yearDate) {
-          taskToSave.yearDate = taskData.yearDate;
+        // Aylık görevler için yeni formatta veri varsa
+        if (taskData.repeatType === 'monthly' && taskData.monthlyData) {
+          // MonthlyTasks koleksiyonuna veriyi ekle
+          const monthlyTasksRef = ref(database, `companies/${companyId}/monthlyTasks/${newTaskKey}`);
+          
+          // Ana görev verilerini monthlyTasks koleksiyonuna kaydet
+          interface MonthlyTaskData {
+            name: string;
+            description: string;
+            personnelId: string;
+            status: string;
+            completionType: string;
+            createdAt: number;
+            startTolerance: number;
+            groupId?: string;
+            branchesId?: string;
+          }
+          
+          const monthlyTaskToSave: MonthlyTaskData = {
+            name: taskData.name,
+            description: taskData.description,
+            personnelId: taskData.personnelId,
+            status: 'pending',
+            completionType: taskData.completionType,
+            createdAt: Date.now(),
+            startTolerance: taskData.startTolerance,
+          };
+          
+          // Şube ID'si varsa ekle
+          if (taskData.branchesId) {
+            monthlyTaskToSave.branchesId = taskData.branchesId;
+          }
+          
+          // Eğer görev grubu seçildiyse bunu da ekle
+          if (taskData.groupId) {
+            monthlyTaskToSave.groupId = taskData.groupId;
+          }
+          
+          // Ana görev verilerini kaydet
+          await set(monthlyTasksRef, monthlyTaskToSave);
+          console.log('Aylık görev ana verisi eklendi');
+          
+          // Her ay için veriyi ayarla
+          for (const monthData of taskData.monthlyData) {
+            // Her ay içindeki her gün için veriyi ayarla
+            for (const dayData of monthData.days) {
+              // Günlük tekrar bilgilerini ayarla
+              await set(
+                ref(database, `companies/${companyId}/monthlyTasks/${newTaskKey}/month${monthData.month}/day${dayData.day}`),
+                {
+                  dailyRepetitions: dayData.dailyRepetitions,
+                  repetitionTimes: dayData.repetitionTimes
+                }
+              );
+            }
+          }
+          
+          console.log('Aylık görev verileri kaydedildi');
+          
+          // Personelin görev durumunu güncelle
+          await update(ref(database, `companies/${companyId}/personnel/${taskData.personnelId}`), {
+            hasTask: true
+          });
+          
+          console.log('Personel görev durumu güncellendi');
+          return; // Aylık görevler için işlemi burada sonlandır, tasks koleksiyonuna kaydetme
+        } else {
+          // Eski formatta aylık görev
+          if (taskData.repeatType === 'monthly' && taskData.monthDay) {
+            taskToSave.monthDay = taskData.monthDay;
+          }
+          
+          // Diğer tekrar tipleri
+          if (taskData.dailyRepetitions) {
+            taskToSave.dailyRepetitions = taskData.dailyRepetitions;
+          }
+          
+          if (taskData.repetitionTimes) {
+            taskToSave.repetitionTimes = taskData.repetitionTimes;
+          }
+          
+          if (taskData.repeatType === 'weekly' && taskData.weekDays) {
+            taskToSave.weekDays = taskData.weekDays;
+          } else if (taskData.repeatType === 'yearly' && taskData.yearDate) {
+            taskToSave.yearDate = taskData.yearDate;
+          }
         }
       }
       
