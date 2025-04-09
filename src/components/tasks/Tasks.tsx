@@ -104,6 +104,7 @@ import * as ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import WeeklyTasks from './components/WeeklyTasks';
 import { MonthlyTasks } from './components';
+import { YearlyTasks } from './components';
 const uuidv4 = uuidModule.v4;
 
 // Kaydırılabilir ana içerik için styled component
@@ -1873,6 +1874,85 @@ const Tasks: React.FC<TasksProps> = ({ branchId, isManager = false }) => {
     }
   };
 
+  // Yıllık görev silme fonksiyonu
+  const handleDeleteYearlyTask = async (taskId: string, personnelId: string): Promise<void> => {
+    if (!companyId) {
+      throw new Error('Şirket bilgisi bulunamadı');
+    }
+
+    try {
+      console.log('Yıllık görev siliniyor. TaskId:', taskId);
+      
+      // Firebase'den görevi sil
+      await remove(ref(database, `companies/${companyId}/yearlyTasks/${taskId}`));
+      console.log('Yıllık görev başarıyla silindi');
+      
+      // Personelin diğer görevlerini kontrol et
+      const otherTasksSnapshot = await get(
+        ref(database, `companies/${companyId}/tasks`)
+      );
+      
+      const weeklyTasksSnapshot = await get(
+        ref(database, `companies/${companyId}/weeklyTasks`)
+      );
+      
+      const monthlyTasksSnapshot = await get(
+        ref(database, `companies/${companyId}/monthlyTasks`)
+      );
+      
+      const yearlyTasksSnapshot = await get(
+        ref(database, `companies/${companyId}/yearlyTasks`)
+      );
+      
+      let hasOtherTasks = false;
+      
+      // Normal görevleri kontrol et
+      if (otherTasksSnapshot.exists()) {
+        const tasksData = otherTasksSnapshot.val();
+        hasOtherTasks = Object.entries(tasksData).some(
+          ([id, data]: [string, any]) => data.personnelId === personnelId
+        );
+      }
+      
+      // Haftalık görevleri kontrol et
+      if (!hasOtherTasks && weeklyTasksSnapshot.exists()) {
+        const weeklyTasksData = weeklyTasksSnapshot.val();
+        hasOtherTasks = Object.entries(weeklyTasksData).some(
+          ([id, data]: [string, any]) => data.personnelId === personnelId
+        );
+      }
+      
+      // Kalan aylık görevleri kontrol et
+      if (!hasOtherTasks && monthlyTasksSnapshot.exists()) {
+        const monthlyTasksData = monthlyTasksSnapshot.val();
+        hasOtherTasks = Object.entries(monthlyTasksData).some(
+          ([id, data]: [string, any]) => id !== taskId && data.personnelId === personnelId
+        );
+      }
+      
+      // Kalan yıllık görevleri kontrol et
+      if (!hasOtherTasks && yearlyTasksSnapshot.exists()) {
+        const yearlyTasksData = yearlyTasksSnapshot.val();
+        hasOtherTasks = Object.entries(yearlyTasksData).some(
+          ([id, data]: [string, any]) => id !== taskId && data.personnelId === personnelId
+        );
+      }
+      
+      // Eğer başka görev yoksa personelin görev durumunu false yap
+      if (!hasOtherTasks) {
+        console.log('Personelin başka görevi yok, hasTask false yapılıyor');
+        await update(ref(database, `companies/${companyId}/personnel/${personnelId}`), {
+          hasTask: false
+        });
+      }
+      
+      console.log('Personel bilgisi güncellendi');
+    } catch (error) {
+      console.error('Yıllık görev silinirken hata:', error);
+      throw error;
+    }
+  };
+
   return (
     <ScrollableContent>
       <HeaderContainer>
@@ -2557,17 +2637,21 @@ const Tasks: React.FC<TasksProps> = ({ branchId, isManager = false }) => {
             </Box>
           </FilterContainer>
 
-          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
-            <Paper sx={{ p: 4, textAlign: 'center', maxWidth: 500 }}>
-              <YearIcon sx={{ fontSize: 60, color: 'primary.main', mb: 2 }} />
-              <Typography variant="h5" gutterBottom>
-                Yıllık Görevler
-              </Typography>
-              <Typography variant="body1" color="text.secondary" paragraph>
-                Bu bölüm yakında eklenecektir.
-              </Typography>
-            </Paper>
-          </Box>
+          <YearlyTasks
+            companyId={companyId}
+            statusFilter={statusFilter}
+            personnelFilter={personnelFilter}
+            taskSearchTerm={taskSearchTerm}
+            viewMode={viewMode}
+            personnel={personnel}
+            onShowTaskDetail={handleShowTaskDetail}
+            onOpenQrPrintModal={handleOpenQrPrintModal}
+            getStatusColor={getStatusColor}
+            getStatusIcon={getStatusIcon}
+            getStatusLabel={getStatusLabel}
+            getTaskTimeColor={getTaskTimeColor}
+            onDeleteTask={handleDeleteYearlyTask}
+          />
         </>
       )}
 
