@@ -1111,6 +1111,11 @@ const Tasks: React.FC<TasksProps> = ({ branchId, isManager = false }) => {
         return handleDeleteWeeklyTask(taskId, personnelId);
       }
       
+      // Eğer aylık görevse, aylık görev silme fonksiyonunu çağır
+      if (taskType === 'monthly') {
+        return handleDeleteMonthlyTask(taskId, personnelId);
+      }
+      
       // Normal görev silme işlemi
       await remove(ref(database, `companies/${companyId}/tasks/${taskId}`));
       console.log('Görev silindi');
@@ -1316,9 +1321,13 @@ const Tasks: React.FC<TasksProps> = ({ branchId, isManager = false }) => {
           for (const monthData of taskData.monthlyData) {
             // Her ay içindeki her gün için veriyi ayarla
             for (const dayData of monthData.days) {
+              // Ay ve gün değerlerini iki basamaklı formata dönüştür
+              const monthFormat = monthData.month.toString().padStart(2, '0'); 
+              const dayFormat = dayData.day.toString().padStart(2, '0');
+              
               // Günlük tekrar bilgilerini ayarla
               await set(
-                ref(database, `companies/${companyId}/monthlyTasks/${newTaskKey}/month${monthData.month}/day${dayData.day}`),
+                ref(database, `companies/${companyId}/monthlyTasks/${newTaskKey}/month${monthFormat}/day${dayFormat}`),
                 {
                   dailyRepetitions: dayData.dailyRepetitions,
                   repetitionTimes: dayData.repetitionTimes
@@ -1794,6 +1803,73 @@ const Tasks: React.FC<TasksProps> = ({ branchId, isManager = false }) => {
     if (newViewMode !== null) {
       setViewMode(newViewMode);
       localStorage.setItem('tasksViewMode', newViewMode);
+    }
+  };
+
+  // Aylık görev silme fonksiyonu
+  const handleDeleteMonthlyTask = async (taskId: string, personnelId: string): Promise<void> => {
+    if (!companyId) {
+      throw new Error('Şirket bilgisi bulunamadı');
+    }
+
+    try {
+      console.log('Aylık görev siliniyor. TaskId:', taskId);
+      
+      // Firebase'den görevi sil
+      await remove(ref(database, `companies/${companyId}/monthlyTasks/${taskId}`));
+      console.log('Aylık görev başarıyla silindi');
+      
+      // Personelin diğer görevlerini kontrol et
+      const otherTasksSnapshot = await get(
+        ref(database, `companies/${companyId}/tasks`)
+      );
+      
+      const weeklyTasksSnapshot = await get(
+        ref(database, `companies/${companyId}/weeklyTasks`)
+      );
+      
+      const monthlyTasksSnapshot = await get(
+        ref(database, `companies/${companyId}/monthlyTasks`)
+      );
+      
+      let hasOtherTasks = false;
+      
+      // Normal görevleri kontrol et
+      if (otherTasksSnapshot.exists()) {
+        const tasksData = otherTasksSnapshot.val();
+        hasOtherTasks = Object.entries(tasksData).some(
+          ([id, data]: [string, any]) => data.personnelId === personnelId
+        );
+      }
+      
+      // Haftalık görevleri kontrol et
+      if (!hasOtherTasks && weeklyTasksSnapshot.exists()) {
+        const weeklyTasksData = weeklyTasksSnapshot.val();
+        hasOtherTasks = Object.entries(weeklyTasksData).some(
+          ([id, data]: [string, any]) => data.personnelId === personnelId
+        );
+      }
+      
+      // Kalan aylık görevleri kontrol et
+      if (!hasOtherTasks && monthlyTasksSnapshot.exists()) {
+        const monthlyTasksData = monthlyTasksSnapshot.val();
+        hasOtherTasks = Object.entries(monthlyTasksData).some(
+          ([id, data]: [string, any]) => id !== taskId && data.personnelId === personnelId
+        );
+      }
+      
+      // Eğer başka görev yoksa personelin görev durumunu false yap
+      if (!hasOtherTasks) {
+        console.log('Personelin başka görevi yok, hasTask false yapılıyor');
+        await update(ref(database, `companies/${companyId}/personnel/${personnelId}`), {
+          hasTask: false
+        });
+      }
+      
+      console.log('Personel bilgisi güncellendi');
+    } catch (error) {
+      console.error('Aylık görev silinirken hata:', error);
+      throw error;
     }
   };
 
@@ -2403,7 +2479,7 @@ const Tasks: React.FC<TasksProps> = ({ branchId, isManager = false }) => {
             getStatusIcon={getStatusIcon}
             getStatusLabel={getStatusLabel}
             getTaskTimeColor={getTaskTimeColor}
-            onDeleteTask={handleDeleteTask}
+            onDeleteTask={handleDeleteMonthlyTask}
           />
         </>
       )}

@@ -22,12 +22,13 @@ import {
 import {
   Assignment as AssignmentIcon,
   Delete as DeleteIcon,
-  Print as PrintIcon,
+  QrCode2 as QrCodeIcon,
   Check as CheckIcon,
   Close as CloseIcon,
   HourglassEmpty as PendingIcon,
   Refresh as RefreshIcon,
-  CalendarMonth as MonthIcon
+  CalendarMonth as MonthIcon,
+  Visibility as VisibilityIcon
 } from '@mui/icons-material';
 import { database } from '../../../firebase';
 import { ref, get, onValue, off } from 'firebase/database';
@@ -124,6 +125,9 @@ const getTaskMonthDays = (task: any) => {
       }
       
       if (days.length > 0) {
+        // Günleri sayısal olarak sırala
+        days.sort((a, b) => a.day - b.day);
+        
         result.push({
           month: monthNumber,
           monthName,
@@ -132,6 +136,9 @@ const getTaskMonthDays = (task: any) => {
       }
     }
   }
+  
+  // Ayları sayısal olarak sırala
+  result.sort((a, b) => a.month - b.month);
   
   return result;
 };
@@ -181,7 +188,7 @@ const MonthlyTasksTable: React.FC<MonthlyTasksTableProps> = ({
             <TableCell>Aylar</TableCell>
             <TableCell>Günler / Saatler</TableCell>
             <TableCell width={70}>Tolerans</TableCell>
-            <TableCell>Sorumlu</TableCell>
+            <TableCell>Personel</TableCell>
             {statusFilter !== 'completed' && statusFilter !== 'missed' && (
               <TableCell align="right" width={100}>İşlemler</TableCell>
             )}
@@ -291,23 +298,19 @@ const MonthlyTasksTable: React.FC<MonthlyTasksTableProps> = ({
                     onClick={(e) => onOpenQrPrintModal(task, e)}
                     sx={{ mr: 1, color: 'primary.main' }}
                   >
-                    <PrintIcon fontSize="small" />
+                    <QrCodeIcon fontSize="small" />
                   </IconButton>
                   
-                  {onDeleteTask && (
-                    <IconButton
-                      size="small"
-                      color="error"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (window.confirm('Bu görevi silmek istediğinize emin misiniz?')) {
-                          onDeleteTask(task.id, task.personnelId);
-                        }
-                      }}
-                    >
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  )}
+                  <IconButton
+                    size="small"
+                    color="info"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onShowTaskDetail(task);
+                    }}
+                  >
+                    <VisibilityIcon fontSize="small" />
+                  </IconButton>
                 </TableCell>
               )}
             </TableRow>
@@ -351,7 +354,7 @@ const CompletedMonthlyTasksTable: React.FC<{
             <TableCell>Görev</TableCell>
             <TableCell>Aylar</TableCell>
             <TableCell>Tamamlanan Zaman</TableCell>
-            <TableCell>Sorumlu</TableCell>
+            <TableCell>Personel</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -951,7 +954,7 @@ const MonthlyTasks: React.FC<MonthlyTasksProps> = ({
 
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Typography variant="body2">
-                      <b>Sorumlu:</b> {task.personnelName}
+                      <b>Personel:</b> {task.personnelName}
                     </Typography>
                     
                     <Box>
@@ -965,23 +968,19 @@ const MonthlyTasks: React.FC<MonthlyTasksProps> = ({
                             }}
                             sx={{ mr: 1, color: 'primary.main' }}
                           >
-                            <PrintIcon fontSize="small" />
+                            <QrCodeIcon fontSize="small" />
                           </IconButton>
                           
-                          {onDeleteTask && (
-                            <IconButton
-                              size="small"
-                              color="error"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (window.confirm('Bu görevi silmek istediğinize emin misiniz?')) {
-                                  onDeleteTask(task.id, task.personnelId);
-                                }
-                              }}
-                            >
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                          )}
+                          <IconButton
+                            size="small"
+                            color="info"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onShowTaskDetail(task);
+                            }}
+                          >
+                            <VisibilityIcon fontSize="small" />
+                          </IconButton>
                         </>
                       )}
                     </Box>
