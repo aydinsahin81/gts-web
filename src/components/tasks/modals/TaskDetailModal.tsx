@@ -19,13 +19,16 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  SelectChangeEvent
+  SelectChangeEvent,
+  TextField,
+  Autocomplete
 } from '@mui/material';
 import {
   Close as CloseIcon,
   Delete as DeleteIcon,
   Person as PersonIcon,
-  SwapHoriz as SwapHorizIcon
+  SwapHoriz as SwapHorizIcon,
+  Search as SearchIcon
 } from '@mui/icons-material';
 
 interface TaskDetailModalProps {
@@ -59,6 +62,8 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   const [personnelChangeOpen, setPersonnelChangeOpen] = useState(false);
   const [selectedPersonnelId, setSelectedPersonnelId] = useState('');
   const [isChangingPersonnel, setIsChangingPersonnel] = useState(false);
+  const [personnelSearchTerm, setPersonnelSearchTerm] = useState('');
+  const [selectedPersonnel, setSelectedPersonnel] = useState<any | null>(null);
 
   const handleDelete = async () => {
     if (!task || !onDelete) return;
@@ -78,8 +83,14 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     }
   };
 
-  const handlePersonnelChange = (event: SelectChangeEvent) => {
-    setSelectedPersonnelId(event.target.value);
+  const handlePersonnelChange = (_event: React.SyntheticEvent, newValue: any) => {
+    if (newValue) {
+      setSelectedPersonnelId(newValue.id);
+      setSelectedPersonnel(newValue);
+    } else {
+      setSelectedPersonnelId('');
+      setSelectedPersonnel(null);
+    }
   };
 
   const handlePersonnelChangeSubmit = async () => {
@@ -98,6 +109,14 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
       setIsChangingPersonnel(false);
     }
   };
+
+  // Personel değiştirme modalı açıldığında mevcut personeli seç
+  React.useEffect(() => {
+    if (personnelChangeOpen && task) {
+      setSelectedPersonnelId(task.personnelId);
+      setSelectedPersonnel(personnel.find(p => p.id === task.personnelId) || null);
+    }
+  }, [personnelChangeOpen, task, personnel]);
 
   if (!task) return null;
 
@@ -334,21 +353,39 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
           <Typography sx={{ mb: 2 }}>
             "{task.name}" görevi için yeni bir personel seçin.
           </Typography>
-          <FormControl fullWidth>
-            <InputLabel>Personel</InputLabel>
-            <Select
-              value={selectedPersonnelId}
-              label="Personel"
-              onChange={handlePersonnelChange}
-              size="small"
-            >
-              {personnel.map((person) => (
-                <MenuItem key={person.id} value={person.id}>
-                  {person.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          <Autocomplete
+            id="personnel-select"
+            options={personnel}
+            getOptionLabel={(option) => option.name}
+            value={selectedPersonnel}
+            onChange={handlePersonnelChange}
+            isOptionEqualToValue={(option, value) => option.id === value.id}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Personel Ara"
+                variant="outlined"
+                size="small"
+                fullWidth
+                InputProps={{
+                  ...params.InputProps,
+                  startAdornment: (
+                    <>
+                      <SearchIcon color="action" fontSize="small" sx={{ mr: 1 }} />
+                      {params.InputProps.startAdornment}
+                    </>
+                  ),
+                }}
+              />
+            )}
+            noOptionsText="Personel bulunamadı"
+            filterOptions={(options, state) => {
+              const inputValue = state.inputValue.toLowerCase().trim();
+              return options.filter(option => 
+                option.name.toLowerCase().includes(inputValue)
+              );
+            }}
+          />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setPersonnelChangeOpen(false)}>İptal</Button>

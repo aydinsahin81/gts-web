@@ -24,7 +24,7 @@ import {
   Delete as DeleteIcon,
   Assignment as AssignmentIcon
 } from '@mui/icons-material';
-import { ref, get } from 'firebase/database';
+import { ref, get, onValue, off } from 'firebase/database';
 import { database } from '../../../firebase';
 
 interface YearlyTasksProps {
@@ -68,23 +68,30 @@ const YearlyTasks: React.FC<YearlyTasksProps> = ({
     const loadBranches = async () => {
       if (!companyId) return;
       
-      try {
-        const branchesRef = ref(database, `companies/${companyId}/branches`);
-        const branchesSnapshot = await get(branchesRef);
-        
-        if (branchesSnapshot.exists()) {
-          const branchesData = branchesSnapshot.val();
-          const branchesMap: {[key: string]: string} = {};
-          
-          Object.entries(branchesData).forEach(([id, data]: [string, any]) => {
-            branchesMap[id] = data.name || 'İsimsiz Şube';
-          });
-          
-          setBranches(branchesMap);
+      const branchesRef = ref(database, `companies/${companyId}/branches`);
+      
+      // Realtime listener ekle
+      const branchesListener = onValue(branchesRef, (snapshot) => {
+        try {
+          if (snapshot.exists()) {
+            const branchesData = snapshot.val();
+            const branchesMap: {[key: string]: string} = {};
+            
+            Object.entries(branchesData).forEach(([id, data]: [string, any]) => {
+              branchesMap[id] = data.name || 'İsimsiz Şube';
+            });
+            
+            setBranches(branchesMap);
+          }
+        } catch (error) {
+          console.error('Şubeler yüklenirken hata:', error);
         }
-      } catch (error) {
-        console.error('Şubeler yüklenirken hata:', error);
-      }
+      });
+      
+      // Cleanup
+      return () => {
+        off(branchesRef, 'value', branchesListener);
+      };
     };
     
     loadBranches();
@@ -92,22 +99,22 @@ const YearlyTasks: React.FC<YearlyTasksProps> = ({
 
   // Verileri yükle
   useEffect(() => {
-    const loadYearlyTasks = async () => {
-      if (!companyId) {
-        setLoading(false);
-        return;
-      }
-      
-      setLoading(true);
-      setError(null);
-      
+    if (!companyId) {
+      setLoading(false);
+      return () => {};
+    }
+    
+    setLoading(true);
+    setError(null);
+    
+    // Yıllık görevlerin referansı
+    const yearlyTasksRef = ref(database, `companies/${companyId}/yearlyTasks`);
+    
+    // Realtime listener ekle
+    const tasksListener = onValue(yearlyTasksRef, (snapshot) => {
       try {
-        // Yıllık görevleri al
-        const yearlyTasksRef = ref(database, `companies/${companyId}/yearlyTasks`);
-        const yearlyTasksSnapshot = await get(yearlyTasksRef);
-        
-        if (yearlyTasksSnapshot.exists()) {
-          const yearlyTasksData = yearlyTasksSnapshot.val();
+        if (snapshot.exists()) {
+          const yearlyTasksData = snapshot.val();
           
           // Veriyi diziye dönüştür ve ID ekle
           const yearlyTasksArray = Object.entries(yearlyTasksData).map(([id, data]: [string, any]) => ({
@@ -126,9 +133,16 @@ const YearlyTasks: React.FC<YearlyTasksProps> = ({
       } finally {
         setLoading(false);
       }
-    };
+    }, (error) => {
+      console.error('Veri dinleme hatası:', error);
+      setError('Veri dinlenirken bir hata oluştu');
+      setLoading(false);
+    });
     
-    loadYearlyTasks();
+    // Cleanup
+    return () => {
+      off(yearlyTasksRef);
+    };
   }, [companyId]);
 
   // Görevleri filtrele
@@ -407,8 +421,9 @@ const YearlyTasks: React.FC<YearlyTasksProps> = ({
                       sx={{ 
                         overflow: 'hidden', 
                         textOverflow: 'ellipsis', 
-                        whiteSpace: 'nowrap',
-                        maxWidth: '250px' 
+                        whiteSpace: 'normal',
+                        maxWidth: '250px',
+                        maxHeight: '100px'
                       }}
                     >
                       {task.yearlyPlanDetails || '-'}

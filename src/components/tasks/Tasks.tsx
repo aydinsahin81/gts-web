@@ -83,7 +83,8 @@ import {
   DateRange as WeekIcon,
   CalendarMonth as MonthIcon,
   CalendarToday as YearIcon,
-  Business as BusinessIcon
+  Business as BusinessIcon,
+  FilterList as FilterListIcon
 } from '@mui/icons-material';
 import { ref, get, onValue, off, remove, update, push, set } from 'firebase/database';
 import { database, auth } from '../../firebase';
@@ -109,7 +110,7 @@ const uuidv4 = uuidModule.v4;
 
 // Kaydırılabilir ana içerik için styled component
 const ScrollableContent = styled(Box)(({ theme }) => ({
-  padding: theme.spacing(3),
+  padding: 0, // Tüm padding'i kaldırıyoruz
   overflowY: 'auto',
   height: 'calc(100vh - 64px)', // Header yüksekliğini çıkarıyoruz
   '&::-webkit-scrollbar': {
@@ -159,7 +160,20 @@ const HeaderContainer = styled(Box)(({ theme }) => ({
   display: 'flex',
   justifyContent: 'space-between',
   alignItems: 'center',
-  marginBottom: theme.spacing(3),
+  margin: 0,
+  padding: theme.spacing(0, 3),
+  backgroundColor: theme.palette.background.paper,
+  borderBottom: '1px solid rgba(0, 0, 0, 0.08)',
+  boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+  position: 'sticky',
+  top: 0,
+  zIndex: 10,
+  height: '60px', // Sabit yükseklik 
+}));
+
+// Tüm sayfa içerik alanı için container
+const ContentContainer = styled(Box)(({ theme }) => ({
+  padding: theme.spacing(0, 3, 3, 3), // Sadece yanlarda ve altta padding
 }));
 
 // İnce görev kartı için styled component
@@ -500,6 +514,7 @@ const Tasks: React.FC<TasksProps> = ({ branchId, isManager = false }) => {
   const [taskType, setTaskType] = useState<string>('daily');
   // Şube bilgisi state'i
   const [branches, setBranches] = useState<{[key: string]: string}>({});
+  const [showFilters, setShowFilters] = useState(false); // Filtre görünürlüğü için yeni state
 
   // Görünüm modunu localStorage'dan yükle
   useEffect(() => {
@@ -1956,10 +1971,10 @@ const Tasks: React.FC<TasksProps> = ({ branchId, isManager = false }) => {
   return (
     <ScrollableContent>
       <HeaderContainer>
-        <Typography variant="h4" component="h1" fontWeight="bold" color="primary">
+        <Typography variant="h4" component="h1" fontWeight="bold" color="primary" sx={{ py: 1 }}>
           {isManager ? 'Şube Görevleri' : 'Görevler'}
         </Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
           <ToggleButtonGroup
             value={viewMode}
             exclusive
@@ -1994,6 +2009,7 @@ const Tasks: React.FC<TasksProps> = ({ branchId, isManager = false }) => {
             startIcon={<DownloadIcon />}
             onClick={exportToExcel}
             disabled={loading || filteredTasks.length === 0}
+            size="small"
           >
             Excel İndir
           </Button>
@@ -2019,7 +2035,7 @@ const Tasks: React.FC<TasksProps> = ({ branchId, isManager = false }) => {
       </HeaderContainer>
 
       {/* Görev Tipi Sekmeleri */}
-      <Box sx={{ mb: 3 }}>
+      <Box sx={{ mb: showFilters ? 1 : 2 }}>
         <Tabs 
           value={taskType} 
           onChange={handleTaskTypeChange} 
@@ -2062,109 +2078,124 @@ const Tasks: React.FC<TasksProps> = ({ branchId, isManager = false }) => {
       {/* Günlük Görevler İçeriği */}
       {taskType === 'daily' && (
         <>
-          <FilterContainer>
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-              <FormControl sx={{ minWidth: 200, flex: 1 }}>
-                <InputLabel>Durum</InputLabel>
-                <Select
-                  value={statusFilter}
-                  label="Durum"
-                  onChange={handleStatusFilterChange}
-                  size="small"
-                >
-                  {statusOptions.map((option) => (
-                    <MenuItem key={option.value} value={option.value}>
-                      {option.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-                <TextField
-                  size="small"
-                  placeholder="Görev Ara..."
-                  value={taskSearchTerm}
-                  onChange={(e) => setTaskSearchTerm(e.target.value)}
-                  sx={{ mt: 1 }}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <SearchIcon fontSize="small" />
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-              </FormControl>
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 0.5 }}>
+            <Button 
+              variant="outlined" 
+              color="primary" 
+              size="small"
+              startIcon={<FilterListIcon />}
+              onClick={() => setShowFilters(!showFilters)}
+              sx={{ borderRadius: 2, py: 0.5 }}
+            >
+              {showFilters ? 'Filtreleri Gizle' : 'Filtreleri Göster'}
+            </Button>
+          </Box>
+          
+          <Collapse in={showFilters}>
+            <FilterContainer>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                <FormControl sx={{ minWidth: 200, flex: 1 }}>
+                  <InputLabel>Durum</InputLabel>
+                  <Select
+                    value={statusFilter}
+                    label="Durum"
+                    onChange={handleStatusFilterChange}
+                    size="small"
+                  >
+                    {statusOptions.map((option) => (
+                      <MenuItem key={option.value} value={option.value}>
+                        {option.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                  <TextField
+                    size="small"
+                    placeholder="Görev Ara..."
+                    value={taskSearchTerm}
+                    onChange={(e) => setTaskSearchTerm(e.target.value)}
+                    sx={{ mt: 1 }}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <SearchIcon fontSize="small" />
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                </FormControl>
 
-              <FormControl sx={{ minWidth: 200, flex: 1 }}>
-                <Autocomplete
-                  size="small"
-                  options={personnel}
-                  getOptionLabel={(option) => option.name || ''}
-                  value={personnel.find(p => p.id === personnelFilter) || null}
-                  onChange={(event, newValue) => {
-                    setPersonnelFilter(newValue?.id || 'all');
-                  }}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      placeholder="Personel Ara..."
-                      InputProps={{
-                        ...params.InputProps,
-                        startAdornment: (
-                          <InputAdornment position="start">
-                            <SearchIcon fontSize="small" />
-                          </InputAdornment>
-                        ),
-                      }}
-                    />
-                  )}
-                  renderOption={(props, option) => (
-                    <MenuItem {...props}>
-                      {option.name}
-                    </MenuItem>
-                  )}
-                  isOptionEqualToValue={(option, value) => option.id === value.id}
-                  noOptionsText="Personel bulunamadı"
-                  clearText="Tümünü Temizle"
-                  openText="Aç"
-                  closeText="Kapat"
-                />
-                
-                {/* Grup Filtresi */}
-                <Autocomplete
-                  size="small"
-                  options={taskGroups}
-                  getOptionLabel={(option) => option.name || ''}
-                  value={taskGroups.find(g => g.id === groupFilter) || null}
-                  onChange={handleGroupFilterChange}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      placeholder="Grup Filtrele..."
-                      sx={{ mt: 1 }}
-                      InputProps={{
-                        ...params.InputProps,
-                        startAdornment: (
-                          <InputAdornment position="start">
-                            <CategoryIcon fontSize="small" />
-                          </InputAdornment>
-                        ),
-                      }}
-                    />
-                  )}
-                  renderOption={(props, option) => (
-                    <MenuItem {...props}>
-                      {option.name}
-                    </MenuItem>
-                  )}
-                  isOptionEqualToValue={(option, value) => option.id === value.id}
-                  noOptionsText="Grup bulunamadı"
-                  clearText="Tümünü Temizle"
-                  openText="Aç"
-                  closeText="Kapat"
-                />
-              </FormControl>
-            </Box>
-          </FilterContainer>
+                <FormControl sx={{ minWidth: 200, flex: 1 }}>
+                  <Autocomplete
+                    size="small"
+                    options={personnel}
+                    getOptionLabel={(option) => option.name || ''}
+                    value={personnel.find(p => p.id === personnelFilter) || null}
+                    onChange={(event, newValue) => {
+                      setPersonnelFilter(newValue?.id || 'all');
+                    }}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        placeholder="Personel Ara..."
+                        InputProps={{
+                          ...params.InputProps,
+                          startAdornment: (
+                            <InputAdornment position="start">
+                              <SearchIcon fontSize="small" />
+                            </InputAdornment>
+                          ),
+                        }}
+                      />
+                    )}
+                    renderOption={(props, option) => (
+                      <MenuItem {...props}>
+                        {option.name}
+                      </MenuItem>
+                    )}
+                    isOptionEqualToValue={(option, value) => option.id === value.id}
+                    noOptionsText="Personel bulunamadı"
+                    clearText="Tümünü Temizle"
+                    openText="Aç"
+                    closeText="Kapat"
+                  />
+                  
+                  {/* Grup Filtresi */}
+                  <Autocomplete
+                    size="small"
+                    options={taskGroups}
+                    getOptionLabel={(option) => option.name || ''}
+                    value={taskGroups.find(g => g.id === groupFilter) || null}
+                    onChange={handleGroupFilterChange}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        placeholder="Grup Filtrele..."
+                        sx={{ mt: 1 }}
+                        InputProps={{
+                          ...params.InputProps,
+                          startAdornment: (
+                            <InputAdornment position="start">
+                              <CategoryIcon fontSize="small" />
+                            </InputAdornment>
+                          ),
+                        }}
+                      />
+                    )}
+                    renderOption={(props, option) => (
+                      <MenuItem {...props}>
+                        {option.name}
+                      </MenuItem>
+                    )}
+                    isOptionEqualToValue={(option, value) => option.id === value.id}
+                    noOptionsText="Grup bulunamadı"
+                    clearText="Tümünü Temizle"
+                    openText="Aç"
+                    closeText="Kapat"
+                  />
+                </FormControl>
+              </Box>
+            </FilterContainer>
+          </Collapse>
 
           {loading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
