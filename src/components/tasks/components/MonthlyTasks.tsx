@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -321,49 +321,67 @@ const MonthlyTasksTable: React.FC<MonthlyTasksTableProps> = ({
   );
 };
 
-// Tamamlanan Aylık Görevler Tablosu
+// Tamamlanan aylık görevler için tablo bileşeni
 const CompletedMonthlyTasksTable: React.FC<{
   tasks: any[];
-  onShowTaskDetail: (task: any) => void;
   getStatusColor: (status: string) => string;
   getStatusIcon: (status: string) => React.ReactNode;
   getStatusLabel: (status: string) => string;
+  tableTitle?: string;
 }> = ({
   tasks,
-  onShowTaskDetail,
   getStatusColor,
   getStatusIcon,
-  getStatusLabel
+  getStatusLabel,
+  tableTitle = "Tamamlanan Görevler"
 }) => {
-  if (tasks.length === 0) {
-    return (
-      <Box sx={{ textAlign: 'center', py: 4 }}>
-        <Typography variant="body1" color="textSecondary">
-          Tamamlanan görev bulunamadı
-        </Typography>
-      </Box>
-    );
-  }
+  // Tarihi formatlama fonksiyonu
+  const formatTimestamp = (timestamp: number) => {
+    if (!timestamp) return '-';
+    const date = new Date(timestamp);
+    return date.toLocaleString('tr-TR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  };
 
   return (
-    <TableContainer component={Paper} sx={{ borderRadius: 2, boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
-      <Table size="small">
+    <TableContainer component={Paper} sx={{ 
+      mt: 2, 
+      boxShadow: '0 2px 10px rgba(0, 0, 0, 0.05)',
+      borderRadius: 2,
+      maxHeight: 'calc(100vh - 240px)',
+      overflowY: 'auto'
+    }}>
+      <Table size="small" stickyHeader>
         <TableHead>
-          <TableRow sx={{ bgcolor: 'background.paper' }}>
-            <TableCell width={50}>#</TableCell>
-            <TableCell>Görev</TableCell>
-            <TableCell>Aylar</TableCell>
-            <TableCell>Tamamlanan Zaman</TableCell>
-            <TableCell>Personel</TableCell>
+          <TableRow>
+            <TableCell width="5%">Durum</TableCell>
+            <TableCell width="15%">Görev Adı</TableCell>
+            <TableCell width="10%">Görev Günü</TableCell>
+            <TableCell width="10%">Görev Saati</TableCell>
+            <TableCell width="10%">Tolerans</TableCell>
+            <TableCell width="15%">Personel</TableCell>
+            {tableTitle === "Tamamlanan Görevler" ? (
+              <>
+                <TableCell width="15%">Başlama Zamanı</TableCell>
+                <TableCell width="15%">Bitiş Zamanı</TableCell>
+              </>
+            ) : (
+              <TableCell width="30%">Kaçırılma Zamanı</TableCell>
+            )}
           </TableRow>
         </TableHead>
         <TableBody>
           {tasks.map((task) => (
             <TableRow 
               key={task.id} 
-              hover 
-              onClick={() => onShowTaskDetail(task)} 
-              sx={{ cursor: 'pointer' }}
+              hover
+              sx={{ cursor: 'default' }}
             >
               <TableCell>
                 <Avatar
@@ -381,45 +399,76 @@ const CompletedMonthlyTasksTable: React.FC<{
                 <Typography variant="body2" fontWeight="medium">
                   {task.name}
                 </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {task.description}
+              </TableCell>
+              <TableCell>
+                <Typography variant="body2">
+                  {task.taskDate || '-'}
                 </Typography>
               </TableCell>
               <TableCell>
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                  {getTaskMonthDays(task).map((month) => (
-                    <Chip
-                      key={month.month}
-                      label={month.monthName}
-                      size="small"
-                      icon={<MonthIcon style={{ fontSize: 16 }} />}
-                      sx={{ 
-                        height: 20, 
-                        fontSize: '0.7rem', 
-                        bgcolor: 'info.50', 
-                        color: 'info.main'
-                      }}
-                    />
-                  ))}
-                </Box>
+                <TaskTimeChip
+                  label={task.taskTime || '-'}
+                  size="small"
+                  status={task.status === 'completed' ? "completed" : "missed"}
+                />
               </TableCell>
               <TableCell>
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <CheckIcon sx={{ color: 'success.main', fontSize: 16, mr: 0.5 }} />
-                  <Typography variant="body2">
-                    {task.completedAtFormatted}
+                <Chip 
+                  label={`${task.startTolerance || 15} dk`}
+                  size="small"
+                  sx={{ 
+                    height: 20, 
+                    fontSize: '0.7rem', 
+                    bgcolor: 'primary.50', 
+                    color: 'primary.main'
+                  }}
+                />
+              </TableCell>
+              <TableCell>
+                <Typography variant="body2" color={task.personnelName ? 'text.secondary' : 'error'} sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center',
+                  fontSize: '0.8rem'
+                }}>
+                  <Avatar sx={{ width: 24, height: 24, fontSize: '0.8rem', mr: 1 }}>
+                    {task.personnelName ? task.personnelName.charAt(0) : '-'}
+                  </Avatar>
+                  {task.personnelName || 'Atanmamış'}
+                </Typography>
+              </TableCell>
+              {tableTitle === "Tamamlanan Görevler" ? (
+                <>
+                  <TableCell>
+                    <Typography variant="body2" color="text.secondary" fontSize="0.8rem">
+                      {formatTimestamp(task.startedAt)}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2" color="success.main" fontSize="0.8rem" fontWeight="medium">
+                      {formatTimestamp(task.completedAt)}
+                    </Typography>
+                  </TableCell>
+                </>
+              ) : (
+                <TableCell>
+                  <Typography variant="body2" color="error.main" fontSize="0.8rem" fontWeight="medium">
+                    {formatTimestamp(task.missedAt)}
                   </Typography>
-                </Box>
-              </TableCell>
-              <TableCell>
-                {task.personnelName ? (
-                  <Typography variant="body2">{task.personnelName}</Typography>
-                ) : (
-                  <Typography variant="body2" color="text.secondary">Personel silinmiş</Typography>
-                )}
-              </TableCell>
+                </TableCell>
+              )}
             </TableRow>
           ))}
+          {tasks.length === 0 && (
+            <TableRow>
+              <TableCell colSpan={tableTitle === "Tamamlanan Görevler" ? 8 : 7} align="center" sx={{ py: 3 }}>
+                <Typography color="text.secondary">
+                  {tableTitle === "Tamamlanan Görevler" 
+                    ? "Tamamlanan görev bulunamadı" 
+                    : "Kaçırılan görev bulunamadı"}
+                </Typography>
+              </TableCell>
+            </TableRow>
+          )}
         </TableBody>
       </Table>
     </TableContainer>
@@ -510,32 +559,35 @@ const MonthlyTasks: React.FC<MonthlyTasksProps> = ({
       // Tamamlanmış Aylık Görevleri İşle
       if (completedMonthlyTasksSnapshot.exists()) {
         const completedTasksData = completedMonthlyTasksSnapshot.val();
-        const completedTasksList = Object.entries(completedTasksData).map(([taskId, datesData]: [string, any]) => {
-          // En son tamamlanan görevi bul
-          let latestCompletedTask = null;
-          let latestTimestamp = 0;
-          
-          Object.entries(datesData).forEach(([dateKey, timesData]: [string, any]) => {
-            Object.entries(timesData).forEach(([timeKey, taskData]: [string, any]) => {
-              if (taskData.completedAt && taskData.completedAt > latestTimestamp) {
-                latestTimestamp = taskData.completedAt;
-                latestCompletedTask = {
-                  id: taskId,
-                  ...taskData,
-                  completedAtFormatted: dayjs(taskData.completedAt).format('DD.MM.YYYY HH:mm'),
-                  personnelName: personnelMap[taskData.personnelId]?.name || 'Personel Bulunamadı'
-                };
-              }
+        const completedTasksList: any[] = [];
+        
+        // Tamamlanan görevleri düz bir diziye çevir
+        Object.entries(completedTasksData).forEach(([taskId, datesData]: [string, any]) => {
+          Object.entries(datesData).forEach(([date, timesData]: [string, any]) => {
+            Object.entries(timesData).forEach(([time, taskData]: [string, any]) => {
+              completedTasksList.push({
+                id: `${taskId}_${date}_${time}`, // Benzersiz ID oluştur
+                taskId: taskId, // Ana görevin ID'si
+                name: taskData.taskName || 'İsimsiz Görev',
+                description: taskData.taskDescription || '',
+                status: 'completed',
+                taskDate: date,
+                taskTime: time,
+                startedAt: taskData.startedAt,
+                completedAt: taskData.completedAt,
+                personnelId: taskData.personnelId || '',
+                personnelName: taskData.personnelFirstName ? 
+                  `${taskData.personnelFirstName} ${taskData.personnelLastName || ''}` : 
+                  personnelMap[taskData.personnelId]?.name || personnelFromDb[taskData.personnelId]?.name || 'Atanmamış',
+                startTolerance: taskData.startTolerance || 15,
+                fromDatabase: true // Veritabanından gelen bir görev olduğunu işaretle
+              });
             });
           });
-          
-          return latestCompletedTask;
-        }).filter(Boolean) as any[];
+        });
         
-        setCompletedMonthlyTasks(completedTasksList.sort((a, b) => {
-          if (!a || !b) return 0;
-          return b.completedAt - a.completedAt;
-        }));
+        // Görevleri tamamlanma zamanına göre sırala (yeniden eskiye)
+        setCompletedMonthlyTasks(completedTasksList.sort((a, b) => b.completedAt - a.completedAt));
       } else {
         setCompletedMonthlyTasks([]);
       }
@@ -543,32 +595,34 @@ const MonthlyTasks: React.FC<MonthlyTasksProps> = ({
       // Kaçırılmış Aylık Görevleri İşle
       if (missedMonthlyTasksSnapshot.exists()) {
         const missedTasksData = missedMonthlyTasksSnapshot.val();
-        const missedTasksList = Object.entries(missedTasksData).map(([taskId, datesData]: [string, any]) => {
-          // En son kaçırılan görevi bul
-          let latestMissedTask = null;
-          let latestTimestamp = 0;
-          
-          Object.entries(datesData).forEach(([dateKey, timesData]: [string, any]) => {
-            Object.entries(timesData).forEach(([timeKey, taskData]: [string, any]) => {
-              if (taskData.missedAt && taskData.missedAt > latestTimestamp) {
-                latestTimestamp = taskData.missedAt;
-                latestMissedTask = {
-                  id: taskId,
-                  ...taskData,
-                  missedAtFormatted: dayjs(taskData.missedAt).format('DD.MM.YYYY HH:mm'),
-                  personnelName: personnelMap[taskData.personnelId]?.name || 'Personel Bulunamadı'
-                };
-              }
+        const missedTasksList: any[] = [];
+        
+        // Kaçırılan görevleri düz bir diziye çevir
+        Object.entries(missedTasksData).forEach(([taskId, datesData]: [string, any]) => {
+          Object.entries(datesData).forEach(([date, timesData]: [string, any]) => {
+            Object.entries(timesData).forEach(([time, taskData]: [string, any]) => {
+              missedTasksList.push({
+                id: `${taskId}_${date}_${time}`, // Benzersiz ID oluştur
+                taskId: taskId, // Ana görevin ID'si
+                name: taskData.taskName || 'İsimsiz Görev',
+                description: taskData.taskDescription || '',
+                status: 'missed',
+                taskDate: date,
+                taskTime: time,
+                missedAt: taskData.missedAt,
+                personnelId: taskData.personnelId || '',
+                personnelName: taskData.personnelFullName || 
+                  personnelMap[taskData.personnelId]?.name || 
+                  personnelFromDb[taskData.personnelId]?.name || 'Atanmamış',
+                startTolerance: taskData.startTolerance || 15,
+                fromDatabase: true // Veritabanından gelen bir görev olduğunu işaretle
+              });
             });
           });
-          
-          return latestMissedTask;
-        }).filter(Boolean) as any[];
+        });
         
-        setMissedMonthlyTasks(missedTasksList.sort((a, b) => {
-          if (!a || !b) return 0; 
-          return b.missedAt - a.missedAt;
-        }));
+        // Görevleri kaçırılma zamanına göre sırala (yeniden eskiye)
+        setMissedMonthlyTasks(missedTasksList.sort((a, b) => b.missedAt - a.missedAt));
       } else {
         setMissedMonthlyTasks([]);
       }
@@ -610,32 +664,35 @@ const MonthlyTasks: React.FC<MonthlyTasksProps> = ({
           return acc;
         }, {});
         
-        const completedTasksList = Object.entries(completedTasksData).map(([taskId, datesData]: [string, any]) => {
-          // En son tamamlanan görevi bul
-          let latestCompletedTask = null;
-          let latestTimestamp = 0;
-          
-          Object.entries(datesData).forEach(([dateKey, timesData]: [string, any]) => {
-            Object.entries(timesData).forEach(([timeKey, taskData]: [string, any]) => {
-              if (taskData.completedAt && taskData.completedAt > latestTimestamp) {
-                latestTimestamp = taskData.completedAt;
-                latestCompletedTask = {
-                  id: taskId,
-                  ...taskData,
-                  completedAtFormatted: dayjs(taskData.completedAt).format('DD.MM.YYYY HH:mm'),
-                  personnelName: personnelMap[taskData.personnelId]?.name || 'Personel Bulunamadı'
-                };
-              }
+        const realTimeCompletedTasksList: any[] = [];
+        
+        // Tamamlanan görevleri düz bir diziye çevir
+        Object.entries(completedTasksData).forEach(([taskId, datesData]: [string, any]) => {
+          Object.entries(datesData).forEach(([date, timesData]: [string, any]) => {
+            Object.entries(timesData).forEach(([time, taskData]: [string, any]) => {
+              realTimeCompletedTasksList.push({
+                id: `${taskId}_${date}_${time}`, // Benzersiz ID oluştur
+                taskId: taskId, // Ana görevin ID'si
+                name: taskData.taskName || 'İsimsiz Görev',
+                description: taskData.taskDescription || '',
+                status: 'completed',
+                taskDate: date,
+                taskTime: time,
+                startedAt: taskData.startedAt,
+                completedAt: taskData.completedAt,
+                personnelId: taskData.personnelId || '',
+                personnelName: taskData.personnelFirstName ? 
+                  `${taskData.personnelFirstName} ${taskData.personnelLastName || ''}` : 
+                  personnelMap[taskData.personnelId]?.name || 'Atanmamış',
+                startTolerance: taskData.startTolerance || 15,
+                fromDatabase: true
+              });
             });
           });
-          
-          return latestCompletedTask;
-        }).filter(Boolean) as any[];
+        });
         
-        setCompletedMonthlyTasks(completedTasksList.sort((a, b) => {
-          if (!a || !b) return 0;
-          return b.completedAt - a.completedAt;
-        }));
+        // Görevleri tamamlanma zamanına göre sırala (yeniden eskiye)
+        setCompletedMonthlyTasks(realTimeCompletedTasksList.sort((a, b) => b.completedAt - a.completedAt));
       } else {
         setCompletedMonthlyTasks([]);
       }
@@ -649,32 +706,33 @@ const MonthlyTasks: React.FC<MonthlyTasksProps> = ({
           return acc;
         }, {});
         
-        const missedTasksList = Object.entries(missedTasksData).map(([taskId, datesData]: [string, any]) => {
-          // En son kaçırılan görevi bul
-          let latestMissedTask = null;
-          let latestTimestamp = 0;
-          
-          Object.entries(datesData).forEach(([dateKey, timesData]: [string, any]) => {
-            Object.entries(timesData).forEach(([timeKey, taskData]: [string, any]) => {
-              if (taskData.missedAt && taskData.missedAt > latestTimestamp) {
-                latestTimestamp = taskData.missedAt;
-                latestMissedTask = {
-                  id: taskId,
-                  ...taskData,
-                  missedAtFormatted: dayjs(taskData.missedAt).format('DD.MM.YYYY HH:mm'),
-                  personnelName: personnelMap[taskData.personnelId]?.name || 'Personel Bulunamadı'
-                };
-              }
+        const realTimeMissedTasksList: any[] = [];
+        
+        // Kaçırılan görevleri düz bir diziye çevir
+        Object.entries(missedTasksData).forEach(([taskId, datesData]: [string, any]) => {
+          Object.entries(datesData).forEach(([date, timesData]: [string, any]) => {
+            Object.entries(timesData).forEach(([time, taskData]: [string, any]) => {
+              realTimeMissedTasksList.push({
+                id: `${taskId}_${date}_${time}`, // Benzersiz ID oluştur
+                taskId: taskId, // Ana görevin ID'si
+                name: taskData.taskName || 'İsimsiz Görev',
+                description: taskData.taskDescription || '',
+                status: 'missed',
+                taskDate: date,
+                taskTime: time,
+                missedAt: taskData.missedAt,
+                personnelId: taskData.personnelId || '',
+                personnelName: taskData.personnelFullName || 
+                  personnelMap[taskData.personnelId]?.name || 'Atanmamış',
+                startTolerance: taskData.startTolerance || 15,
+                fromDatabase: true
+              });
             });
           });
-          
-          return latestMissedTask;
-        }).filter(Boolean) as any[];
+        });
         
-        setMissedMonthlyTasks(missedTasksList.sort((a, b) => {
-          if (!a || !b) return 0;
-          return b.missedAt - a.missedAt;
-        }));
+        // Görevleri kaçırılma zamanına göre sırala (yeniden eskiye)
+        setMissedMonthlyTasks(realTimeMissedTasksList.sort((a, b) => b.missedAt - a.missedAt));
       } else {
         setMissedMonthlyTasks([]);
       }
@@ -725,44 +783,40 @@ const MonthlyTasks: React.FC<MonthlyTasksProps> = ({
     return result;
   }, [monthlyTasks, statusFilter, personnelFilter, taskSearchTerm]);
   
-  // Tamamlanmış görevleri filtrele
-  const filteredCompletedTasks = React.useMemo(() => {
+  // Tamamlanan görevleri filtrele
+  const filteredCompletedTasks = useMemo(() => {
     let result = [...completedMonthlyTasks];
     
-    // Personele göre filtrele
+    // Personel filtresi uygulanıyor
     if (personnelFilter !== 'all') {
       result = result.filter(task => task.personnelId === personnelFilter);
     }
-    
-    // Arama terimine göre filtrele
-    if (taskSearchTerm) {
-      const searchLower = taskSearchTerm.toLowerCase();
+
+    // Görev arama filtresi uygulanıyor
+    if (taskSearchTerm !== '') {
       result = result.filter(task => 
-        task.name.toLowerCase().includes(searchLower) || 
-        (task.description && task.description.toLowerCase().includes(searchLower)) ||
-        task.personnelName.toLowerCase().includes(searchLower)
+        task.name.toLowerCase().includes(taskSearchTerm.toLowerCase()) ||
+        task.description.toLowerCase().includes(taskSearchTerm.toLowerCase())
       );
     }
     
     return result;
   }, [completedMonthlyTasks, personnelFilter, taskSearchTerm]);
   
-  // Kaçırılan görevleri filtrele
-  const filteredMissedTasks = React.useMemo(() => {
+  // Filtrelenmiş kaçırılan görevler
+  const filteredMissedTasks = useMemo(() => {
     let result = [...missedMonthlyTasks];
     
-    // Personele göre filtrele
+    // Personel filtresi uygulanıyor
     if (personnelFilter !== 'all') {
       result = result.filter(task => task.personnelId === personnelFilter);
     }
-    
-    // Arama terimine göre filtrele
-    if (taskSearchTerm) {
-      const searchLower = taskSearchTerm.toLowerCase();
+
+    // Görev arama filtresi uygulanıyor
+    if (taskSearchTerm !== '') {
       result = result.filter(task => 
-        task.name.toLowerCase().includes(searchLower) || 
-        (task.description && task.description.toLowerCase().includes(searchLower)) ||
-        task.personnelName.toLowerCase().includes(searchLower)
+        task.name.toLowerCase().includes(taskSearchTerm.toLowerCase()) ||
+        task.description.toLowerCase().includes(taskSearchTerm.toLowerCase())
       );
     }
     
@@ -820,196 +874,482 @@ const MonthlyTasks: React.FC<MonthlyTasksProps> = ({
     <>
       {viewMode === 'card' ? (
         <Grid container spacing={3}>
-          {filteredTasks.map((task) => (
-            <Grid item xs={12} sm={6} md={4} key={task.id}>
-              <Card 
-                onClick={() => onShowTaskDetail(task)}
-                sx={{
-                  height: '100%',
-                  borderRadius: 12,
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-                  cursor: statusFilter === 'completed' || statusFilter === 'missed' ? 'default' : 'pointer',
-                  '&:hover': {
-                    boxShadow: statusFilter === 'completed' || statusFilter === 'missed' 
-                      ? '0 4px 12px rgba(0,0,0,0.05)' 
-                      : '0 6px 16px rgba(0,0,0,0.1)'
-                  }
-                }}
-              >
-                <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                    <Avatar
+          {statusFilter === 'completed' && filteredCompletedTasks.length > 0 ? (
+            // Tamamlanan görevler için kart görünümü
+            filteredCompletedTasks.map((task) => (
+              <Grid item xs={12} sm={6} md={4} key={task.id}>
+                <Card 
+                  onClick={() => onShowTaskDetail(task)}
+                  sx={{
+                    height: '100%',
+                    borderRadius: 12,
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+                    cursor: 'pointer',
+                    '&:hover': {
+                      boxShadow: '0 6px 16px rgba(0,0,0,0.1)'
+                    }
+                  }}
+                >
+                  <CardContent>
+                    {/* Kart başlığı */}
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                      <Avatar
+                        sx={{
+                          bgcolor: `${getStatusColor('completed')}20`,
+                          color: getStatusColor('completed'),
+                          mr: 1,
+                        }}
+                      >
+                        {getStatusIcon('completed')}
+                      </Avatar>
+                      <Box>
+                        <Typography variant="subtitle1" fontWeight="bold" noWrap>
+                          {task.name}
+                        </Typography>
+                        <Chip
+                          label={getStatusLabel('completed')}
+                          size="small"
+                          sx={{
+                            bgcolor: `${getStatusColor('completed')}20`,
+                            color: getStatusColor('completed'),
+                            fontWeight: 'medium',
+                            height: 20,
+                            fontSize: 11,
+                          }}
+                        />
+                      </Box>
+                    </Box>
+
+                    <Divider sx={{ mb: 1.5 }} />
+
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
                       sx={{
-                        bgcolor: `${getStatusColor(task.status)}20`,
-                        color: getStatusColor(task.status),
-                        mr: 1,
+                        mb: 1.5,
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                        flexGrow: 0,
                       }}
                     >
-                      {getStatusIcon(task.status)}
-                    </Avatar>
-                    <Box>
-                      <Typography variant="subtitle1" fontWeight="bold" noWrap>
-                        {task.name}
+                      {task.description || 'Açıklama yok'}
+                    </Typography>
+
+                    {/* Aylar */}
+                    <Box sx={{ mb: 1.5 }}>
+                      <Typography variant="body2" fontWeight="medium" color="primary" gutterBottom>
+                        Aylar:
                       </Typography>
-                      <Chip
-                        label={getStatusLabel(task.status)}
-                        size="small"
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                        {getTaskMonthDays(task).map((month) => (
+                          <Chip
+                            key={month.month}
+                            label={month.monthName}
+                            size="small"
+                            icon={<MonthIcon style={{ fontSize: 16 }} />}
+                            sx={{ 
+                              height: 20, 
+                              fontSize: '0.7rem', 
+                              bgcolor: 'info.50', 
+                              color: 'info.main'
+                            }}
+                          />
+                        ))}
+                      </Box>
+                    </Box>
+
+                    {/* Görev Saatleri */}
+                    {getTaskMonthDays(task).length > 0 && (
+                      <Box sx={{ mb: 1.5 }}>
+                        <Typography variant="body2" fontWeight="medium" color="primary" gutterBottom>
+                          Görev Saatleri:
+                        </Typography>
+                        {getTaskMonthDays(task).map((month) => (
+                          <Box key={month.month} sx={{ mb: 1 }}>
+                            <Typography variant="caption" fontWeight="bold">
+                              {month.monthName}:
+                            </Typography>
+                            {month.days.map((dayData) => (
+                              <Box key={dayData.day} sx={{ mt: 0.5 }}>
+                                <Typography variant="caption" sx={{ fontWeight: 'bold', minWidth: 24, display: 'inline-block' }}>
+                                  {dayData.day}.
+                                </Typography>
+                                <Box sx={{ display: 'inline-flex', flexWrap: 'wrap', gap: 0.5, ml: 1 }}>
+                                  {dayData.repetitionTimes.map((time: string, index: number) => (
+                                    <TaskTimeChip
+                                      key={index}
+                                      label={time}
+                                      size="small"
+                                      status={getTaskTimeColor(task, time)}
+                                    />
+                                  ))}
+                                </Box>
+                              </Box>
+                            ))}
+                          </Box>
+                        ))}
+                      </Box>
+                    )}
+
+                    {/* Tamamlanma zamanı */}
+                    <Box sx={{ mb: 1.5 }}>
+                      <Typography variant="body2" fontWeight="medium" color="success.main" gutterBottom>
+                        Tamamlanma Zamanı:
+                      </Typography>
+                      <Typography variant="body2">
+                        {task.completedAtFormatted}
+                      </Typography>
+                    </Box>
+
+                    <Divider sx={{ my: 1 }} />
+
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Typography variant="body2">
+                        <b>Personel:</b> {task.personnelName}
+                      </Typography>
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))
+          ) : statusFilter === 'missed' && filteredMissedTasks.length > 0 ? (
+            // Kaçırılan görevler için kart görünümü
+            filteredMissedTasks.map((task) => (
+              <Grid item xs={12} sm={6} md={4} key={task.id}>
+                <Card 
+                  onClick={() => onShowTaskDetail(task)}
+                  sx={{
+                    height: '100%',
+                    borderRadius: 12,
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+                    cursor: 'pointer',
+                    '&:hover': {
+                      boxShadow: '0 6px 16px rgba(0,0,0,0.1)'
+                    }
+                  }}
+                >
+                  <CardContent>
+                    {/* Kart başlığı */}
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                      <Avatar
+                        sx={{
+                          bgcolor: `${getStatusColor('missed')}20`,
+                          color: getStatusColor('missed'),
+                          mr: 1,
+                        }}
+                      >
+                        {getStatusIcon('missed')}
+                      </Avatar>
+                      <Box>
+                        <Typography variant="subtitle1" fontWeight="bold" noWrap>
+                          {task.name}
+                        </Typography>
+                        <Chip
+                          label={getStatusLabel('missed')}
+                          size="small"
+                          sx={{
+                            bgcolor: `${getStatusColor('missed')}20`,
+                            color: getStatusColor('missed'),
+                            fontWeight: 'medium',
+                            height: 20,
+                            fontSize: 11,
+                          }}
+                        />
+                      </Box>
+                    </Box>
+
+                    <Divider sx={{ mb: 1.5 }} />
+
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{
+                        mb: 1.5,
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                        flexGrow: 0,
+                      }}
+                    >
+                      {task.description || 'Açıklama yok'}
+                    </Typography>
+
+                    {/* Aylar */}
+                    <Box sx={{ mb: 1.5 }}>
+                      <Typography variant="body2" fontWeight="medium" color="primary" gutterBottom>
+                        Aylar:
+                      </Typography>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                        {getTaskMonthDays(task).map((month) => (
+                          <Chip
+                            key={month.month}
+                            label={month.monthName}
+                            size="small"
+                            icon={<MonthIcon style={{ fontSize: 16 }} />}
+                            sx={{ 
+                              height: 20, 
+                              fontSize: '0.7rem', 
+                              bgcolor: 'info.50', 
+                              color: 'info.main'
+                            }}
+                          />
+                        ))}
+                      </Box>
+                    </Box>
+
+                    {/* Görev Saatleri */}
+                    {getTaskMonthDays(task).length > 0 && (
+                      <Box sx={{ mb: 1.5 }}>
+                        <Typography variant="body2" fontWeight="medium" color="primary" gutterBottom>
+                          Görev Saatleri:
+                        </Typography>
+                        {getTaskMonthDays(task).map((month) => (
+                          <Box key={month.month} sx={{ mb: 1 }}>
+                            <Typography variant="caption" fontWeight="bold">
+                              {month.monthName}:
+                            </Typography>
+                            {month.days.map((dayData) => (
+                              <Box key={dayData.day} sx={{ mt: 0.5 }}>
+                                <Typography variant="caption" sx={{ display: 'inline-block', minWidth: 24 }}>
+                                  {dayData.day}.
+                                </Typography>
+                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                                  {dayData.repetitionTimes.map((time: string, index: number) => (
+                                    <TaskTimeChip
+                                      key={index}
+                                      label={time}
+                                      size="small"
+                                      status={getTaskTimeColor(task, time)}
+                                    />
+                                  ))}
+                                </Box>
+                              </Box>
+                            ))}
+                          </Box>
+                        ))}
+                      </Box>
+                    )}
+
+                    {/* Kaçırılma zamanı */}
+                    <Box sx={{ mb: 1.5 }}>
+                      <Typography variant="body2" fontWeight="medium" color="error.main" gutterBottom>
+                        Kaçırılma Zamanı:
+                      </Typography>
+                      <Typography variant="body2">
+                        {task.missedAtFormatted}
+                      </Typography>
+                    </Box>
+
+                    <Divider sx={{ my: 1 }} />
+
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Typography variant="body2">
+                        <b>Personel:</b> {task.personnelName}
+                      </Typography>
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))
+          ) : (
+            // Normal görevler için kart görünümü
+            filteredTasks.map((task) => (
+              <Grid item xs={12} sm={6} md={4} key={task.id}>
+                <Card 
+                  onClick={() => onShowTaskDetail(task)}
+                  sx={{
+                    height: '100%',
+                    borderRadius: 12,
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+                    cursor: statusFilter === 'completed' || statusFilter === 'missed' ? 'default' : 'pointer',
+                    '&:hover': {
+                      boxShadow: statusFilter === 'completed' || statusFilter === 'missed' 
+                        ? '0 4px 12px rgba(0,0,0,0.05)' 
+                        : '0 6px 16px rgba(0,0,0,0.1)'
+                    }
+                  }}
+                >
+                  <CardContent>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                      <Avatar
                         sx={{
                           bgcolor: `${getStatusColor(task.status)}20`,
                           color: getStatusColor(task.status),
-                          fontWeight: 'medium',
-                          height: 20,
-                          fontSize: 11,
+                          mr: 1,
                         }}
-                      />
-                    </Box>
-                  </Box>
-
-                  <Divider sx={{ mb: 1.5 }} />
-
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{
-                      mb: 1.5,
-                      display: '-webkit-box',
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: 'vertical',
-                      overflow: 'hidden',
-                      flexGrow: 0,
-                    }}
-                  >
-                    {task.description || 'Açıklama yok'}
-                  </Typography>
-
-                  {/* Ay çipleri */}
-                  <Box sx={{ mb: 1.5 }}>
-                    <Typography variant="body2" fontWeight="medium" color="primary" gutterBottom>
-                      Aylar:
-                    </Typography>
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                      {getTaskMonthDays(task).map((month) => (
+                      >
+                        {getStatusIcon(task.status)}
+                      </Avatar>
+                      <Box>
+                        <Typography variant="subtitle1" fontWeight="bold" noWrap>
+                          {task.name}
+                        </Typography>
                         <Chip
-                          key={month.month}
-                          label={month.monthName}
+                          label={getStatusLabel(task.status)}
                           size="small"
-                          icon={<MonthIcon style={{ fontSize: 16 }} />}
-                          sx={{ 
-                            height: 20, 
-                            fontSize: '0.7rem', 
-                            bgcolor: 'info.50', 
-                            color: 'info.main'
+                          sx={{
+                            bgcolor: `${getStatusColor(task.status)}20`,
+                            color: getStatusColor(task.status),
+                            fontWeight: 'medium',
+                            height: 20,
+                            fontSize: 11,
                           }}
                         />
-                      ))}
+                      </Box>
                     </Box>
-                  </Box>
 
-                  {/* Ay/Gün/Saat bilgileri */}
-                  {getTaskMonthDays(task).length > 0 && (
-                    <Box sx={{ mb: 1.5 }}>
-                      <Divider sx={{ my: 1 }} />
-                      <Typography variant="body2" fontWeight="medium" color="primary" gutterBottom>
-                        Görev Saatleri:
-                      </Typography>
-                      {getTaskMonthDays(task).map((month) => (
-                        <Box key={month.month} sx={{ mb: 1.5 }}>
-                          <Typography variant="caption" fontWeight="bold">
-                            {month.monthName}:
-                          </Typography>
-                          {month.days.map((dayData) => (
-                            <Box key={dayData.day} sx={{ mt: 0.5 }}>
-                              <Typography variant="caption" sx={{ display: 'inline-block', minWidth: 24 }}>
-                                {dayData.day}.
-                              </Typography>
-                              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
-                                {dayData.repetitionTimes.map((time: string, index: number) => (
-                                  <TaskTimeChip
-                                    key={index}
-                                    label={time}
-                                    size="small"
-                                    status={getTaskTimeColor(task, time)}
-                                  />
-                                ))}
-                              </Box>
-                            </Box>
-                          ))}
-                        </Box>
-                      ))}
-                      <Chip 
-                        label={`${task.startTolerance || 15} dk tolerans`}
-                        size="small"
-                        sx={{ 
-                          mt: 1,
-                          height: 20, 
-                          fontSize: '0.7rem', 
-                          bgcolor: 'primary.50', 
-                          color: 'primary.main'
-                        }}
-                      />
-                    </Box>
-                  )}
+                    <Divider sx={{ mb: 1.5 }} />
 
-                  <Divider sx={{ my: 1 }} />
-
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Typography variant="body2">
-                      <b>Personel:</b> {task.personnelName}
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{
+                        mb: 1.5,
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                        flexGrow: 0,
+                      }}
+                    >
+                      {task.description || 'Açıklama yok'}
                     </Typography>
-                    
-                    <Box>
-                      {statusFilter !== 'completed' && statusFilter !== 'missed' && (
-                        <>
-                          <IconButton
+
+                    {/* Ay çipleri */}
+                    <Box sx={{ mb: 1.5 }}>
+                      <Typography variant="body2" fontWeight="medium" color="primary" gutterBottom>
+                        Aylar:
+                      </Typography>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                        {getTaskMonthDays(task).map((month) => (
+                          <Chip
+                            key={month.month}
+                            label={month.monthName}
                             size="small"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onOpenQrPrintModal(task, e);
+                            icon={<MonthIcon style={{ fontSize: 16 }} />}
+                            sx={{ 
+                              height: 20, 
+                              fontSize: '0.7rem', 
+                              bgcolor: 'info.50', 
+                              color: 'info.main'
                             }}
-                            sx={{ mr: 1, color: 'primary.main' }}
-                          >
-                            <QrCodeIcon fontSize="small" />
-                          </IconButton>
-                          
-                          <IconButton
-                            size="small"
-                            color="info"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onShowTaskDetail(task);
-                            }}
-                          >
-                            <VisibilityIcon fontSize="small" />
-                          </IconButton>
-                        </>
-                      )}
+                          />
+                        ))}
+                      </Box>
                     </Box>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
+
+                    {/* Ay/Gün/Saat bilgileri */}
+                    {getTaskMonthDays(task).length > 0 && (
+                      <Box sx={{ mb: 1.5 }}>
+                        <Divider sx={{ my: 1 }} />
+                        <Typography variant="body2" fontWeight="medium" color="primary" gutterBottom>
+                          Görev Saatleri:
+                        </Typography>
+                        {getTaskMonthDays(task).map((month) => (
+                          <Box key={month.month} sx={{ mb: 1.5 }}>
+                            <Typography variant="caption" fontWeight="bold">
+                              {month.monthName}:
+                            </Typography>
+                            {month.days.map((dayData) => (
+                              <Box key={dayData.day} sx={{ mt: 0.5 }}>
+                                <Typography variant="caption" sx={{ display: 'inline-block', minWidth: 24 }}>
+                                  {dayData.day}.
+                                </Typography>
+                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                                  {dayData.repetitionTimes.map((time: string, index: number) => (
+                                    <TaskTimeChip
+                                      key={index}
+                                      label={time}
+                                      size="small"
+                                      status={getTaskTimeColor(task, time)}
+                                    />
+                                  ))}
+                                </Box>
+                              </Box>
+                            ))}
+                          </Box>
+                        ))}
+                        <Chip 
+                          label={`${task.startTolerance || 15} dk tolerans`}
+                          size="small"
+                          sx={{ 
+                            mt: 1,
+                            height: 20, 
+                            fontSize: '0.7rem', 
+                            bgcolor: 'primary.50', 
+                            color: 'primary.main'
+                          }}
+                        />
+                      </Box>
+                    )}
+
+                    <Divider sx={{ my: 1 }} />
+
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Typography variant="body2">
+                        <b>Personel:</b> {task.personnelName}
+                      </Typography>
+                      
+                      <Box>
+                        {statusFilter !== 'completed' && statusFilter !== 'missed' && (
+                          <>
+                            <IconButton
+                              size="small"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onOpenQrPrintModal(task, e);
+                              }}
+                              sx={{ mr: 1, color: 'primary.main' }}
+                            >
+                              <QrCodeIcon fontSize="small" />
+                            </IconButton>
+                            
+                            <IconButton
+                              size="small"
+                              color="info"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onShowTaskDetail(task);
+                              }}
+                            >
+                              <VisibilityIcon fontSize="small" />
+                            </IconButton>
+                          </>
+                        )}
+                      </Box>
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))
+          )}
         </Grid>
       ) : (
         <>
           {statusFilter === 'completed' ? (
-            <CompletedMonthlyTasksTable
+            // Tamamlanan görevler için özel tablo gösterimi
+            <CompletedMonthlyTasksTable 
               tasks={filteredCompletedTasks}
-              onShowTaskDetail={onShowTaskDetail}
               getStatusColor={getStatusColor}
               getStatusIcon={getStatusIcon}
               getStatusLabel={getStatusLabel}
+              tableTitle="Tamamlanan Görevler"
             />
           ) : statusFilter === 'missed' ? (
-            <CompletedMonthlyTasksTable
+            // Kaçırılan görevler için özel tablo gösterimi
+            <CompletedMonthlyTasksTable 
               tasks={filteredMissedTasks}
-              onShowTaskDetail={onShowTaskDetail}
               getStatusColor={getStatusColor}
               getStatusIcon={getStatusIcon}
               getStatusLabel={getStatusLabel}
+              tableTitle="Kaçırılan Görevler"
             />
           ) : (
-            <MonthlyTasksTable
+            // Normal görevler için standart tablo gösterimi
+            <MonthlyTasksTable 
               tasks={filteredTasks}
               statusFilter={statusFilter}
               onShowTaskDetail={onShowTaskDetail}
