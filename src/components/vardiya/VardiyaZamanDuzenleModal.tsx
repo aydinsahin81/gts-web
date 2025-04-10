@@ -14,10 +14,13 @@ import {
   CircularProgress,
   Alert,
   Chip,
-  styled
+  styled,
+  FormControlLabel,
+  Switch
 } from '@mui/material';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { TimePicker } from '@mui/x-date-pickers/TimePicker';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import trLocale from 'date-fns/locale/tr';
 import { format } from 'date-fns';
@@ -32,6 +35,7 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import PersonIcon from '@mui/icons-material/Person';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import WorkIcon from '@mui/icons-material/Work';
+import EventIcon from '@mui/icons-material/Event';
 
 // Özel stil tanımlamaları
 const InfoItem = styled(Box)(({ theme }) => ({
@@ -66,10 +70,30 @@ const VardiyaZamanDuzenleModal: React.FC<VardiyaZamanDuzenleModalProps> = ({
   const [girisZamani, setGirisZamani] = useState<Date | null>(null);
   const [cikisZamani, setCikisZamani] = useState<Date | null>(null);
   
+  // Özel tarih kontrolü için state'ler
+  const [girisOzelTarih, setGirisOzelTarih] = useState<Date | null>(null);
+  const [cikisOzelTarih, setCikisOzelTarih] = useState<Date | null>(null);
+  
+  // Özel tarih kullanımını kontrol eden switch'ler
+  const [girisOzelTarihAktif, setGirisOzelTarihAktif] = useState(false);
+  const [cikisOzelTarihAktif, setCikisOzelTarihAktif] = useState(false);
+  
   // Modal açıldığında verileri yükle
   useEffect(() => {
     if (open && report) {
       resetForm();
+      
+      // Rapor tarihini varsayılan olarak ayarla (dd-MM-yyyy formatından)
+      const dateParts = report.date.split('-');
+      if (dateParts.length === 3) {
+        const day = parseInt(dateParts[0], 10);
+        const month = parseInt(dateParts[1], 10) - 1; // Ay 0-11 arası
+        const year = parseInt(dateParts[2], 10);
+        const reportDate = new Date(year, month, day);
+        
+        setGirisOzelTarih(reportDate);
+        setCikisOzelTarih(reportDate);
+      }
       
       // Giriş zamanını ayarla
       if (report.originalRecord.girisZamani) {
@@ -89,6 +113,10 @@ const VardiyaZamanDuzenleModal: React.FC<VardiyaZamanDuzenleModalProps> = ({
   const resetForm = () => {
     setGirisZamani(null);
     setCikisZamani(null);
+    setGirisOzelTarih(null);
+    setCikisOzelTarih(null);
+    setGirisOzelTarihAktif(false);
+    setCikisOzelTarihAktif(false);
     setSuccess(false);
     setError(null);
   };
@@ -110,23 +138,32 @@ const VardiyaZamanDuzenleModal: React.FC<VardiyaZamanDuzenleModalProps> = ({
         throw new Error('Geçersiz tarih formatı.');
       }
       
+      // Rapor tarihini ayrıştır (dd-MM-yyyy formatından)
+      const day = parseInt(dateParts[0], 10);
+      const month = parseInt(dateParts[1], 10) - 1; // Ay 0-11 arası olduğu için -1
+      const year = parseInt(dateParts[2], 10);
+      const reportDate = new Date(year, month, day); 
+      
       // Veritabanında güncellenecek veri nesnesini oluştur
       const updateData: Record<string, any> = {};
       
       // Giriş zamanı varsa ekle
       if (girisZamani) {
-        // Giriş zamanını timestamp'e çevir (sadece saat ve dakika bilgisini kullan)
-        const girisDate = new Date(report.originalRecord.girisZamani || 0);
-        if (report.originalRecord.girisZamani) {
-          // Var olan bir tarihi güncelle
+        let girisDate: Date;
+        
+        if (girisOzelTarihAktif && girisOzelTarih) {
+          // Özel tarih seçilmiş ise, o tarihi kullan ama sadece saat ve dakikayı güncelle
+          girisDate = new Date(girisOzelTarih);
           girisDate.setHours(girisZamani.getHours());
           girisDate.setMinutes(girisZamani.getMinutes());
         } else {
-          // Yeni bir tarih oluştur (bugünkü tarih + seçilen saat/dakika)
-          const today = new Date();
-          girisDate.setFullYear(today.getFullYear());
-          girisDate.setMonth(today.getMonth());
-          girisDate.setDate(today.getDate());
+          // Özel tarih seçilmemiş ise, rapor tarihini kullan
+          girisDate = new Date(report.originalRecord.girisZamani || reportDate.getTime());
+          
+          // Rapor tarihini kullan (yıl, ay, gün) ve sadece saat ve dakikayı güncelle
+          girisDate.setFullYear(reportDate.getFullYear());
+          girisDate.setMonth(reportDate.getMonth());
+          girisDate.setDate(reportDate.getDate());
           girisDate.setHours(girisZamani.getHours());
           girisDate.setMinutes(girisZamani.getMinutes());
         }
@@ -137,18 +174,21 @@ const VardiyaZamanDuzenleModal: React.FC<VardiyaZamanDuzenleModalProps> = ({
       
       // Çıkış zamanı varsa ekle
       if (cikisZamani) {
-        // Çıkış zamanını timestamp'e çevir (sadece saat ve dakika bilgisini kullan)
-        const cikisDate = new Date(report.originalRecord.cikisZamani || 0);
-        if (report.originalRecord.cikisZamani) {
-          // Var olan bir tarihi güncelle
+        let cikisDate: Date;
+        
+        if (cikisOzelTarihAktif && cikisOzelTarih) {
+          // Özel tarih seçilmiş ise, o tarihi kullan ama sadece saat ve dakikayı güncelle
+          cikisDate = new Date(cikisOzelTarih);
           cikisDate.setHours(cikisZamani.getHours());
           cikisDate.setMinutes(cikisZamani.getMinutes());
         } else {
-          // Yeni bir tarih oluştur (bugünkü tarih + seçilen saat/dakika)
-          const today = new Date();
-          cikisDate.setFullYear(today.getFullYear());
-          cikisDate.setMonth(today.getMonth());
-          cikisDate.setDate(today.getDate());
+          // Özel tarih seçilmemiş ise, rapor tarihini kullan
+          cikisDate = new Date(report.originalRecord.cikisZamani || reportDate.getTime());
+          
+          // Rapor tarihini kullan (yıl, ay, gün) ve sadece saat ve dakikayı güncelle
+          cikisDate.setFullYear(reportDate.getFullYear());
+          cikisDate.setMonth(reportDate.getMonth());
+          cikisDate.setDate(reportDate.getDate());
           cikisDate.setHours(cikisZamani.getHours());
           cikisDate.setMinutes(cikisZamani.getMinutes());
         }
@@ -276,7 +316,7 @@ const VardiyaZamanDuzenleModal: React.FC<VardiyaZamanDuzenleModalProps> = ({
                 </InfoIcon>
                 <Box>
                   <Typography variant="caption" color="text.secondary">
-                    Tarih
+                    Kayıt Tarihi
                   </Typography>
                   <Typography variant="body1">
                     {report.date}
@@ -341,6 +381,7 @@ const VardiyaZamanDuzenleModal: React.FC<VardiyaZamanDuzenleModalProps> = ({
               </Typography>
               
               <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={trLocale}>
+                {/* Giriş Zamanı Bölümü */}
                 <Box sx={{ mb: 3 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                     <LoginIcon fontSize="small" sx={{ mr: 1 }} />
@@ -369,8 +410,56 @@ const VardiyaZamanDuzenleModal: React.FC<VardiyaZamanDuzenleModalProps> = ({
                   <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: 'rgba(255,255,255,0.8)' }}>
                     {report.checkIn !== '--:--' ? `Mevcut giriş saati: ${report.checkIn}` : 'Giriş kaydı bulunmuyor'}
                   </Typography>
+                  
+                  {/* Giriş için özel tarih seçimi */}
+                  <FormControlLabel
+                    control={
+                      <Switch 
+                        checked={girisOzelTarihAktif}
+                        onChange={(e) => setGirisOzelTarihAktif(e.target.checked)}
+                        size="small"
+                        color="default"
+                      />
+                    }
+                    label={
+                      <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.9)' }}>
+                        Farklı tarih seç
+                      </Typography>
+                    }
+                    sx={{ mt: 1, mb: 0.5 }}
+                  />
+                  
+                  {girisOzelTarihAktif && (
+                    <Box sx={{ mt: 1 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                        <EventIcon fontSize="small" sx={{ mr: 1 }} />
+                        <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.9)' }}>
+                          Giriş Tarihi
+                        </Typography>
+                      </Box>
+                      
+                      <DatePicker
+                        value={girisOzelTarih}
+                        onChange={(newValue) => setGirisOzelTarih(newValue)}
+                        slotProps={{
+                          textField: {
+                            fullWidth: true,
+                            size: "small",
+                            sx: {
+                              backgroundColor: 'rgba(255,255,255,0.9)',
+                              borderRadius: 1,
+                              '& .MuiInputBase-input': {
+                                fontSize: '0.85rem'
+                              }
+                            }
+                          }
+                        }}
+                      />
+                    </Box>
+                  )}
                 </Box>
                 
+                {/* Çıkış Zamanı Bölümü */}
                 <Box>
                   <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                     <LogoutIcon fontSize="small" sx={{ mr: 1 }} />
@@ -399,6 +488,53 @@ const VardiyaZamanDuzenleModal: React.FC<VardiyaZamanDuzenleModalProps> = ({
                   <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: 'rgba(255,255,255,0.8)' }}>
                     {report.checkOut !== '--:--' ? `Mevcut çıkış saati: ${report.checkOut}` : 'Çıkış kaydı bulunmuyor'}
                   </Typography>
+                  
+                  {/* Çıkış için özel tarih seçimi */}
+                  <FormControlLabel
+                    control={
+                      <Switch 
+                        checked={cikisOzelTarihAktif}
+                        onChange={(e) => setCikisOzelTarihAktif(e.target.checked)}
+                        size="small"
+                        color="default"
+                      />
+                    }
+                    label={
+                      <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.9)' }}>
+                        Farklı tarih seç
+                      </Typography>
+                    }
+                    sx={{ mt: 1, mb: 0.5 }}
+                  />
+                  
+                  {cikisOzelTarihAktif && (
+                    <Box sx={{ mt: 1 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                        <EventIcon fontSize="small" sx={{ mr: 1 }} />
+                        <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.9)' }}>
+                          Çıkış Tarihi
+                        </Typography>
+                      </Box>
+                      
+                      <DatePicker
+                        value={cikisOzelTarih}
+                        onChange={(newValue) => setCikisOzelTarih(newValue)}
+                        slotProps={{
+                          textField: {
+                            fullWidth: true,
+                            size: "small",
+                            sx: {
+                              backgroundColor: 'rgba(255,255,255,0.9)',
+                              borderRadius: 1,
+                              '& .MuiInputBase-input': {
+                                fontSize: '0.85rem'
+                              }
+                            }
+                          }
+                        }}
+                      />
+                    </Box>
+                  )}
                 </Box>
               </LocalizationProvider>
               
