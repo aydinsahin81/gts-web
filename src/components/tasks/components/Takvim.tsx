@@ -37,7 +37,7 @@ const formatTarih = (date: Date, view: string): string => {
 
 // Style için çeşitli bileşenler
 const CalendarContainer = styled(Box)(({ theme }) => ({
-  height: 'calc(100vh - 190px)', // Header ve tabların yüksekliğini çıkar
+  minHeight: 'calc(100vh - 230px)', // Minimum yükseklik tanımlıyorum, içerik artınca genişleyebilir
   width: '100%',
   '& .fc': {
     '--fc-border-color': theme.palette.divider,
@@ -162,6 +162,17 @@ const CalendarToolbar = ({
     if (calendarApi) {
       calendarApi.changeView(newView);
       setView(newView);
+      
+      // Görünüm değiştiğinde sayfanın boyutunu ayarlayalım
+      setTimeout(() => {
+        if (newView === 'timeGridDay' || newView === 'timeGridWeek') {
+          // Günlük veya haftalık görünümde daha fazla yükseklik
+          document.querySelector('.fc-view-harness')?.setAttribute('style', 'height: auto !important; min-height: 1200px !important');
+        } else {
+          // Aylık görünümde normal yükseklik
+          document.querySelector('.fc-view-harness')?.removeAttribute('style');
+        }
+      }, 100);
     }
   };
   
@@ -271,8 +282,19 @@ const Takvim: React.FC<TakvimProps> = ({ companyId }) => {
     if (calendarRef.current) {
       const api = calendarRef.current.getApi();
       api.changeView(view);
+      
+      // Görünüm değiştiğinde sayfanın boyutunu ayarlayalım
+      setTimeout(() => {
+        if (view === 'timeGridDay' || view === 'timeGridWeek') {
+          // Günlük veya haftalık görünümde daha fazla yükseklik
+          document.querySelector('.fc-view-harness')?.setAttribute('style', 'height: auto !important; min-height: 1200px !important');
+        } else {
+          // Aylık görünümde normal yükseklik
+          document.querySelector('.fc-view-harness')?.removeAttribute('style');
+        }
+      }, 100);
     }
-  }, [view]);
+  }, [view, calendarRef]);
 
   // Örnek etkinlikler
   useEffect(() => {
@@ -307,11 +329,34 @@ const Takvim: React.FC<TakvimProps> = ({ companyId }) => {
   };
 
   return (
-    <Box sx={{ mt: 2, p: 0 }}>
-      <Paper sx={{ p: 2, borderRadius: 2, height: 'calc(100vh - 165px)', overflow: 'hidden' }}>
+    <Box sx={{ 
+      mt: 2, 
+      p: 0, 
+      display: 'flex', 
+      flexDirection: 'column', 
+      minHeight: 'calc(100vh - 120px)', // Minimum yükseklik, içerik artarsa büyüyebilir
+    }}>
+      <Paper sx={{ 
+        p: 2, 
+        borderRadius: 2, 
+        flex: 1, // Esnek büyüme
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'visible',
+        // Günlük ve haftalık görünümlerde daha fazla alan
+        ...(view === 'timeGridDay' || view === 'timeGridWeek' ? {
+          minHeight: '1400px' // Günlük ve haftalık görünüm için daha fazla yükseklik
+        } : {})
+      }}>
         <CalendarToolbar calendarRef={calendarRef} view={view} setView={setView} />
         
-        <CalendarContainer>
+        <CalendarContainer sx={{ 
+          flex: 1,
+          // Günlük ve haftalık görünümlerde daha fazla alan
+          ...(view === 'timeGridDay' || view === 'timeGridWeek' ? {
+            minHeight: '1300px' // Günlük ve haftalık görünüm için daha fazla yükseklik
+          } : {})
+        }}>
           <FullCalendar
             ref={calendarRef}
             plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
@@ -320,7 +365,8 @@ const Takvim: React.FC<TakvimProps> = ({ companyId }) => {
             events={events}
             eventClick={handleEventClick}
             dateClick={handleDateClick}
-            height="100%"
+            height='auto' // İçeriğin tam yüksekliğini alır
+            contentHeight='auto' // İçeriğe göre otomatik boyutlandırma
             dayMaxEvents={3} // 3'ten fazla etkinlik varsa "daha fazla" bağlantısı göster
             moreLinkClick="popover" // Fazla etkinlikler için pop-up
             nowIndicator={true}
@@ -330,10 +376,17 @@ const Takvim: React.FC<TakvimProps> = ({ companyId }) => {
             selectMirror={true}
             weekends={true}
             firstDay={1} // Pazartesi
-            slotMinTime="07:00:00"
-            slotMaxTime="19:00:00"
+            slotMinTime="00:00:00" // Gün başlangıcı 00:00
+            slotMaxTime="24:00:00" // Gün sonu 24:00 (bir sonraki günün başlangıcı)
             allDaySlot={true}
-            slotDuration="00:30:00"
+            slotDuration="01:00:00" // Her hücre 1 saat
+            slotLabelFormat={{
+              hour: '2-digit',
+              minute: '2-digit',
+              omitZeroMinute: false, // Dakika sıfır olsa da göster (01:00)
+              meridiem: false, // AM/PM gösterme
+              hour12: false // 24 saat formatı
+            }}
             businessHours={{
               daysOfWeek: [1, 2, 3, 4, 5], // Pazartesi - Cuma
               startTime: '09:00',
@@ -366,6 +419,9 @@ const Takvim: React.FC<TakvimProps> = ({ companyId }) => {
           />
         </CalendarContainer>
       </Paper>
+      
+      {/* Sayfanın altında ekstra boşluk */}
+      <Box sx={{ height: '100px', width: '100%' }} />
     </Box>
   );
 };
