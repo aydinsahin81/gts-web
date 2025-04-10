@@ -22,14 +22,21 @@ import {
   Stack,
   Tooltip,
   IconButton,
-  Collapse
+  Collapse,
+  Button
 } from '@mui/material';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
+import { tr } from 'date-fns/locale';
+import { format, isWithinInterval, parseISO, addDays, subDays } from 'date-fns';
 import SearchIcon from '@mui/icons-material/Search';
 import PersonIcon from '@mui/icons-material/Person';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import ClearIcon from '@mui/icons-material/Clear';
+import DateRangeIcon from '@mui/icons-material/DateRange';
 import { ref, get, onValue } from 'firebase/database';
 import { database } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -49,12 +56,79 @@ const GirisCikisRaporlari: React.FC<GirisCikisRaporlariProps> = ({ branchId, isM
   const [statusFilter, setStatusFilter] = useState('all');
   const [personnelData, setPersonnelData] = useState<{[key: string]: any}>({});
   
+  // Tarih filtresi için state
+  const [startDate, setStartDate] = useState<Date | null>(null);
+  const [endDate, setEndDate] = useState<Date | null>(null);
+  
   // Vardiya zaman düzenleme modalı için state
   const [selectedReport, setSelectedReport] = useState<any | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   
   // Filtre görünürlüğü için state
   const [showFilters, setShowFilters] = useState(true);
+
+  // Datepicker açma fonksiyonları için state
+  const [startPickerOpen, setStartPickerOpen] = useState(false);
+  const [endPickerOpen, setEndPickerOpen] = useState(false);
+
+  // Takvim referansları
+  const startDatePickerRef = React.useRef<any>(null);
+  const endDatePickerRef = React.useRef<any>(null);
+
+  // Hızlı tarih seçme
+  const setQuickDateRange = (range: string) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    switch(range) {
+      case 'today':
+        setStartDate(today);
+        setEndDate(today);
+        break;
+      case 'yesterday':
+        const yesterday = subDays(today, 1);
+        setStartDate(yesterday);
+        setEndDate(yesterday);
+        break;
+      case 'thisWeek':
+        const thisWeekStart = new Date(today);
+        thisWeekStart.setDate(today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1)); // Pazartesi
+        setStartDate(thisWeekStart);
+        setEndDate(today);
+        break;
+      case 'lastWeek':
+        const lastWeekStart = new Date(today);
+        lastWeekStart.setDate(today.getDate() - today.getDay() - 6); // Geçen haftanın Pazartesi
+        const lastWeekEnd = new Date(today);
+        lastWeekEnd.setDate(today.getDate() - today.getDay()); // Geçen haftanın Pazar
+        setStartDate(lastWeekStart);
+        setEndDate(lastWeekEnd);
+        break;
+      case 'thisMonth':
+        const thisMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+        setStartDate(thisMonthStart);
+        setEndDate(today);
+        break;
+      case 'lastMonth':
+        const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+        const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0);
+        setStartDate(lastMonthStart);
+        setEndDate(lastMonthEnd);
+        break;
+      case 'last30Days':
+        setStartDate(subDays(today, 30));
+        setEndDate(today);
+        break;
+      default:
+        break;
+    }
+  };
+  
+  // Tarih filtresini sıfırla
+  const resetDateFilter = () => {
+    setStartDate(null);
+    setEndDate(null);
+  };
 
   // Modal işlemleri
   const handleOpenModal = (report: any) => {
@@ -290,14 +364,40 @@ const GirisCikisRaporlari: React.FC<GirisCikisRaporlariProps> = ({ branchId, isM
     
     // Durum filtresi
     if (statusFilter !== 'all') {
+      if (statusFilter === 'devam-eden-personel') {
+        // Giriş yapmış fakat henüz çıkış yapmamış personelleri filtrele
+        filtered = filtered.filter(report => 
+          report.checkIn !== '--:--' && report.checkOut === '--:--' && report.statusInfo.exitStatus === 'Devam Ediyor'
+        );
+      } else {
+        // Diğer durum filtreleri
+        filtered = filtered.filter(report => {
+          const { entryStatus, exitStatus } = report.statusInfo;
+          return entryStatus === statusFilter || exitStatus === statusFilter;
+        });
+      }
+    }
+    
+    // Tarih aralığı filtresi
+    if (startDate && endDate) {
       filtered = filtered.filter(report => {
-        const { entryStatus, exitStatus } = report.statusInfo;
-        return entryStatus === statusFilter || exitStatus === statusFilter;
+        // Tarih string'ini Date nesnesine çevir (dd-MM-yyyy)
+        const dateParts = report.date.split('-');
+        if (dateParts.length !== 3) return false;
+        
+        const day = parseInt(dateParts[0], 10);
+        const month = parseInt(dateParts[1], 10) - 1; // JavaScript ayları 0'dan başlar
+        const year = parseInt(dateParts[2], 10);
+        
+        const reportDate = new Date(year, month, day);
+        
+        // Tarih aralığı içinde mi kontrol et
+        return isWithinInterval(reportDate, { start: startDate, end: endDate });
       });
     }
     
     setFilteredReports(filtered);
-  }, [searchTerm, statusFilter, reports]);
+  }, [searchTerm, statusFilter, reports, startDate, endDate]);
 
   // Excel'e veri aktarma olayını dinle
   useEffect(() => {
@@ -401,7 +501,7 @@ const GirisCikisRaporlari: React.FC<GirisCikisRaporlariProps> = ({ branchId, isM
         >
           <Grid container spacing={2}>
             {/* Personel/Vardiya Arama */}
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} md={4}>
               <TextField
                 fullWidth
                 size="small"
@@ -419,7 +519,7 @@ const GirisCikisRaporlari: React.FC<GirisCikisRaporlariProps> = ({ branchId, isM
             </Grid>
             
             {/* Durum Filtresi */}
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} md={4}>
               <FormControl fullWidth size="small">
                 <InputLabel id="status-filter-label">Durum Filtresi</InputLabel>
                 <Select
@@ -430,7 +530,9 @@ const GirisCikisRaporlari: React.FC<GirisCikisRaporlariProps> = ({ branchId, isM
                   onChange={(e) => setStatusFilter(e.target.value)}
                 >
                   <MenuItem value="all">Tüm Durumlar</MenuItem>
-                  <MenuItem value="Normal Geldi">Normal Geldi</MenuItem>
+                  <MenuItem value="devam-eden-personel" sx={{ fontWeight: 'bold', color: 'info.main' }}>
+                    Devam Eden Personel
+                  </MenuItem>
                   <MenuItem value="Normal Giriş">Normal Giriş</MenuItem>
                   <MenuItem value="Erken Geldi">Erken Geldi</MenuItem>
                   <MenuItem value="Geç Geldi">Geç Geldi</MenuItem>
@@ -442,6 +544,159 @@ const GirisCikisRaporlari: React.FC<GirisCikisRaporlariProps> = ({ branchId, isM
                   <MenuItem value="Çıkış Yapılmamış">Çıkış Yapılmamış</MenuItem>
                 </Select>
               </FormControl>
+            </Grid>
+            
+            {/* Tarih Aralığı Filtresi */}
+            <Grid item xs={12} md={4}>
+              <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={tr}>
+                <Box sx={{ display: 'flex', gap: 1, flexDirection: 'column' }}>
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Box sx={{ position: 'relative', width: '100%' }}>
+                      <DatePicker 
+                        label="Başlangıç"
+                        value={startDate}
+                        onChange={(newValue) => setStartDate(newValue)}
+                        format="dd/MM/yyyy"
+                        open={startPickerOpen}
+                        onOpen={() => setStartPickerOpen(true)}
+                        onClose={() => setStartPickerOpen(false)}
+                        slotProps={{
+                          textField: {
+                            size: 'small',
+                            fullWidth: true,
+                            InputProps: {
+                              startAdornment: (
+                                <InputAdornment position="start">
+                                  <IconButton 
+                                    size="small"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setStartPickerOpen(true);
+                                    }}
+                                  >
+                                    <CalendarTodayIcon fontSize="small" />
+                                  </IconButton>
+                                </InputAdornment>
+                              ),
+                              endAdornment: startDate && (
+                                <IconButton
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setStartDate(null);
+                                  }}
+                                  size="small"
+                                >
+                                  <ClearIcon fontSize="small" />
+                                </IconButton>
+                              )
+                            }
+                          }
+                        }}
+                      />
+                    </Box>
+                    <Box sx={{ position: 'relative', width: '100%' }}>
+                      <DatePicker 
+                        label="Bitiş"
+                        value={endDate}
+                        onChange={(newValue) => setEndDate(newValue)}
+                        format="dd/MM/yyyy"
+                        open={endPickerOpen}
+                        onOpen={() => setEndPickerOpen(true)}
+                        onClose={() => setEndPickerOpen(false)}
+                        slotProps={{
+                          textField: {
+                            size: 'small',
+                            fullWidth: true,
+                            InputProps: {
+                              startAdornment: (
+                                <InputAdornment position="start">
+                                  <IconButton 
+                                    size="small"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setEndPickerOpen(true);
+                                    }}
+                                  >
+                                    <CalendarTodayIcon fontSize="small" />
+                                  </IconButton>
+                                </InputAdornment>
+                              ),
+                              endAdornment: endDate && (
+                                <IconButton
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEndDate(null);
+                                  }}
+                                  size="small"
+                                >
+                                  <ClearIcon fontSize="small" />
+                                </IconButton>
+                              )
+                            }
+                          }
+                        }}
+                      />
+                    </Box>
+                  </Box>
+                  
+                  {/* Hızlı Tarih Seçimleri */}
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                    <Tooltip title="Bugün">
+                      <Button 
+                        size="small" 
+                        variant="outlined" 
+                        sx={{ minWidth: 'auto', px: 1, py: 0.5, fontSize: '0.75rem' }}
+                        onClick={() => setQuickDateRange('today')}
+                      >
+                        Bugün
+                      </Button>
+                    </Tooltip>
+                    <Tooltip title="Dün">
+                      <Button 
+                        size="small" 
+                        variant="outlined" 
+                        sx={{ minWidth: 'auto', px: 1, py: 0.5, fontSize: '0.75rem' }}
+                        onClick={() => setQuickDateRange('yesterday')}
+                      >
+                        Dün
+                      </Button>
+                    </Tooltip>
+                    <Tooltip title="Bu Hafta">
+                      <Button 
+                        size="small" 
+                        variant="outlined" 
+                        sx={{ minWidth: 'auto', px: 1, py: 0.5, fontSize: '0.75rem' }}
+                        onClick={() => setQuickDateRange('thisWeek')}
+                      >
+                        Bu Hafta
+                      </Button>
+                    </Tooltip>
+                    <Tooltip title="Son 30 Gün">
+                      <Button 
+                        size="small" 
+                        variant="outlined" 
+                        sx={{ minWidth: 'auto', px: 1, py: 0.5, fontSize: '0.75rem' }}
+                        onClick={() => setQuickDateRange('last30Days')}
+                      >
+                        Son 30
+                      </Button>
+                    </Tooltip>
+                    {startDate && endDate && (
+                      <Tooltip title="Tarihleri Temizle">
+                        <Button 
+                          size="small" 
+                          color="error"
+                          variant="outlined" 
+                          sx={{ minWidth: 'auto', px: 1, py: 0.5, fontSize: '0.75rem' }}
+                          onClick={resetDateFilter}
+                        >
+                          Temizle
+                        </Button>
+                      </Tooltip>
+                    )}
+                  </Box>
+                </Box>
+              </LocalizationProvider>
             </Grid>
           </Grid>
         </Paper>
@@ -455,7 +710,7 @@ const GirisCikisRaporlari: React.FC<GirisCikisRaporlariProps> = ({ branchId, isM
       ) : filteredReports.length === 0 ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 4, bgcolor: '#f8f9fa', borderRadius: 2 }}>
           <Typography variant="body1" color="text.secondary">
-            {searchTerm || statusFilter !== 'all' ? "Arama sonucu bulunamadı" : "Henüz rapor bulunmuyor"}
+            {searchTerm || statusFilter !== 'all' || (startDate && endDate) ? "Arama sonucu bulunamadı" : "Henüz rapor bulunmuyor"}
           </Typography>
         </Box>
       ) : (
