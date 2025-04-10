@@ -49,7 +49,8 @@ import {
   InputAdornment,
   Autocomplete,
   Tabs,
-  Tab
+  Tab,
+  TablePagination
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -84,7 +85,8 @@ import {
   CalendarMonth as MonthIcon,
   CalendarToday as YearIcon,
   Business as BusinessIcon,
-  FilterList as FilterListIcon
+  FilterList as FilterListIcon,
+  LocationOn as LocationOnIcon
 } from '@mui/icons-material';
 import { ref, get, onValue, off, remove, update, push, set } from 'firebase/database';
 import { database, auth } from '../../firebase';
@@ -223,6 +225,21 @@ const TasksTable: React.FC<{
   // Şube adlarını almak için state
   const [branches, setBranches] = useState<{[key: string]: string}>({});
   
+  // Sayfalama için state
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(50);
+  
+  // Sayfalandırılmış task verileri
+  const paginatedTasks = useMemo(() => {
+    const startIndex = page * rowsPerPage;
+    return tasks.slice(startIndex, startIndex + rowsPerPage);
+  }, [tasks, page, rowsPerPage]);
+  
+  // Filtre değişikliklerinde sayfa numarasını sıfırla
+  useEffect(() => {
+    setPage(0);
+  }, [tasks]);
+  
   // Şubeleri yükle
   useEffect(() => {
     const loadBranches = async () => {
@@ -257,6 +274,22 @@ const TasksTable: React.FC<{
     loadBranches();
   }, [companyId]);
   
+  // Sayfa değişimi
+  const handleChangePage = (
+    event: React.MouseEvent<HTMLButtonElement> | null,
+    newPage: number,
+  ) => {
+    setPage(newPage);
+  };
+
+  // Sayfa başına satır sayısı değişimi
+  const handleChangeRowsPerPage = (
+    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+  
   // Şube adını getir
   const getBranchName = (branchId: string | null) => {
     if (!branchId) return '-';
@@ -276,187 +309,208 @@ const TasksTable: React.FC<{
   };
   
   return (
-    <TableContainer component={Paper} sx={{ 
-      mt: 2, 
-      boxShadow: '0 2px 10px rgba(0, 0, 0, 0.05)',
-      borderRadius: 2,
-      maxHeight: 'calc(100vh - 240px)',  // Tablonun maksimum yüksekliği
-      overflowY: 'auto'
-    }}>
-      <Table size="small" stickyHeader>
-        <TableHead>
-          <TableRow>
-            <TableCell width="5%">Durum</TableCell>
-            <TableCell width="15%">Görev Adı</TableCell>
-            <TableCell width="25%">Görev Saatleri</TableCell>
-            <TableCell width="15%">Tarih</TableCell>
-            <TableCell width="10%">Tolerans</TableCell>
-            <TableCell width="10%">Personel</TableCell>
-            <TableCell width="10%">Durum</TableCell>
-            <TableCell width="10%">Şube</TableCell>
-            <TableCell width="10%" align="right">İşlemler</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {tasks.map((task) => (
-            <TableRow 
-              key={task.id} 
-              hover 
-              onClick={() => onShowTaskDetail(task)} 
-              sx={{
-                cursor: statusFilter === 'completed' || statusFilter === 'missed' ? 'default' : 'pointer'
-              }}
-            >
-              <TableCell>
-                <Avatar
-                  sx={{
-                    width: 32, 
-                    height: 32, 
-                    bgcolor: `${getStatusColor(task.status)}20`,
-                    color: getStatusColor(task.status)
-                  }}
-                >
-                  {getStatusIcon(task.status)}
-                </Avatar>
-              </TableCell>
-              <TableCell>
-                <Typography variant="body2" fontWeight="medium">
-                  {task.name}
-                </Typography>
-              </TableCell>
-              <TableCell>
-                {task.isRecurring && task.repetitionTimes && task.repetitionTimes.length > 0 ? (
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                    {task.repetitionTimes.map((time: string, index: number) => (
-                      <TaskTimeChip
-                        key={index}
-                        label={time}
-                        size="small"
-                        status={getTaskTimeColor(task, time)}
-                      />
-                    ))}
-                  </Box>
-                ) : (
-                  <Typography variant="body2" color="text.secondary">-</Typography>
-                )}
-              </TableCell>
-              <TableCell>
-                {task.status === 'completed' && (
-                  <Typography variant="body2" color="text.secondary">
-                    {task.fromDatabase && task.completionDate 
-                      ? `${task.completionDate}` 
-                      : (task.completedAt ? new Date(task.completedAt).toLocaleDateString('tr-TR', { 
-                          year: 'numeric', 
-                          month: 'short', 
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        }) : '-')}
+    <Box>
+      <TableContainer component={Paper} sx={{ 
+        mt: 2, 
+        boxShadow: '0 2px 10px rgba(0, 0, 0, 0.05)',
+        borderRadius: 2,
+        overflow: 'hidden'
+      }}>
+        <Table size="small" stickyHeader>
+          <TableHead>
+            <TableRow>
+              <TableCell width="5%">Durum</TableCell>
+              <TableCell width="15%">Görev Adı</TableCell>
+              <TableCell width="25%">Görev Saatleri</TableCell>
+              <TableCell width="15%">Tarih</TableCell>
+              <TableCell width="10%">Tolerans</TableCell>
+              <TableCell width="10%">Personel</TableCell>
+              <TableCell width="10%">Durum</TableCell>
+              <TableCell width="10%">Şube</TableCell>
+              <TableCell width="10%" align="right">İşlemler</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {paginatedTasks.map((task) => (
+              <TableRow 
+                key={task.id} 
+                hover 
+                onClick={() => onShowTaskDetail(task)} 
+                sx={{
+                  cursor: statusFilter === 'completed' || statusFilter === 'missed' ? 'default' : 'pointer'
+                }}
+              >
+                <TableCell>
+                  <Avatar
+                    sx={{
+                      width: 32, 
+                      height: 32, 
+                      bgcolor: `${getStatusColor(task.status)}20`,
+                      color: getStatusColor(task.status)
+                    }}
+                  >
+                    {getStatusIcon(task.status)}
+                  </Avatar>
+                </TableCell>
+                <TableCell>
+                  <Typography variant="body2" fontWeight="medium">
+                    {task.name}
                   </Typography>
-                )}
-                {task.status === 'missed' && (
-                  <Typography variant="body2" color="text.secondary">
-                    {task.fromDatabase && task.missedDate 
-                      ? `${task.missedDate}` 
-                      : (task.missedAt ? new Date(task.missedAt).toLocaleDateString('tr-TR', { 
-                          year: 'numeric', 
-                          month: 'short', 
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        }) : '-')}
+                </TableCell>
+                <TableCell>
+                  {task.isRecurring && task.repetitionTimes && task.repetitionTimes.length > 0 ? (
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                      {task.repetitionTimes.map((time: string, index: number) => (
+                        <TaskTimeChip
+                          key={index}
+                          label={time}
+                          size="small"
+                          status={getTaskTimeColor(task, time)}
+                        />
+                      ))}
+                    </Box>
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">-</Typography>
+                  )}
+                </TableCell>
+                <TableCell>
+                  {task.status === 'completed' && (
+                    <Typography variant="body2" color="text.secondary">
+                      {task.fromDatabase && task.completionDate 
+                        ? `${task.completionDate}` 
+                        : (task.completedAt ? new Date(task.completedAt).toLocaleDateString('tr-TR', { 
+                            year: 'numeric', 
+                            month: 'short', 
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          }) : '-')}
+                    </Typography>
+                  )}
+                  {task.status === 'missed' && (
+                    <Typography variant="body2" color="text.secondary">
+                      {task.fromDatabase && task.missedDate 
+                        ? `${task.missedDate}` 
+                        : (task.missedAt ? new Date(task.missedAt).toLocaleDateString('tr-TR', { 
+                            year: 'numeric', 
+                            month: 'short', 
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          }) : '-')}
+                    </Typography>
+                  )}
+                  {task.status !== 'completed' && task.status !== 'missed' && (
+                    <Typography variant="body2" color="text.secondary">-</Typography>
+                  )}
+                </TableCell>
+                <TableCell>
+                  {task.isRecurring ? (
+                    <Chip 
+                      label={`${task.startTolerance || 15} dk`}
+                      size="small"
+                      sx={{ 
+                        height: 20, 
+                        fontSize: '0.7rem', 
+                        bgcolor: 'primary.50', 
+                        color: 'primary.main'
+                      }}
+                    />
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">-</Typography>
+                  )}
+                </TableCell>
+                <TableCell>
+                  <Typography variant="body2" color={task.personnelName ? 'text.secondary' : 'error'} sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center',
+                    fontSize: '0.8rem'
+                  }}>
+                    <PersonIcon fontSize="small" sx={{ mr: 0.5, fontSize: 16 }} />
+                    {task.personnelName || 'Atanmamış'}
                   </Typography>
-                )}
-                {task.status !== 'completed' && task.status !== 'missed' && (
-                  <Typography variant="body2" color="text.secondary">-</Typography>
-                )}
-              </TableCell>
-              <TableCell>
-                {task.isRecurring ? (
+                </TableCell>
+                <TableCell>
                   <Chip 
-                    label={`${task.startTolerance || 15} dk`}
+                    label={getStatusLabel(task.status)}
                     size="small"
                     sx={{ 
                       height: 20, 
                       fontSize: '0.7rem', 
-                      bgcolor: 'primary.50', 
-                      color: 'primary.main'
+                      bgcolor: `${getStatusColor(task.status)}20`, 
+                      color: getStatusColor(task.status),
+                      fontWeight: 500
                     }}
                   />
-                ) : (
-                  <Typography variant="body2" color="text.secondary">-</Typography>
-                )}
-              </TableCell>
-              <TableCell>
-                <Typography variant="body2" color={task.personnelName ? 'text.secondary' : 'error'} sx={{ 
-                  display: 'flex', 
-                  alignItems: 'center',
-                  fontSize: '0.8rem'
-                }}>
-                  <PersonIcon fontSize="small" sx={{ mr: 0.5, fontSize: 16 }} />
-                  {task.personnelName || 'Atanmamış'}
-                </Typography>
-              </TableCell>
-              <TableCell>
-                <Chip
-                  label={getStatusLabel(task.status)}
-                  size="small"
-                  sx={{
-                    bgcolor: `${getStatusColor(task.status)}20`,
-                    color: getStatusColor(task.status),
-                    fontWeight: 'medium',
-                    height: 20,
-                    fontSize: 11,
-                  }}
-                />
-              </TableCell>
-              <TableCell>
-                <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
-                  {getBranchName(task.branchesId)}
-                </Typography>
-              </TableCell>
-              <TableCell align="right">
-                <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                  {task.isRecurring && task.completionType === 'qr' && !task.fromDatabase && statusFilter !== 'completed' && statusFilter !== 'missed' && (
-                    <IconButton
+                </TableCell>
+                <TableCell>
+                  <Typography variant="body2" color="text.secondary" sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center',
+                    fontSize: '0.75rem'
+                  }}>
+                    {task.branchesId ? (
+                      <>
+                        <LocationOnIcon fontSize="small" sx={{ mr: 0.5, fontSize: 16 }} />
+                        {getBranchName(task.branchesId)}
+                      </>
+                    ) : (
+                      '-'
+                    )}
+                  </Typography>
+                </TableCell>
+                <TableCell align="right">
+                  {task.isRecurring && task.completionType === 'qr' && !task.fromDatabase && (
+                    <Button
                       size="small"
+                      startIcon={<QrCodeIcon />}
+                      variant="outlined"
+                      color="primary"
                       onClick={(e) => {
                         e.stopPropagation();
                         onOpenQrPrintModal(task, e);
                       }}
-                      sx={{ color: 'primary.main', p: 0.5 }}
-                    >
-                      <QrCodeIcon fontSize="small" />
-                    </IconButton>
-                  )}
-                  {statusFilter !== 'completed' && statusFilter !== 'missed' && (
-                    <IconButton
-                      size="small"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onShowTaskDetail(task);
+                      sx={{ 
+                        p: 0.5, 
+                        minWidth: 'auto', 
+                        fontSize: '0.7rem',
+                        height: 26
                       }}
-                      sx={{ color: 'info.main', p: 0.5, ml: 0.5 }}
                     >
-                      <AssignmentIcon fontSize="small" />
-                    </IconButton>
+                      QR
+                    </Button>
                   )}
-                </Box>
-              </TableCell>
-            </TableRow>
-          ))}
-          {tasks.length === 0 && (
-            <TableRow>
-              <TableCell colSpan={9} align="center" sx={{ py: 3 }}>
-                <Typography color="text.secondary">
-                  Görev bulunamadı
-                </Typography>
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
-    </TableContainer>
+                </TableCell>
+              </TableRow>
+            ))}
+            {tasks.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={9} align="center" sx={{ py: 3 }}>
+                  <Typography color="text.secondary">
+                    Görev bulunamadı
+                  </Typography>
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
+      
+      {/* Sayfalama */}
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+        <TablePagination
+          component="div"
+          count={tasks.length}
+          page={page}
+          onPageChange={handleChangePage}
+          rowsPerPage={rowsPerPage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+          rowsPerPageOptions={[25, 50, 100]}
+          labelRowsPerPage="Sayfa başına satır:"
+          labelDisplayedRows={({ from, to, count }) => `${count} kayıttan ${from}-${to} arası gösteriliyor`}
+        />
+      </Box>
+    </Box>
   );
 };
 

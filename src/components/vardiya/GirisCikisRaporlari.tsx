@@ -430,9 +430,9 @@ const GirisCikisRaporlari: React.FC<GirisCikisRaporlariProps> = ({ branchId, isM
         );
       } else {
         // Diğer durum filtreleri
-        filtered = filtered.filter(report => {
-          const { entryStatus, exitStatus } = report.statusInfo;
-          return entryStatus === statusFilter || exitStatus === statusFilter;
+      filtered = filtered.filter(report => {
+        const { entryStatus, exitStatus } = report.statusInfo;
+        return entryStatus === statusFilter || exitStatus === statusFilter;
         });
       }
     }
