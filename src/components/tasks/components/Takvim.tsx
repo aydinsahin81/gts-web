@@ -17,9 +17,23 @@ import {
   CalendarMonth as MonthIcon
 } from '@mui/icons-material';
 
+// Türkçe ay ve gün adları
 const aylar = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 
   'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
 const gunler = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
+const gunlerKisa = ['Paz', 'Pts', 'Sal', 'Çar', 'Per', 'Cum', 'Cts'];
+const aylarKisa = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
+
+// Takvim başlığını Türkçe olarak biçimlendirmek için
+const formatTarih = (date: Date, view: string): string => {
+  if (view === 'dayGridMonth') {
+    return `${aylar[date.getMonth()]} ${date.getFullYear()}`;
+  } else if (view === 'timeGridWeek') {
+    return `${date.getDate()} ${aylar[date.getMonth()]} ${date.getFullYear()} Haftası`;
+  } else {
+    return `${date.getDate()} ${aylar[date.getMonth()]} ${date.getFullYear()}`;
+  }
+};
 
 // Style için çeşitli bileşenler
 const CalendarContainer = styled(Box)(({ theme }) => ({
@@ -237,40 +251,33 @@ interface TakvimProps {
 const Takvim: React.FC<TakvimProps> = ({ companyId }) => {
   const [view, setView] = useState<string>('dayGridMonth');
   const [events, setEvents] = useState<any[]>([]);
+  const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const calendarRef = React.useRef<FullCalendar>(null);
+
+  // Bir başlangıç tarihini ayarla
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (calendarRef.current) {
+        const api = calendarRef.current.getApi();
+        setCurrentDate(api.getDate());
+      }
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  // View değişikliğini izle
+  useEffect(() => {
+    if (calendarRef.current) {
+      const api = calendarRef.current.getApi();
+      api.changeView(view);
+    }
+  }, [view]);
 
   // Örnek etkinlikler
   useEffect(() => {
     // Burada normalde Firebase'den etkinlikleri çekeceğiz
-    // Şimdilik örnek etkinlikler ekliyoruz
-    const sampleEvents = [
-      {
-        id: '1',
-        title: 'Toplantı',
-        start: new Date(new Date().setHours(10, 0, 0)),
-        end: new Date(new Date().setHours(11, 30, 0)),
-        backgroundColor: '#4caf50',
-        borderColor: '#388e3c',
-      },
-      {
-        id: '2',
-        title: 'Proje Sunumu',
-        start: new Date(new Date().setDate(new Date().getDate() + 1)),
-        allDay: true,
-        backgroundColor: '#2196f3',
-        borderColor: '#1976d2',
-      },
-      {
-        id: '3',
-        title: 'Eğitim',
-        start: new Date(new Date().setDate(new Date().getDate() + 3)),
-        end: new Date(new Date().setDate(new Date().getDate() + 4)),
-        backgroundColor: '#ff9800',
-        borderColor: '#f57c00',
-      }
-    ];
-    
-    setEvents(sampleEvents);
+    setEvents([]); // Boş dizi ile başlatıyoruz
   }, []);
 
   // Etkinlik tıklama
@@ -347,10 +354,15 @@ const Takvim: React.FC<TakvimProps> = ({ companyId }) => {
               day: 'Gün',
               list: 'Liste'
             }}
+            locale="tr"
             weekText="Hft"
             allDayText="Tüm gün"
             moreLinkText="daha fazla"
             noEventsText="Gösterilecek etkinlik yok"
+            datesSet={(dateInfo) => {
+              // Tarih değişikliklerinde currentDate state'ini güncelle
+              setCurrentDate(dateInfo.view.currentStart);
+            }}
           />
         </CalendarContainer>
       </Paper>
