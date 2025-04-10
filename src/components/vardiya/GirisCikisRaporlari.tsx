@@ -24,7 +24,8 @@ import {
   IconButton,
   Collapse,
   Button,
-  Autocomplete
+  Autocomplete,
+  TablePagination
 } from '@mui/material';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
@@ -63,6 +64,10 @@ const GirisCikisRaporlari: React.FC<GirisCikisRaporlariProps> = ({ branchId, isM
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [personnelData, setPersonnelData] = useState<{[key: string]: any}>({});
+  
+  // Sayfalandırma için state
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(50);
   
   // Tarih filtresi için state
   const [startDate, setStartDate] = useState<Date | null>(null);
@@ -485,6 +490,33 @@ const GirisCikisRaporlari: React.FC<GirisCikisRaporlariProps> = ({ branchId, isM
     }
   };
 
+  // Sayfa değişimi
+  const handleChangePage = (
+    event: React.MouseEvent<HTMLButtonElement> | null,
+    newPage: number,
+  ) => {
+    setPage(newPage);
+  };
+
+  // Sayfa başına satır sayısı değişimi
+  const handleChangeRowsPerPage = (
+    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
+  // Sayfalandırılmış rapor verileri
+  const paginatedReports = React.useMemo(() => {
+    const startIndex = page * rowsPerPage;
+    return filteredReports.slice(startIndex, startIndex + rowsPerPage);
+  }, [filteredReports, page, rowsPerPage]);
+
+  // Filtre değişikliklerinde sayfa numarasını sıfırla
+  useEffect(() => {
+    setPage(0);
+  }, [searchTerm, statusFilter, startDate, endDate]);
+
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -762,99 +794,118 @@ const GirisCikisRaporlari: React.FC<GirisCikisRaporlariProps> = ({ branchId, isM
           </Typography>
         </Box>
       ) : (
-        <TableContainer component={Paper} sx={{ 
-          boxShadow: '0 2px 10px rgba(0, 0, 0, 0.05)',
-          borderRadius: 2
-        }}>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell width="25%">Personel</TableCell>
-                <TableCell width="20%">Vardiya</TableCell>
-                <TableCell width="15%">Tarih</TableCell>
-                <TableCell width="10%">Giriş</TableCell>
-                <TableCell width="10%">Çıkış</TableCell>
-                <TableCell width="20%">Durum</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {filteredReports.map((report) => (
-                <TableRow 
-                  key={report.id} 
-                  hover
-                  onClick={() => handleOpenModal(report)}
-                  sx={{ 
-                    cursor: 'pointer',
-                    '&:hover': { 
-                      backgroundColor: 'rgba(0, 0, 0, 0.04)'
-                    }
-                  }}
-                >
-                  <TableCell>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <Avatar 
-                        sx={{ 
-                          width: 32, 
-                          height: 32, 
-                          bgcolor: 'primary.main',
-                          mr: 1.5
-                        }}
-                      >
-                        <PersonIcon fontSize="small" />
-                      </Avatar>
-                      <Typography variant="body2" fontWeight="medium">
-                        {report.personnel}
-                      </Typography>
-                    </Box>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2">
-                      {report.shift}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <CalendarTodayIcon fontSize="small" sx={{ mr: 0.5, color: 'text.secondary' }} />
-                      <Typography variant="body2">
-                        {report.date}
-                      </Typography>
-                    </Box>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2">
-                      {report.checkIn}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2">
-                      {report.checkOut}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Stack direction="row" spacing={0.5} flexWrap="wrap">
-                      {report.statusInfo.entryStatus && (
-                        <Chip 
-                          label={report.statusInfo.entryStatus}
-                          size="small" 
-                          color={getStatusColor(report.statusInfo.entryStatus)}
-                          sx={{ fontSize: '11px', height: 24, mb: 0.5 }}
-                        />
-                      )}
-                      {report.statusInfo.exitStatus && (
-                        <Chip 
-                          label={report.statusInfo.exitStatus}
-                          size="small" 
-                          color={getStatusColor(report.statusInfo.exitStatus)}
-                          sx={{ fontSize: '11px', height: 24, mb: 0.5 }}
-                        />
-                      )}
-                    </Stack>
-                  </TableCell>
+        <Box>
+          <Paper sx={{ 
+            width: '100%', 
+            boxShadow: '0 2px 10px rgba(0, 0, 0, 0.05)',
+            borderRadius: 2,
+            mb: 1
+          }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell width="25%">Personel</TableCell>
+                  <TableCell width="20%">Vardiya</TableCell>
+                  <TableCell width="15%">Tarih</TableCell>
+                  <TableCell width="10%">Giriş</TableCell>
+                  <TableCell width="10%">Çıkış</TableCell>
+                  <TableCell width="20%">Durum</TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+              </TableHead>
+              <TableBody>
+                {paginatedReports.map((report) => (
+                  <TableRow 
+                    key={report.id} 
+                    hover
+                    onClick={() => handleOpenModal(report)}
+                    sx={{ 
+                      cursor: 'pointer',
+                      '&:hover': { 
+                        backgroundColor: 'rgba(0, 0, 0, 0.04)'
+                      }
+                    }}
+                  >
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <Avatar 
+                          sx={{ 
+                            width: 32, 
+                            height: 32, 
+                            bgcolor: 'primary.main',
+                            mr: 1.5
+                          }}
+                        >
+                          <PersonIcon fontSize="small" />
+                        </Avatar>
+                        <Typography variant="body2" fontWeight="medium">
+                          {report.personnel}
+                        </Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">
+                        {report.shift}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <CalendarTodayIcon fontSize="small" sx={{ mr: 0.5, color: 'text.secondary' }} />
+                        <Typography variant="body2">
+                          {report.date}
+                        </Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">
+                        {report.checkIn}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">
+                        {report.checkOut}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Stack direction="row" spacing={0.5} flexWrap="wrap">
+                        {report.statusInfo.entryStatus && (
+                          <Chip 
+                            label={report.statusInfo.entryStatus}
+                            size="small" 
+                            color={getStatusColor(report.statusInfo.entryStatus)}
+                            sx={{ fontSize: '11px', height: 24, mb: 0.5 }}
+                          />
+                        )}
+                        {report.statusInfo.exitStatus && (
+                          <Chip 
+                            label={report.statusInfo.exitStatus}
+                            size="small" 
+                            color={getStatusColor(report.statusInfo.exitStatus)}
+                            sx={{ fontSize: '11px', height: 24, mb: 0.5 }}
+                          />
+                        )}
+                      </Stack>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Paper>
+          
+          {/* Sayfalama */}
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <TablePagination
+              component="div"
+              count={filteredReports.length}
+              page={page}
+              onPageChange={handleChangePage}
+              rowsPerPage={rowsPerPage}
+              onRowsPerPageChange={handleChangeRowsPerPage}
+              rowsPerPageOptions={[25, 50, 100]}
+              labelRowsPerPage="Sayfa başına satır:"
+              labelDisplayedRows={({ from, to, count }) => `${count} kayıttan ${from}-${to} arası gösteriliyor`}
+            />
+          </Box>
+        </Box>
       )}
       
       {/* Vardiya Zaman Düzenleme Modalı */}
