@@ -81,6 +81,8 @@ const GirisCikisRaporlari: React.FC<GirisCikisRaporlariProps> = ({ branchId, isM
   const statusOptions: StatusOption[] = [
     { value: 'all', label: 'Tüm Durumlar', color: 'default' },
     { value: 'devam-eden-personel', label: 'Devam Eden Personel', color: 'info' },
+    { value: 'unutulanlar', label: 'Unutulanlar', color: 'error' },
+    { value: 'elle-duzenlenenler', label: 'Elle Düzenlenenler', color: 'warning' },
     { value: 'Normal Giriş', label: 'Normal Giriş', color: 'success' },
     { value: 'Erken Geldi', label: 'Erken Geldi', color: 'info' },
     { value: 'Geç Geldi', label: 'Geç Geldi', color: 'warning' },
@@ -404,11 +406,33 @@ const GirisCikisRaporlari: React.FC<GirisCikisRaporlariProps> = ({ branchId, isM
         filtered = filtered.filter(report => 
           report.checkIn !== '--:--' && report.checkOut === '--:--' && report.statusInfo.exitStatus === 'Devam Ediyor'
         );
+      } else if (statusFilter === 'unutulanlar') {
+        // Bugünün tarihini al
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        // Geçmiş günlerde giriş veya çıkış yapılmamış kayıtları filtrele
+        filtered = filtered.filter(report => {
+          // Rapor tarihini Date nesnesine çevir
+          const dateParts = report.date.split('-');
+          const day = parseInt(dateParts[0], 10);
+          const month = parseInt(dateParts[1], 10) - 1; // JavaScript ayları 0'dan başlar
+          const year = parseInt(dateParts[2], 10);
+          const reportDate = new Date(year, month, day);
+          
+          // Rapor bugünden önceki bir güne ait ve eksik giriş/çıkış var mı?
+          return reportDate < today && (report.checkIn === '--:--' || report.checkOut === '--:--');
+        });
+      } else if (statusFilter === 'elle-duzenlenenler') {
+        // Elle düzenlenmiş kayıtları filtrele
+        filtered = filtered.filter(report => 
+          report.originalRecord.girisElleDuzenlendi || report.originalRecord.cikisElleDuzenlendi
+        );
       } else {
         // Diğer durum filtreleri
-      filtered = filtered.filter(report => {
-        const { entryStatus, exitStatus } = report.statusInfo;
-        return entryStatus === statusFilter || exitStatus === statusFilter;
+        filtered = filtered.filter(report => {
+          const { entryStatus, exitStatus } = report.statusInfo;
+          return entryStatus === statusFilter || exitStatus === statusFilter;
         });
       }
     }
@@ -616,8 +640,17 @@ const GirisCikisRaporlari: React.FC<GirisCikisRaporlariProps> = ({ branchId, isM
                       <Typography 
                         variant="body2"
                         sx={{
-                          fontWeight: option.value === 'devam-eden-personel' ? 'bold' : 'normal',
-                          color: option.value === 'devam-eden-personel' ? 'info.main' : 'inherit'
+                          fontWeight: option.value === 'devam-eden-personel' || 
+                                     option.value === 'unutulanlar' ||
+                                     option.value === 'elle-duzenlenenler'
+                                     ? 'bold' : 'normal',
+                          color: option.value === 'devam-eden-personel' 
+                                  ? 'info.main' 
+                                  : option.value === 'unutulanlar'
+                                    ? 'error.main'
+                                    : option.value === 'elle-duzenlenenler'
+                                      ? 'warning.main'
+                                      : 'inherit'
                         }}
                       >
                         {option.label}
