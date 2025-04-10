@@ -351,8 +351,7 @@ const PersonelListesi: React.FC<PersonelListesiProps> = ({ branchId, isManager =
         <>
           <TableContainer component={Paper} sx={{ 
             boxShadow: '0 2px 10px rgba(0, 0, 0, 0.05)',
-            borderRadius: 2,
-            maxHeight: '65vh'
+            borderRadius: 2
           }}>
             <Table size="small" stickyHeader>
               <TableHead>
@@ -449,6 +448,7 @@ const PersonelListesi: React.FC<PersonelListesiProps> = ({ branchId, isManager =
             labelDisplayedRows={({ from, to, count }) => 
               `${from}-${to} / ${count !== -1 ? count : `${to}'den fazla`}`
             }
+            sx={{ mt: 1 }}
           />
         </>
       )}
