@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -37,7 +37,8 @@ import {
   DialogContent,
   DialogActions,
   Snackbar,
-  Autocomplete
+  Autocomplete,
+  TablePagination
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -175,159 +176,206 @@ const PersonnelTable: React.FC<{
   showDeleted,
   onRestore
 }) => {
+  // Sayfalama için state
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(50);
+  
+  // Sayfalandırılmış personel verileri
+  const paginatedPersonnel = useMemo(() => {
+    const startIndex = page * rowsPerPage;
+    return personnel.slice(startIndex, startIndex + rowsPerPage);
+  }, [personnel, page, rowsPerPage]);
+  
+  // Filtre değişikliklerinde sayfa numarasını sıfırla
+  useEffect(() => {
+    setPage(0);
+  }, [personnel]);
+  
+  // Sayfa değişimi
+  const handleChangePage = (
+    event: React.MouseEvent<HTMLButtonElement> | null,
+    newPage: number,
+  ) => {
+    setPage(newPage);
+  };
+
+  // Sayfa başına satır sayısı değişimi
+  const handleChangeRowsPerPage = (
+    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
   return (
-    <TableContainer component={Paper} sx={{ 
-      mt: 2, 
-      boxShadow: '0 2px 10px rgba(0, 0, 0, 0.05)',
-      borderRadius: 2,
-      maxHeight: 'calc(100vh - 240px)',
-      overflowY: 'auto'
-    }}>
-      <Table size="small" stickyHeader>
-        <TableHead>
-          <TableRow>
-            <TableCell width="25%">Ad Soyad</TableCell>
-            <TableCell width="15%">Telefon</TableCell>
-            <TableCell width="20%">E-posta</TableCell>
-            {!showDeleted && <TableCell width="10%">Durum</TableCell>}
-            <TableCell width="15%">Şube</TableCell>
-            <TableCell width="10%">Rol</TableCell>
-            <TableCell width="15%" align="right">İşlemler</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {personnel.map((person) => (
-            <TableRow 
-              key={person.id} 
-              hover
-              onClick={() => onViewDetails(person.id)}
-              sx={{ cursor: 'pointer' }}
-            >
-              <TableCell>
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <Avatar 
-                    sx={{ 
-                      width: 32, 
-                      height: 32, 
-                      bgcolor: person.fcmToken ? '#4caf50' : '#f44336',
-                      mr: 1.5
-                    }}
-                  >
-                    {person.name?.charAt(0) || 'P'}
-                  </Avatar>
-                  <Typography variant="body2" fontWeight="medium">
-                    {person.name}
+    <>
+      <TableContainer component={Paper} sx={{ 
+        mt: 2, 
+        boxShadow: '0 2px 10px rgba(0, 0, 0, 0.05)',
+        borderRadius: 2
+      }}>
+        <Table size="small" stickyHeader>
+          <TableHead>
+            <TableRow>
+              <TableCell width="25%">Ad Soyad</TableCell>
+              <TableCell width="15%">Telefon</TableCell>
+              <TableCell width="20%">E-posta</TableCell>
+              {!showDeleted && <TableCell width="10%">Durum</TableCell>}
+              <TableCell width="15%">Şube</TableCell>
+              <TableCell width="10%">Rol</TableCell>
+              <TableCell width="15%" align="right">İşlemler</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {paginatedPersonnel.map((person) => (
+              <TableRow 
+                key={person.id} 
+                hover
+                onClick={() => onViewDetails(person.id)}
+                sx={{ cursor: 'pointer' }}
+              >
+                <TableCell>
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Avatar 
+                      sx={{ 
+                        width: 32, 
+                        height: 32, 
+                        bgcolor: person.fcmToken ? '#4caf50' : '#f44336',
+                        mr: 1.5
+                      }}
+                    >
+                      {person.name?.charAt(0) || 'P'}
+                    </Avatar>
+                    <Typography variant="body2" fontWeight="medium">
+                      {person.name}
+                    </Typography>
+                  </Box>
+                </TableCell>
+                <TableCell>
+                  <Typography variant="body2">
+                    {person.phone || '-'}
                   </Typography>
-                </Box>
-              </TableCell>
-              <TableCell>
-                <Typography variant="body2">
-                  {person.phone || '-'}
-                </Typography>
-              </TableCell>
-              <TableCell>
-                <Typography variant="body2" sx={{ 
-                  maxWidth: '180px', 
-                  overflow: 'hidden', 
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap'
-                }}>
-                  {person.email || '-'}
-                </Typography>
-              </TableCell>
-              {!showDeleted && (
+                </TableCell>
+                <TableCell>
+                  <Typography variant="body2" sx={{ 
+                    maxWidth: '180px', 
+                    overflow: 'hidden', 
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap'
+                  }}>
+                    {person.email || '-'}
+                  </Typography>
+                </TableCell>
+                {!showDeleted && (
+                  <TableCell>
+                    <Chip 
+                      size="small"
+                      label={person.hasTask ? "Görev Atanmış" : "Müsait"} 
+                      color={person.hasTask ? "primary" : "success"}
+                      sx={{ fontSize: '11px', height: 24 }}
+                    />
+                  </TableCell>
+                )}
+                <TableCell>
+                  {person.branchesId ? (
+                    <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center' }}>
+                      <BusinessIcon fontSize="small" sx={{ mr: 0.5, color: 'primary.main', fontSize: '0.875rem' }} />
+                      {person.branchName || 'Bilinmeyen Şube'}
+                    </Typography>
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">-</Typography>
+                  )}
+                </TableCell>
                 <TableCell>
                   <Chip 
                     size="small"
-                    label={person.hasTask ? "Görev Atanmış" : "Müsait"} 
-                    color={person.hasTask ? "primary" : "success"}
-                    sx={{ fontSize: '11px', height: 24 }}
+                    label={person.role === 'employee' ? 'Personel' : person.role || 'Personel'} 
+                    color={
+                      person.role === 'admin' ? 'error' : 
+                      person.role === 'manager' ? 'warning' : 
+                      'default'
+                    }
+                    sx={{ 
+                      fontSize: '11px', 
+                      height: 24,
+                      minWidth: 80
+                    }}
                   />
                 </TableCell>
-              )}
-              <TableCell>
-                {person.branchesId ? (
-                  <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center' }}>
-                    <BusinessIcon fontSize="small" sx={{ mr: 0.5, color: 'primary.main', fontSize: '0.875rem' }} />
-                    {person.branchName || 'Bilinmeyen Şube'}
+                <TableCell align="right" onClick={(e) => e.stopPropagation()}>
+                  {showDeleted ? (
+                    <Tooltip title="İşe Geri Al">
+                      <IconButton 
+                        size="small" 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onRestore(person.id);
+                        }}
+                        sx={{ color: 'success.main', p: 0.5 }}
+                      >
+                        <PersonAddIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  ) : (
+                    <>
+                      <Tooltip title="Detaylar">
+                        <IconButton 
+                          size="small" 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onViewDetails(person.id);
+                          }}
+                          sx={{ color: 'primary.main', p: 0.5 }}
+                        >
+                          <PersonIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Mesaj Gönder">
+                        <IconButton 
+                          size="small" 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSendMessage(person.id);
+                          }}
+                          sx={{ color: 'success.main', p: 0.5, ml: 0.5 }}
+                        >
+                          <EmailIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+            {personnel.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={showDeleted ? 6 : 7} align="center" sx={{ py: 3 }}>
+                  <Typography color="text.secondary">
+                    {showDeleted ? "Silinen personel bulunmuyor" : "Personel bulunamadı"}
                   </Typography>
-                ) : (
-                  <Typography variant="body2" color="text.secondary">-</Typography>
-                )}
-              </TableCell>
-              <TableCell>
-                <Chip 
-                  size="small"
-                  label={person.role === 'employee' ? 'Personel' : person.role || 'Personel'} 
-                  color={
-                    person.role === 'admin' ? 'error' : 
-                    person.role === 'manager' ? 'warning' : 
-                    'default'
-                  }
-                  sx={{ 
-                    fontSize: '11px', 
-                    height: 24,
-                    minWidth: 80
-                  }}
-                />
-              </TableCell>
-              <TableCell align="right" onClick={(e) => e.stopPropagation()}>
-                {showDeleted ? (
-                  <Tooltip title="İşe Geri Al">
-                    <IconButton 
-                      size="small" 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onRestore(person.id);
-                      }}
-                      sx={{ color: 'success.main', p: 0.5 }}
-                    >
-                      <PersonAddIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                ) : (
-                  <>
-                    <Tooltip title="Detaylar">
-                      <IconButton 
-                        size="small" 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onViewDetails(person.id);
-                        }}
-                        sx={{ color: 'primary.main', p: 0.5 }}
-                      >
-                        <PersonIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Mesaj Gönder">
-                      <IconButton 
-                        size="small" 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onSendMessage(person.id);
-                        }}
-                        sx={{ color: 'success.main', p: 0.5, ml: 0.5 }}
-                      >
-                        <EmailIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  </>
-                )}
-              </TableCell>
-            </TableRow>
-          ))}
-          {personnel.length === 0 && (
-            <TableRow>
-              <TableCell colSpan={showDeleted ? 6 : 7} align="center" sx={{ py: 3 }}>
-                <Typography color="text.secondary">
-                  {showDeleted ? "Silinen personel bulunmuyor" : "Personel bulunamadı"}
-                </Typography>
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
-    </TableContainer>
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
+      
+      {/* Sayfalama */}
+      {personnel.length > 0 && (
+        <TablePagination
+          component="div"
+          count={personnel.length}
+          page={page}
+          onPageChange={handleChangePage}
+          rowsPerPage={rowsPerPage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+          rowsPerPageOptions={[25, 50, 100]}
+          labelRowsPerPage="Sayfa başına satır:"
+          labelDisplayedRows={({ from, to, count }) => `${count} kayıttan ${from}-${to} arası gösteriliyor`}
+          sx={{ mt: 1 }}
+        />
+      )}
+    </>
   );
 };
 
