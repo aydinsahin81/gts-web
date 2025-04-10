@@ -27,6 +27,7 @@ import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import { ref, get, onValue } from 'firebase/database';
 import { database } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
+import VardiyaZamanDuzenleModal from './VardiyaZamanDuzenleModal';
 
 interface GirisCikisRaporlariProps {
   branchId?: string;
@@ -41,6 +42,21 @@ const GirisCikisRaporlari: React.FC<GirisCikisRaporlariProps> = ({ branchId, isM
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [personnelData, setPersonnelData] = useState<{[key: string]: any}>({});
+  
+  // Vardiya zaman düzenleme modalı için state
+  const [selectedReport, setSelectedReport] = useState<any | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Modal işlemleri
+  const handleOpenModal = (report: any) => {
+    setSelectedReport(report);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedReport(null);
+  };
 
   // Veritabanından vardiya giriş/çıkış raporlarını real-time olarak çek
   useEffect(() => {
@@ -418,7 +434,17 @@ const GirisCikisRaporlari: React.FC<GirisCikisRaporlariProps> = ({ branchId, isM
             </TableHead>
             <TableBody>
               {filteredReports.map((report) => (
-                <TableRow key={report.id} hover>
+                <TableRow 
+                  key={report.id} 
+                  hover
+                  onClick={() => handleOpenModal(report)}
+                  sx={{ 
+                    cursor: 'pointer',
+                    '&:hover': { 
+                      backgroundColor: 'rgba(0, 0, 0, 0.04)'
+                    }
+                  }}
+                >
                   <TableCell>
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
                       <Avatar 
@@ -485,6 +511,13 @@ const GirisCikisRaporlari: React.FC<GirisCikisRaporlariProps> = ({ branchId, isM
           </Table>
         </TableContainer>
       )}
+      
+      {/* Vardiya Zaman Düzenleme Modalı */}
+      <VardiyaZamanDuzenleModal
+        open={isModalOpen}
+        onClose={handleCloseModal}
+        report={selectedReport}
+      />
     </Box>
   );
 };
