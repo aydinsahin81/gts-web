@@ -16,6 +16,9 @@ import {
   ViewWeek as ViewWeekIcon,
   CalendarMonth as MonthIcon
 } from '@mui/icons-material';
+import { ref, get, onValue, off } from 'firebase/database';
+import { database } from '../../../firebase';
+import TakvimDetailModal from './TakvimDetailModal';
 
 // Türkçe ay ve gün adları
 const aylar = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 
@@ -259,11 +262,40 @@ interface TakvimProps {
   companyId: string | null;
 }
 
+// Görev durumu için renk tanımlamaları
+const getTaskStatusColor = (status: string): string => {
+  switch (status) {
+    case 'completed':
+      return '#4CAF50'; // Yeşil
+    case 'pending':
+      return '#FF9800'; // Turuncu
+    case 'missed':
+      return '#F44336'; // Kırmızı
+    case 'accepted':
+      return '#9C27B0'; // Mor
+    case 'started':
+      return '#2196F3'; // Mavi
+    default:
+      return '#757575'; // Gri
+  }
+};
+
 const Takvim: React.FC<TakvimProps> = ({ companyId }) => {
   const [view, setView] = useState<string>('dayGridMonth');
   const [events, setEvents] = useState<any[]>([]);
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const calendarRef = React.useRef<FullCalendar>(null);
+  
+  // Modal için state'ler
+  const [modalOpen, setModalOpen] = useState<boolean>(false);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [dailyTasks, setDailyTasks] = useState<any[]>([]);
+  const [weeklyTasks, setWeeklyTasks] = useState<any[]>([]);
+  const [monthlyTasks, setMonthlyTasks] = useState<any[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+
+  // Tüm görevleri saklayan state
+  const [allTasks, setAllTasks] = useState<any[]>([]);
 
   // Bir başlangıç tarihini ayarla
   useEffect(() => {
@@ -296,36 +328,117 @@ const Takvim: React.FC<TakvimProps> = ({ companyId }) => {
     }
   }, [view, calendarRef]);
 
-  // Örnek etkinlikler
+  // Firebase'den görevleri çek
   useEffect(() => {
-    // Burada normalde Firebase'den etkinlikleri çekeceğiz
-    setEvents([]); // Boş dizi ile başlatıyoruz
-  }, []);
+    if (!companyId) return;
 
-  // Etkinlik tıklama
-  const handleEventClick = (info: any) => {
-    console.log('Etkinlik tıklandı:', info.event);
-    // Burada etkinlik detay modalı açılabilir
-    alert(`Etkinlik: ${info.event.title}`);
+    setLoading(true);
+    
+    // Günlük görevleri dinle
+    const tasksRef = ref(database, `companies/${companyId}/tasks`);
+    
+    const handleTasksData = (snapshot: any) => {
+      if (!snapshot.exists()) {
+        setAllTasks([]);
+        setEvents([]);
+        setLoading(false);
+        return;
+      }
+      
+      const tasksData = snapshot.val();
+      const tasksArray = Object.keys(tasksData).map(key => ({
+        id: key,
+        ...tasksData[key]
+      }));
+      
+      setAllTasks(tasksArray);
+      
+      // Günlük görevleri bul
+      const dailyTasks = tasksArray.filter(task => 
+        task.isRecurring && task.repeatType === 'daily'
+      );
+      
+      // Eğer günlük görevler varsa, takvimin her günü için bir görev göster
+      if (dailyTasks.length > 0) {
+        // Takvimin nasıl kullanılacağına bağlı olarak, 
+        // bir aylık event oluşturabiliriz (geçmiş ve gelecek için)
+        
+        // Bugün
+        const today = new Date();
+        
+        // Takvim eventlerini oluştur
+        const calendarEvents = [];
+        
+        // Geçmiş 90 gün ve gelecek 180 gün için günlük görevler oluştur
+        // Bu aralığı değiştirebilirsiniz, örneğin ihtiyaca göre 30/60 veya 180/365 gibi
+        for (let i = -90; i <= 180; i++) {
+          const date = new Date();
+          date.setDate(today.getDate() + i);
+          
+          // Her gün için bir "Günlük Görevler" eventi oluştur
+          calendarEvents.push({
+            id: `daily-tasks-${i}`,
+            title: 'Günlük Görevler',
+            start: new Date(date.setHours(0, 0, 0, 0)),
+            end: new Date(date.setHours(23, 59, 59, 999)),
+            allDay: true,
+            backgroundColor: '#2196F3', // Mavi
+            borderColor: '#1976D2',
+            extendedProps: {
+              taskCount: dailyTasks.length,
+              taskType: 'daily',
+              date: new Date(date)
+            }
+          });
+        }
+        
+        setEvents(calendarEvents);
+      } else {
+        setEvents([]);
+      }
+      
+      setLoading(false);
+    };
+    
+    onValue(tasksRef, handleTasksData);
+    
+    // Cleanup
+    return () => {
+      off(tasksRef, 'value', handleTasksData);
+    };
+  }, [companyId]);
+
+  // Tarih tıklamasını işle - günün görevlerini göster
+  const handleDateClick = (info: any) => {
+    setSelectedDate(info.date);
+    setLoading(true);
+    
+    // Seçilen tarihin başlangıcı ve sonu
+    const selectedDateStart = new Date(info.date);
+    selectedDateStart.setHours(0, 0, 0, 0);
+    
+    const selectedDateEnd = new Date(info.date);
+    selectedDateEnd.setHours(23, 59, 59, 999);
+    
+    // Günün görevlerini filtrele
+    const dayTasks = allTasks.filter(task => {
+      if (task.isRecurring && task.repeatType === 'daily') {
+        return true; // Günlük tekrar eden görevler her gün için geçerli
+      }
+      
+      return false;
+    });
+    
+    setDailyTasks(dayTasks);
+    setWeeklyTasks([]);
+    setMonthlyTasks([]);
+    setModalOpen(true);
+    setLoading(false);
   };
 
-  // Tarih tıklama - yeni etkinlik ekleme
-  const handleDateClick = (info: any) => {
-    console.log('Tarih tıklandı:', info.date);
-    // Burada yeni etkinlik ekleme modalı açılabilir
-    const title = prompt('Etkinlik adı:');
-    if (title) {
-      const newEvent = {
-        id: Math.random().toString(),
-        title,
-        start: info.date,
-        allDay: info.allDay,
-        backgroundColor: '#4caf50',
-        borderColor: '#388e3c',
-      };
-      
-      setEvents([...events, newEvent]);
-    }
+  // Modal kapatma işleyici
+  const handleCloseModal = () => {
+    setModalOpen(false);
   };
 
   return (
@@ -334,12 +447,12 @@ const Takvim: React.FC<TakvimProps> = ({ companyId }) => {
       p: 0, 
       display: 'flex', 
       flexDirection: 'column', 
-      minHeight: 'calc(100vh - 120px)', // Minimum yükseklik, içerik artarsa büyüyebilir
+      minHeight: 'calc(100vh - 120px)', 
     }}>
       <Paper sx={{ 
         p: 2, 
         borderRadius: 2, 
-        flex: 1, // Esnek büyüme
+        flex: 1,
         display: 'flex',
         flexDirection: 'column',
         overflow: 'visible',
@@ -363,15 +476,19 @@ const Takvim: React.FC<TakvimProps> = ({ companyId }) => {
             initialView="dayGridMonth"
             headerToolbar={false} // Özel toolbar kullanıyoruz
             events={events}
-            eventClick={handleEventClick}
+            eventClick={(info) => {
+              // Bir event'a tıklandığında ilgili günün detayını göster
+              setSelectedDate(info.event.start || new Date());
+              handleDateClick({ date: info.event.start || new Date() });
+            }}
             dateClick={handleDateClick}
             height='auto' // İçeriğin tam yüksekliğini alır
             contentHeight='auto' // İçeriğe göre otomatik boyutlandırma
             dayMaxEvents={3} // 3'ten fazla etkinlik varsa "daha fazla" bağlantısı göster
             moreLinkClick="popover" // Fazla etkinlikler için pop-up
             nowIndicator={true}
-            editable={true}
-            droppable={true}
+            editable={false} // Etkinlikleri düzenleme kapalı
+            droppable={false} // Sürükle-bırak kapalı
             selectable={true}
             selectMirror={true}
             weekends={true}
@@ -422,6 +539,17 @@ const Takvim: React.FC<TakvimProps> = ({ companyId }) => {
       
       {/* Sayfanın altında ekstra boşluk */}
       <Box sx={{ height: '100px', width: '100%' }} />
+      
+      {/* Takvim Detay Modalı */}
+      <TakvimDetailModal
+        open={modalOpen}
+        onClose={handleCloseModal}
+        selectedDate={selectedDate}
+        dailyTasks={dailyTasks}
+        weeklyTasks={weeklyTasks}
+        monthlyTasks={monthlyTasks}
+        loading={loading}
+      />
     </Box>
   );
 };
