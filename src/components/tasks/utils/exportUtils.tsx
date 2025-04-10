@@ -199,18 +199,48 @@ export const exportWeeklyTasksToExcel = async (
     // Excel workbook oluştur
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Haftalık Görevler');
+
+    // İlk görevi kontrol ederek durum filtresini belirle
+    const isCompletedTasks = tasks.length > 0 && tasks[0].status === 'completed';
+    const isMissedTasks = tasks.length > 0 && tasks[0].status === 'missed';
     
-    // Sütun başlıklarını tanımla
-    worksheet.columns = [
-      { header: 'Durum', key: 'status', width: 15 },
-      { header: 'Görev Adı', key: 'name', width: 30 },
-      { header: 'Günler', key: 'weekDays', width: 25 },
-      { header: 'Görev Saatleri', key: 'times', width: 30 },
-      { header: 'Tolerans', key: 'tolerance', width: 12 },
-      { header: 'Personel', key: 'personnel', width: 20 },
-      { header: 'Açıklama', key: 'description', width: 40 }
-    ];
-    
+    // Durum filtresine göre sütunları tanımla
+    if (isCompletedTasks) {
+      // Tamamlanan görevler için sütunlar
+      worksheet.columns = [
+        { header: 'Görev Adı', key: 'name', width: 30 },
+        { header: 'Görev Günü', key: 'taskDay', width: 20 },
+        { header: 'Görev Saati', key: 'taskTime', width: 15 },
+        { header: 'Tolerans', key: 'tolerance', width: 12 },
+        { header: 'Personel', key: 'personnel', width: 20 },
+        { header: 'Başlama Zamanı', key: 'startTime', width: 20 },
+        { header: 'Bitiş Zamanı', key: 'endTime', width: 20 },
+        { header: 'Açıklama', key: 'description', width: 30 }
+      ];
+    } else if (isMissedTasks) {
+      // Kaçırılan görevler için sütunlar
+      worksheet.columns = [
+        { header: 'Görev Adı', key: 'name', width: 30 },
+        { header: 'Görev Günü', key: 'taskDay', width: 20 },
+        { header: 'Görev Saati', key: 'taskTime', width: 15 },
+        { header: 'Tolerans', key: 'tolerance', width: 12 },
+        { header: 'Personel', key: 'personnel', width: 20 },
+        { header: 'Kaçırılma Zamanı', key: 'missedTime', width: 20 },
+        { header: 'Açıklama', key: 'description', width: 30 }
+      ];
+    } else {
+      // Normal görevler için sütunlar
+      worksheet.columns = [
+        { header: 'Görev Adı', key: 'name', width: 25 },
+        { header: 'Görev Açıklaması', key: 'description', width: 35 },
+        { header: 'Son Tarih', key: 'dueDate', width: 15 },
+        { header: 'Durum', key: 'status', width: 15 },
+        { header: 'Personel', key: 'personnel', width: 20 },
+        { header: 'Şube', key: 'branch', width: 20 },
+        { header: 'Görev Grubu', key: 'group', width: 20 }
+      ];
+    }
+
     // Başlık stilini uygula
     worksheet.getRow(1).eachCell(cell => {
       cell.style = getHeaderStyle();
@@ -218,51 +248,59 @@ export const exportWeeklyTasksToExcel = async (
     
     // Görev verilerini ekle
     tasks.forEach(task => {
-      // Görev günlerini çıkar
-      const taskDays = getTaskDays(task);
-      
-      // Haftanın günleri
-      let weekDaysText = '-';
-      if (taskDays.length > 0) {
-        weekDaysText = taskDays.map(day => day.dayName).join(', ');
-      }
-      
-      // Görev saatleri
-      let taskTimes = '-';
-      if (taskDays.length > 0) {
-        // Her gün için saatleri ekle
-        const timesByDay = taskDays.map(day => {
-          const times = day.repetitionTimes.join(', ');
-          return `${day.dayName}: ${times}`;
-        });
-        taskTimes = timesByDay.join(' | ');
-      } else if (task.repetitionTimes && task.repetitionTimes.length > 0) {
-        // Eğer gün bilgisi yoksa ama saatler varsa
-        taskTimes = task.repetitionTimes.join(', ');
-      } else if (task.taskTime) {
-        // Tamamlanmış görevler için
-        taskTimes = task.taskTime;
-      }
-      
-      // Tarih bilgisi (tamamlanmış görevler için)
-      let dateInfo = '-';
-      if (task.status === 'completed' || task.status === 'missed') {
-        dateInfo = task.taskDate || '-';
-      }
-      
       // Tolerans bilgisi
       const toleranceInfo = `${task.startTolerance || 15} dk`;
       
-      // Satır ekleme
-      worksheet.addRow({
-        status: getStatusLabel(task.status || 'pending'),
-        name: task.name,
-        weekDays: weekDaysText,
-        times: taskTimes,
-        tolerance: toleranceInfo,
-        personnel: task.personnelName || 'Atanmamış',
-        description: task.description || ''
-      });
+      if (isCompletedTasks) {
+        // Tamamlanan görevler için veri formatı
+        // Tarih formatını düzenle
+        const startTime = task.startedAt ? new Date(task.startedAt).toLocaleString('tr-TR') : '-';
+        const endTime = task.completedAt ? new Date(task.completedAt).toLocaleString('tr-TR') : '-';
+        const taskDate = task.taskDate || '-'; // Görev günü
+        
+        worksheet.addRow({
+          name: task.name || '-',
+          taskDay: taskDate,
+          taskTime: task.taskTime || '-',
+          tolerance: toleranceInfo,
+          personnel: task.personnelName || 'Atanmamış',
+          startTime: startTime,
+          endTime: endTime,
+          description: task.description || '-'
+        });
+      } else if (isMissedTasks) {
+        // Kaçırılan görevler için veri formatı
+        // Tarih formatını düzenle
+        const missedTime = task.missedAt ? new Date(task.missedAt).toLocaleString('tr-TR') : '-';
+        const taskDate = task.taskDate || '-'; // Görev günü
+        
+        worksheet.addRow({
+          name: task.name || '-',
+          taskDay: taskDate,
+          taskTime: task.taskTime || '-',
+          tolerance: toleranceInfo,
+          personnel: task.personnelName || 'Atanmamış',
+          missedTime: missedTime,
+          description: task.description || '-'
+        });
+      } else {
+        // Normal görevler için veri formatı
+        // Son tarihi formatla
+        const dueDate = task.dueDate 
+          ? new Date(task.dueDate).toLocaleDateString('tr-TR') 
+          : '-';
+        
+        // Satır ekleme
+        worksheet.addRow({
+          name: task.name || '-',
+          description: task.description || '-',
+          dueDate: dueDate,
+          status: getStatusLabel(task.status),
+          personnel: task.personnelName || 'Atanmamış',
+          branch: task.branchName || '-',
+          group: task.groupName || '-'
+        });
+      }
     });
     
     // Zebrastripe (alternatif satır renklendirme)
@@ -271,13 +309,36 @@ export const exportWeeklyTasksToExcel = async (
         row.eachCell(cell => {
           cell.style = getCellStyle(rowNumber);
         });
+        
+        // Normal görevler için metin sarma
+        if (!isCompletedTasks && !isMissedTasks) {
+          // Görev açıklaması için metin sarma
+          if (row.getCell('description')) {
+            row.getCell('description').alignment = {
+              wrapText: true,
+              vertical: 'top'
+            };
+          }
+          
+          // Satır yüksekliğini ayarla
+          row.height = 60;
+        }
       }
     });
     
     // Excel dosyasını oluştur ve indir
     const buffer = await workbook.xlsx.writeBuffer();
     const currentDate = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    saveAs(new Blob([buffer]), `Haftalık_Görevler_${currentDate}.xlsx`);
+    let fileName = 'Haftalık_Görevler';
+    
+    // Durum filtresine göre dosya adını düzenle
+    if (isCompletedTasks) {
+      fileName = 'Tamamlanan_Haftalık_Görevler';
+    } else if (isMissedTasks) {
+      fileName = 'Kaçırılmış_Haftalık_Görevler';
+    }
+    
+    saveAs(new Blob([buffer]), `${fileName}_${currentDate}.xlsx`);
     
     return true;
   } catch (error) {
@@ -296,16 +357,46 @@ export const exportMonthlyTasksToExcel = async (
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Aylık Görevler');
     
-    // Sütun başlıklarını tanımla
-    worksheet.columns = [
-      { header: 'Durum', key: 'status', width: 15 },
-      { header: 'Görev Adı', key: 'name', width: 30 },
-      { header: 'Aylar', key: 'months', width: 20 },
-      { header: 'Günler/Saatler', key: 'daysAndTimes', width: 40 },
-      { header: 'Tolerans', key: 'tolerance', width: 12 },
-      { header: 'Personel', key: 'personnel', width: 20 },
-      { header: 'Açıklama', key: 'description', width: 40 }
-    ];
+    // İlk görevi kontrol ederek durum filtresini belirle
+    const isCompletedTasks = tasks.length > 0 && tasks[0].status === 'completed';
+    const isMissedTasks = tasks.length > 0 && tasks[0].status === 'missed';
+    
+    // Durum filtresine göre sütunları tanımla
+    if (isCompletedTasks) {
+      // Tamamlanan görevler için sütunlar
+      worksheet.columns = [
+        { header: 'Görev Adı', key: 'name', width: 30 },
+        { header: 'Görev Günü', key: 'taskDay', width: 20 },
+        { header: 'Görev Saati', key: 'taskTime', width: 15 },
+        { header: 'Tolerans', key: 'tolerance', width: 12 },
+        { header: 'Personel', key: 'personnel', width: 20 },
+        { header: 'Başlama Zamanı', key: 'startTime', width: 20 },
+        { header: 'Bitiş Zamanı', key: 'endTime', width: 20 },
+        { header: 'Açıklama', key: 'description', width: 30 }
+      ];
+    } else if (isMissedTasks) {
+      // Kaçırılan görevler için sütunlar
+      worksheet.columns = [
+        { header: 'Görev Adı', key: 'name', width: 30 },
+        { header: 'Görev Günü', key: 'taskDay', width: 20 },
+        { header: 'Görev Saati', key: 'taskTime', width: 15 },
+        { header: 'Tolerans', key: 'tolerance', width: 12 },
+        { header: 'Personel', key: 'personnel', width: 20 },
+        { header: 'Kaçırılma Zamanı', key: 'missedTime', width: 20 },
+        { header: 'Açıklama', key: 'description', width: 30 }
+      ];
+    } else {
+      // Normal görevler için sütunlar
+      worksheet.columns = [
+        { header: 'Durum', key: 'status', width: 15 },
+        { header: 'Görev Adı', key: 'name', width: 30 },
+        { header: 'Aylar', key: 'months', width: 20 },
+        { header: 'Günler/Saatler', key: 'daysAndTimes', width: 40 },
+        { header: 'Tolerans', key: 'tolerance', width: 12 },
+        { header: 'Personel', key: 'personnel', width: 20 },
+        { header: 'Açıklama', key: 'description', width: 40 }
+      ];
+    }
     
     // Başlık stilini uygula
     worksheet.getRow(1).eachCell(cell => {
@@ -314,53 +405,88 @@ export const exportMonthlyTasksToExcel = async (
     
     // Görev verilerini ekle
     tasks.forEach(task => {
-      // Aylar ve günler bilgisini çıkart
-      const monthDays = getTaskMonthDays(task);
-      
-      // Aylar
-      let monthsText = '-';
-      if (monthDays.length > 0) {
-        monthsText = monthDays.map(month => month.monthName).join(', ');
-      } else if (task.monthDay) {
-        // Eğer eski formatta aylık görev ise
-        monthsText = 'Her Ay';
-      }
-      
-      // Günler ve saatler
-      let daysAndTimesText = '-';
-      if (monthDays.length > 0) {
-        // Her ay için günler ve saatler
-        const monthDaysTexts = monthDays.map(month => {
-          // Her ay içindeki günler
-          const daysInfo = month.days.map(day => {
-            // Gün ve saatler
-            const times = day.repetitionTimes.join(', ');
-            return `${day.day}. gün: ${times}`;
-          });
-          return `${month.monthName}: ${daysInfo.join(' | ')}`;
-        });
-        daysAndTimesText = monthDaysTexts.join('\n');
-      } else if (task.monthDay && task.repetitionTimes && task.repetitionTimes.length > 0) {
-        // Eğer eski formatta aylık görev ise
-        daysAndTimesText = `Her ayın ${task.monthDay}. günü: ${task.repetitionTimes.join(', ')}`;
-      } else if (task.taskTime) {
-        // Tamamlanan görevler için
-        daysAndTimesText = task.taskTime;
-      }
-      
       // Tolerans bilgisi
       const toleranceInfo = `${task.startTolerance || 15} dk`;
       
-      // Satır ekleme
-      worksheet.addRow({
-        status: getStatusLabel(task.status || 'pending'),
-        name: task.name,
-        months: monthsText,
-        daysAndTimes: daysAndTimesText,
-        tolerance: toleranceInfo,
-        personnel: task.personnelName || 'Atanmamış',
-        description: task.description || ''
-      });
+      if (isCompletedTasks) {
+        // Tamamlanan görevler için veri formatı
+        // Tarih formatını düzenle
+        const startTime = task.startedAt ? new Date(task.startedAt).toLocaleString('tr-TR') : '-';
+        const endTime = task.completedAt ? new Date(task.completedAt).toLocaleString('tr-TR') : '-';
+        const taskDate = task.taskDate || '-'; // Görev günü
+        
+        worksheet.addRow({
+          name: task.name || '-',
+          taskDay: taskDate,
+          taskTime: task.taskTime || '-',
+          tolerance: toleranceInfo,
+          personnel: task.personnelName || 'Atanmamış',
+          startTime: startTime,
+          endTime: endTime,
+          description: task.description || '-'
+        });
+      } else if (isMissedTasks) {
+        // Kaçırılan görevler için veri formatı
+        // Tarih formatını düzenle
+        const missedTime = task.missedAt ? new Date(task.missedAt).toLocaleString('tr-TR') : '-';
+        const taskDate = task.taskDate || '-'; // Görev günü
+        
+        worksheet.addRow({
+          name: task.name || '-',
+          taskDay: taskDate,
+          taskTime: task.taskTime || '-',
+          tolerance: toleranceInfo,
+          personnel: task.personnelName || 'Atanmamış',
+          missedTime: missedTime,
+          description: task.description || '-'
+        });
+      } else {
+        // Normal görevler için veri formatı
+        // Aylar ve günler bilgisini çıkart
+        const monthDays = getTaskMonthDays(task);
+        
+        // Aylar
+        let monthsText = '-';
+        if (monthDays.length > 0) {
+          monthsText = monthDays.map(month => month.monthName).join(', ');
+        } else if (task.monthDay) {
+          // Eğer eski formatta aylık görev ise
+          monthsText = 'Her Ay';
+        }
+        
+        // Günler ve saatler
+        let daysAndTimesText = '-';
+        if (monthDays.length > 0) {
+          // Her ay için günler ve saatler
+          const monthDaysTexts = monthDays.map(month => {
+            // Her ay içindeki günler
+            const daysInfo = month.days.map(day => {
+              // Gün ve saatler
+              const times = day.repetitionTimes.join(', ');
+              return `${day.day}. gün: ${times}`;
+            });
+            return `${month.monthName}: ${daysInfo.join(' | ')}`;
+          });
+          daysAndTimesText = monthDaysTexts.join('\n');
+        } else if (task.monthDay && task.repetitionTimes && task.repetitionTimes.length > 0) {
+          // Eğer eski formatta aylık görev ise
+          daysAndTimesText = `Her ayın ${task.monthDay}. günü: ${task.repetitionTimes.join(', ')}`;
+        } else if (task.taskTime) {
+          // Tamamlanan görevler için
+          daysAndTimesText = task.taskTime;
+        }
+        
+        // Satır ekleme
+        worksheet.addRow({
+          status: getStatusLabel(task.status || 'pending'),
+          name: task.name,
+          months: monthsText,
+          daysAndTimes: daysAndTimesText,
+          tolerance: toleranceInfo,
+          personnel: task.personnelName || 'Atanmamış',
+          description: task.description || ''
+        });
+      }
     });
     
     // Zebrastripe (alternatif satır renklendirme)
@@ -370,20 +496,31 @@ export const exportMonthlyTasksToExcel = async (
           cell.style = getCellStyle(rowNumber);
         });
         
-        // Günler/Saatler sütunu için yüksek satır
-        row.getCell('daysAndTimes').alignment = {
-          wrapText: true,
-          vertical: 'top'
-        };
-        // Satır yüksekliğini ayarla
-        row.height = 60;
+        // Sadece normal görevlerde daysAndTimes sütunu için metin sarma
+        if (!isCompletedTasks && !isMissedTasks && row.getCell('daysAndTimes')) {
+          row.getCell('daysAndTimes').alignment = {
+            wrapText: true,
+            vertical: 'top'
+          };
+          // Satır yüksekliğini ayarla
+          row.height = 60;
+        }
       }
     });
     
     // Excel dosyasını oluştur ve indir
     const buffer = await workbook.xlsx.writeBuffer();
     const currentDate = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    saveAs(new Blob([buffer]), `Aylık_Görevler_${currentDate}.xlsx`);
+    let fileName = 'Aylık_Görevler';
+    
+    // Durum filtresine göre dosya adını düzenle
+    if (isCompletedTasks) {
+      fileName = 'Tamamlanan_Aylık_Görevler';
+    } else if (isMissedTasks) {
+      fileName = 'Kaçırılmış_Aylık_Görevler';
+    }
+    
+    saveAs(new Blob([buffer]), `${fileName}_${currentDate}.xlsx`);
     
     return true;
   } catch (error) {
@@ -402,16 +539,46 @@ export const exportYearlyTasksToExcel = async (
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Yıllık Görevler');
     
-    // Sütun başlıklarını tanımla
-    worksheet.columns = [
-      { header: 'Durum', key: 'status', width: 15 },
-      { header: 'Görev Adı', key: 'name', width: 30 },
-      { header: 'Tarih', key: 'yearDate', width: 15 },
-      { header: 'Görev Saatleri', key: 'times', width: 30 },
-      { header: 'Tolerans', key: 'tolerance', width: 12 },
-      { header: 'Personel', key: 'personnel', width: 20 },
-      { header: 'Açıklama', key: 'description', width: 40 }
-    ];
+    // İlk görevi kontrol ederek durum filtresini belirle
+    const isCompletedTasks = tasks.length > 0 && tasks[0].status === 'completed';
+    const isMissedTasks = tasks.length > 0 && tasks[0].status === 'missed';
+    
+    // Durum filtresine göre sütunları tanımla
+    if (isCompletedTasks) {
+      // Tamamlanan görevler için sütunlar
+      worksheet.columns = [
+        { header: 'Görev Adı', key: 'name', width: 30 },
+        { header: 'Görev Günü', key: 'taskDay', width: 20 },
+        { header: 'Görev Saati', key: 'taskTime', width: 15 },
+        { header: 'Tolerans', key: 'tolerance', width: 12 },
+        { header: 'Personel', key: 'personnel', width: 20 },
+        { header: 'Başlama Zamanı', key: 'startTime', width: 20 },
+        { header: 'Bitiş Zamanı', key: 'endTime', width: 20 },
+        { header: 'Açıklama', key: 'description', width: 30 }
+      ];
+    } else if (isMissedTasks) {
+      // Kaçırılan görevler için sütunlar
+      worksheet.columns = [
+        { header: 'Görev Adı', key: 'name', width: 30 },
+        { header: 'Görev Günü', key: 'taskDay', width: 20 },
+        { header: 'Görev Saati', key: 'taskTime', width: 15 },
+        { header: 'Tolerans', key: 'tolerance', width: 12 },
+        { header: 'Personel', key: 'personnel', width: 20 },
+        { header: 'Kaçırılma Zamanı', key: 'missedTime', width: 20 },
+        { header: 'Açıklama', key: 'description', width: 30 }
+      ];
+    } else {
+      // Normal görevler için sütunlar
+      worksheet.columns = [
+        { header: 'Görev Adı', key: 'name', width: 25 },
+        { header: 'Görev Açıklaması', key: 'description', width: 35 },
+        { header: 'Planlama Tarihi', key: 'planDate', width: 20 },
+        { header: 'Personel', key: 'personnel', width: 20 },
+        { header: 'Şube', key: 'branch', width: 20 },
+        { header: 'Görev Grubu', key: 'group', width: 20 },
+        { header: 'Yıllık Plan Görev Detayları', key: 'details', width: 40 }
+      ];
+    }
     
     // Başlık stilini uygula
     worksheet.getRow(1).eachCell(cell => {
@@ -420,27 +587,59 @@ export const exportYearlyTasksToExcel = async (
     
     // Görev verilerini ekle
     tasks.forEach(task => {
-      // Görev saatleri
-      const taskTimes = task.repetitionTimes && task.repetitionTimes.length > 0
-        ? task.repetitionTimes.join(', ')
-        : '-';
-      
-      // Yıllık tarih
-      const yearDate = task.yearDate ? task.yearDate : '-';
-      
       // Tolerans bilgisi
       const toleranceInfo = `${task.startTolerance || 15} dk`;
       
-      // Satır ekleme
-      worksheet.addRow({
-        status: getStatusLabel(task.status || 'pending'),
-        name: task.name,
-        yearDate: yearDate,
-        times: taskTimes,
-        tolerance: toleranceInfo,
-        personnel: task.personnelName || 'Atanmamış',
-        description: task.description || ''
-      });
+      if (isCompletedTasks) {
+        // Tamamlanan görevler için veri formatı
+        // Tarih formatını düzenle
+        const startTime = task.startedAt ? new Date(task.startedAt).toLocaleString('tr-TR') : '-';
+        const endTime = task.completedAt ? new Date(task.completedAt).toLocaleString('tr-TR') : '-';
+        const taskDate = task.taskDate || '-'; // Görev günü
+        
+        worksheet.addRow({
+          name: task.name || '-',
+          taskDay: taskDate,
+          taskTime: task.taskTime || '-',
+          tolerance: toleranceInfo,
+          personnel: task.personnelName || 'Atanmamış',
+          startTime: startTime,
+          endTime: endTime,
+          description: task.description || '-'
+        });
+      } else if (isMissedTasks) {
+        // Kaçırılan görevler için veri formatı
+        // Tarih formatını düzenle
+        const missedTime = task.missedAt ? new Date(task.missedAt).toLocaleString('tr-TR') : '-';
+        const taskDate = task.taskDate || '-'; // Görev günü
+        
+        worksheet.addRow({
+          name: task.name || '-',
+          taskDay: taskDate,
+          taskTime: task.taskTime || '-',
+          tolerance: toleranceInfo,
+          personnel: task.personnelName || 'Atanmamış',
+          missedTime: missedTime,
+          description: task.description || '-'
+        });
+      } else {
+        // Normal görevler için veri formatı
+        // Planlama tarihi
+        const planDate = task.planDate 
+          ? new Date(task.planDate).toLocaleDateString('tr-TR') 
+          : '-';
+        
+        // Satır ekleme
+        worksheet.addRow({
+          name: task.name || '-',
+          description: task.description || '-',
+          planDate: planDate,
+          personnel: task.personnelName || 'Atanmamış',
+          branch: task.branchName || '-',
+          group: task.groupName || '-',
+          details: task.yearlyPlanDetails || '-'
+        });
+      }
     });
     
     // Zebrastripe (alternatif satır renklendirme)
@@ -449,13 +648,43 @@ export const exportYearlyTasksToExcel = async (
         row.eachCell(cell => {
           cell.style = getCellStyle(rowNumber);
         });
+        
+        // Normal görevler için metin sarma
+        if (!isCompletedTasks && !isMissedTasks) {
+          // Görev açıklaması ve detaylar için metin sarma
+          if (row.getCell('description')) {
+            row.getCell('description').alignment = {
+              wrapText: true,
+              vertical: 'top'
+            };
+          }
+          
+          if (row.getCell('details')) {
+            row.getCell('details').alignment = {
+              wrapText: true,
+              vertical: 'top'
+            };
+          }
+          
+          // Satır yüksekliğini ayarla
+          row.height = 60;
+        }
       }
     });
     
     // Excel dosyasını oluştur ve indir
     const buffer = await workbook.xlsx.writeBuffer();
     const currentDate = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    saveAs(new Blob([buffer]), `Yıllık_Görevler_${currentDate}.xlsx`);
+    let fileName = 'Yıllık_Görevler';
+    
+    // Durum filtresine göre dosya adını düzenle
+    if (isCompletedTasks) {
+      fileName = 'Tamamlanan_Yıllık_Görevler';
+    } else if (isMissedTasks) {
+      fileName = 'Kaçırılmış_Yıllık_Görevler';
+    }
+    
+    saveAs(new Blob([buffer]), `${fileName}_${currentDate}.xlsx`);
     
     return true;
   } catch (error) {
