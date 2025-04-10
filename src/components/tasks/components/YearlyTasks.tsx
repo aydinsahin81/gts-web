@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -22,10 +22,19 @@ import {
   Info as InfoIcon,
   Print as PrintIcon,
   Delete as DeleteIcon,
-  Assignment as AssignmentIcon
+  Assignment as AssignmentIcon,
+  QrCode2 as QrCodeIcon,
+  Check as CheckIcon,
+  Close as CloseIcon,
+  CalendarToday as CalendarIcon,
+  HourglassEmpty as PendingIcon,
+  Refresh as RefreshIcon,
+  Visibility as VisibilityIcon
 } from '@mui/icons-material';
 import { ref, get, onValue, off } from 'firebase/database';
 import { database } from '../../../firebase';
+import dayjs from 'dayjs';
+import 'dayjs/locale/tr';
 
 interface YearlyTasksProps {
   companyId: string | null;
@@ -41,6 +50,7 @@ interface YearlyTasksProps {
   getStatusLabel: (status: string) => string;
   getTaskTimeColor: (task: any, timeString: string) => string;
   onDeleteTask?: (taskId: string, personnelId: string) => Promise<void>;
+  onYearlyTasksDataChange?: (tasks: any[]) => void;
 }
 
 const YearlyTasks: React.FC<YearlyTasksProps> = ({
@@ -56,7 +66,8 @@ const YearlyTasks: React.FC<YearlyTasksProps> = ({
   getStatusIcon,
   getStatusLabel,
   getTaskTimeColor,
-  onDeleteTask
+  onDeleteTask,
+  onYearlyTasksDataChange
 }) => {
   const [yearlyTasks, setYearlyTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -189,6 +200,13 @@ const YearlyTasks: React.FC<YearlyTasksProps> = ({
     if (!branchId) return '-';
     return branches[branchId] || 'Bilinmeyen Şube';
   };
+
+  // Filtrelenmiş verileri üst bileşene gönder
+  useEffect(() => {
+    if (onYearlyTasksDataChange) {
+      onYearlyTasksDataChange(sortedTasks);
+    }
+  }, [sortedTasks, onYearlyTasksDataChange]);
 
   // Yükleniyor durumunda
   if (loading) {

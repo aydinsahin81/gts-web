@@ -106,6 +106,7 @@ import { saveAs } from 'file-saver';
 import WeeklyTasks from './components/WeeklyTasks';
 import { MonthlyTasks } from './components';
 import { YearlyTasks } from './components';
+import { ExcelExportButton } from './utils/exportUtils';
 const uuidv4 = uuidModule.v4;
 
 // Kaydırılabilir ana içerik için styled component
@@ -515,6 +516,11 @@ const Tasks: React.FC<TasksProps> = ({ branchId, isManager = false }) => {
   // Şube bilgisi state'i
   const [branches, setBranches] = useState<{[key: string]: string}>({});
   const [showFilters, setShowFilters] = useState(false); // Filtre görünürlüğü için yeni state
+
+  // Verileri saklamak için referanslar oluşturuyorum
+  const [weeklyTasksData, setWeeklyTasksData] = useState<any[]>([]);
+  const [monthlyTasksData, setMonthlyTasksData] = useState<any[]>([]);
+  const [yearlyTasksData, setYearlyTasksData] = useState<any[]>([]);
 
   // Görünüm modunu localStorage'dan yükle
   useEffect(() => {
@@ -1968,6 +1974,37 @@ const Tasks: React.FC<TasksProps> = ({ branchId, isManager = false }) => {
     }
   };
 
+  // Sekmeye göre doğru veri setini döndüren fonksiyon
+  const getTasksForExport = () => {
+    switch(taskType) {
+      case 'daily':
+        return filteredTasks;
+      case 'weekly':
+        return weeklyTasksData;
+      case 'monthly':
+        return monthlyTasksData;
+      case 'yearly':
+        return yearlyTasksData;
+      default:
+        return filteredTasks;
+    }
+  };
+
+  // Weekly tasks bileşeni için callback
+  const handleWeeklyTasksDataChange = (tasks: any[]) => {
+    setWeeklyTasksData(tasks);
+  };
+
+  // Monthly tasks bileşeni için callback
+  const handleMonthlyTasksDataChange = (tasks: any[]) => {
+    setMonthlyTasksData(tasks);
+  };
+
+  // Yearly tasks bileşeni için callback
+  const handleYearlyTasksDataChange = (tasks: any[]) => {
+    setYearlyTasksData(tasks);
+  };
+
   return (
     <ScrollableContent>
       <HeaderContainer>
@@ -1990,29 +2027,21 @@ const Tasks: React.FC<TasksProps> = ({ branchId, isManager = false }) => {
             </ToggleButton>
           </ToggleButtonGroup>
           <IconButton
-            color="warning"
             onClick={() => setInfoModalOpen(true)}
-            sx={{ 
-              bgcolor: 'warning.light', 
-              color: 'white', 
-              '&:hover': { bgcolor: 'warning.main' },
-              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+            color="info"
+            sx={{
               width: 36,
               height: 36
             }}
           >
             <InfoIcon fontSize="small" />
           </IconButton>
-          <Button
-            variant="contained"
-            color="info"
-            startIcon={<DownloadIcon />}
-            onClick={exportToExcel}
-            disabled={loading || filteredTasks.length === 0}
-            size="small"
-          >
-            Excel İndir
-          </Button>
+          <ExcelExportButton 
+            tasks={getTasksForExport()}
+            taskType={taskType as 'daily' | 'weekly' | 'monthly' | 'yearly'}
+            loading={loading}
+            getStatusLabel={getStatusLabel}
+          />
           <Button
             variant="contained"
             color="success"
@@ -2500,6 +2529,7 @@ const Tasks: React.FC<TasksProps> = ({ branchId, isManager = false }) => {
             getStatusLabel={getStatusLabel}
             getTaskTimeColor={getTaskTimeColor}
             onDeleteTask={handleDeleteTask}
+            onWeeklyTasksDataChange={handleWeeklyTasksDataChange}
           />
         </>
       )}
@@ -2591,6 +2621,7 @@ const Tasks: React.FC<TasksProps> = ({ branchId, isManager = false }) => {
             getStatusLabel={getStatusLabel}
             getTaskTimeColor={getTaskTimeColor}
             onDeleteTask={handleDeleteMonthlyTask}
+            onMonthlyTasksDataChange={handleMonthlyTasksDataChange}
           />
         </>
       )}
@@ -2682,6 +2713,7 @@ const Tasks: React.FC<TasksProps> = ({ branchId, isManager = false }) => {
             getStatusLabel={getStatusLabel}
             getTaskTimeColor={getTaskTimeColor}
             onDeleteTask={handleDeleteYearlyTask}
+            onYearlyTasksDataChange={handleYearlyTasksDataChange}
           />
         </>
       )}

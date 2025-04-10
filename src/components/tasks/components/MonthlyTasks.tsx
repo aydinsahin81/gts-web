@@ -490,6 +490,7 @@ interface MonthlyTasksProps {
   getStatusLabel: (status: string) => string;
   getTaskTimeColor: (task: any, timeString: string) => string;
   onDeleteTask?: (taskId: string, personnelId: string) => Promise<void>;
+  onMonthlyTasksDataChange?: (tasks: any[]) => void;
 }
 
 const MonthlyTasks: React.FC<MonthlyTasksProps> = ({
@@ -505,7 +506,8 @@ const MonthlyTasks: React.FC<MonthlyTasksProps> = ({
   getStatusIcon,
   getStatusLabel,
   getTaskTimeColor,
-  onDeleteTask
+  onDeleteTask,
+  onMonthlyTasksDataChange
 }) => {
   const [monthlyTasks, setMonthlyTasks] = useState<any[]>([]);
   const [completedMonthlyTasks, setCompletedMonthlyTasks] = useState<any[]>([]);
@@ -822,6 +824,16 @@ const MonthlyTasks: React.FC<MonthlyTasksProps> = ({
     
     return result;
   }, [missedMonthlyTasks, personnelFilter, taskSearchTerm]);
+  
+  // Filtrelenmiş verileri üst bileşene gönder
+  useEffect(() => {
+    if (onMonthlyTasksDataChange) {
+      const tasksToExport = statusFilter === 'completed' ? filteredCompletedTasks : 
+                            statusFilter === 'missed' ? filteredMissedTasks : 
+                            filteredTasks;
+      onMonthlyTasksDataChange(tasksToExport);
+    }
+  }, [filteredTasks, filteredCompletedTasks, filteredMissedTasks, statusFilter, onMonthlyTasksDataChange]);
   
   // Yükleniyor
   if (loading) {

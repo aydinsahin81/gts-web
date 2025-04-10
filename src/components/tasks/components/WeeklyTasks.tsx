@@ -470,6 +470,7 @@ interface WeeklyTasksProps {
   getStatusLabel: (status: string) => string;
   getTaskTimeColor: (task: any, timeString: string) => string;
   onDeleteTask?: (taskId: string, personnelId: string) => Promise<void>;
+  onWeeklyTasksDataChange?: (tasks: any[]) => void;
 }
 
 const WeeklyTasks: React.FC<WeeklyTasksProps> = ({
@@ -485,7 +486,8 @@ const WeeklyTasks: React.FC<WeeklyTasksProps> = ({
   getStatusIcon,
   getStatusLabel,
   getTaskTimeColor,
-  onDeleteTask
+  onDeleteTask,
+  onWeeklyTasksDataChange
 }) => {
   const [loading, setLoading] = useState(true);
   const [weeklyTasks, setWeeklyTasks] = useState<any[]>([]);
@@ -824,6 +826,16 @@ const WeeklyTasks: React.FC<WeeklyTasksProps> = ({
     
     return result;
   }, [missedWeeklyTasks, personnelFilter, taskSearchTerm]);
+
+  // Filtrelenmiş verileri üst bileşene gönder
+  useEffect(() => {
+    if (onWeeklyTasksDataChange) {
+      const tasksToExport = statusFilter === 'completed' ? filteredCompletedTasks : 
+                            statusFilter === 'missed' ? filteredMissedTasks : 
+                            filteredTasks;
+      onWeeklyTasksDataChange(tasksToExport);
+    }
+  }, [filteredTasks, filteredCompletedTasks, filteredMissedTasks, statusFilter, onWeeklyTasksDataChange]);
 
   if (loading) {
     return (
