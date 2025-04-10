@@ -12,7 +12,7 @@ import { useAuth } from '../../contexts/AuthContext';
 
 // Kaydırılabilir ana içerik için styled component
 const ScrollableContent = styled(Box)(({ theme }) => ({
-  height: 'calc(100vh - 180px)', // Header ve diğer öğeler için alan bırakıyoruz
+  height: 'calc(100vh - 150px)', // Header için daha az alan bırakıyoruz
   overflowY: 'auto',
   '&::-webkit-scrollbar': {
     width: '8px',
@@ -48,7 +48,7 @@ function TabPanel(props: TabPanelProps) {
       {...other}
     >
       {value === index && (
-        <Box sx={{ p: 3 }}>
+        <Box sx={{ p: 1 }}>
           {children}
         </Box>
       )}
@@ -318,17 +318,17 @@ const Shifts: React.FC<ShiftsProps> = ({ branchId, isManager = false }) => {
   };
 
   return (
-    <Paper sx={{ p: 3, mt: 2, height: 'calc(100vh - 130px)', display: 'flex', flexDirection: 'column' }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+    <Paper sx={{ p: 2, mt: 2, height: 'calc(100vh - 120px)', display: 'flex', flexDirection: 'column' }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
         <Typography variant="h5" component="h1">
           {isManager ? 'Şube ' : ''}{getTabTitle()}
         </Typography>
-        <Box sx={{ display: 'flex', gap: 2 }}>
+        <Box sx={{ display: 'flex', gap: 1 }}>
           <Tooltip title="Yardım ve Açıklamalar">
             <IconButton 
               color="primary" 
               onClick={handleOpenInfoModal}
-              sx={{ mr: 1 }}
+              sx={{ mr: 0.5 }}
             >
               <InfoIcon />
             </IconButton>
@@ -339,6 +339,7 @@ const Shifts: React.FC<ShiftsProps> = ({ branchId, isManager = false }) => {
             startIcon={<QrCodeIcon />}
             onClick={downloadQrCode}
             disabled={downloadingQr || (!userDetails?.companyId && !branchId)}
+            size="small"
           >
             {downloadingQr ? 'İndiriliyor...' : isManager ? 'Şube QR' : 'QR İndir'}
           </Button>
@@ -348,20 +349,28 @@ const Shifts: React.FC<ShiftsProps> = ({ branchId, isManager = false }) => {
             startIcon={<DownloadIcon />}
             onClick={exportToExcel}
             disabled={exporting}
+            size="small"
           >
             {exporting ? 'İndiriliyor...' : 'Excel İndir'}
           </Button>
         </Box>
       </Box>
-      <Divider sx={{ mb: 3 }} />
+      <Divider sx={{ mb: 1 }} />
       
       <Box sx={{ width: '100%', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-          <Tabs value={value} onChange={handleChange} aria-label="vardiya yönetim tabları">
-            <Tab label="Personel Listesi" {...a11yProps(0)} />
-            <Tab label="Vardiya Listesi" {...a11yProps(1)} />
-            <Tab label="Giriş Çıkış Raporları" {...a11yProps(2)} />
-            <Tab label="Toplam Süre" {...a11yProps(3)} />
+          <Tabs 
+            value={value} 
+            onChange={handleChange} 
+            aria-label="vardiya yönetim tabları"
+            variant="scrollable"
+            scrollButtons="auto"
+            sx={{ minHeight: '40px' }}
+          >
+            <Tab label="Personel Listesi" {...a11yProps(0)} sx={{ py: 0.5 }} />
+            <Tab label="Vardiya Listesi" {...a11yProps(1)} sx={{ py: 0.5 }} />
+            <Tab label="Giriş Çıkış Raporları" {...a11yProps(2)} sx={{ py: 0.5 }} />
+            <Tab label="Toplam Süre" {...a11yProps(3)} sx={{ py: 0.5 }} />
           </Tabs>
         </Box>
         <ScrollableContent>

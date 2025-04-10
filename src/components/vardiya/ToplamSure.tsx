@@ -17,7 +17,8 @@ import {
   CircularProgress,
   Divider,
   FormControlLabel,
-  Checkbox
+  Checkbox,
+  InputAdornment
 } from '@mui/material';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
@@ -26,6 +27,9 @@ import { tr } from 'date-fns/locale';
 import { ref, get } from 'firebase/database';
 import { database } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
+import FilterListIcon from '@mui/icons-material/FilterList';
+import SearchIcon from '@mui/icons-material/Search';
+import FilterToggle from './FilterToggle';
 
 interface Personnel {
   id: string;
@@ -69,6 +73,9 @@ const ToplamSure: React.FC<ToplamSureProps> = ({ branchId, isManager = false }) 
   const [selectAllPersonnel, setSelectAllPersonnel] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const autocompleteRef = useRef<HTMLDivElement>(null);
+  
+  // Filtre görünürlüğü için state
+  const [showFilters, setShowFilters] = useState(true);
 
   // Personel listesini yükle
   useEffect(() => {
@@ -440,213 +447,211 @@ const ToplamSure: React.FC<ToplamSureProps> = ({ branchId, isManager = false }) 
 
   return (
     <Box>
-      <Typography variant="h6" component="h2" gutterBottom>
-        Personel Çalışma Süreleri
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="h6" component="h2" gutterBottom>
+          Toplam Çalışma Süreleri
+        </Typography>
+      </Box>
       
-      {/* Filtreleme Alanı */}
-      <Paper sx={{ p: 2, mb: 3 }}>
-        <Grid container spacing={2} alignItems="center">
-          {/* Personel Seçimi */}
-          <Grid item xs={12} md={4}>
-            <Autocomplete
-              multiple
-              id="personnel-filter"
-              options={personnelList}
-              getOptionLabel={(option) => option.name}
-              value={selectedPersonnel}
-              onChange={(_, newValue) => {
-                setSelectedPersonnel(newValue);
-                setSelectAllPersonnel(newValue.length === personnelList.length);
-              }}
-              disablePortal={true}
-              open={isOpen}
-              onOpen={() => setIsOpen(true)}
-              onClose={() => setIsOpen(false)}
-              ref={autocompleteRef}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label="Personel Seçin"
-                  placeholder="Personel seçin..."
-                  size="small"
-                />
-              )}
-              renderOption={(props, option, { selected }) => (
-                <li {...props}>
-                  <Checkbox
-                    style={{ marginRight: 8 }}
-                    checked={selected}
+      {/* Filtre Toggle Bileşeni */}
+      <FilterToggle
+        open={showFilters}
+        onToggle={() => setShowFilters(!showFilters)}
+      >
+        <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={tr}>
+          <Grid container spacing={2}>
+            {/* Personel Seçimi */}
+            <Grid item xs={12}>
+              <Autocomplete
+                multiple
+                id="personnel-selector"
+                options={personnelList}
+                value={selectedPersonnel}
+                onChange={(_, newValue) => {
+                  setSelectedPersonnel(newValue);
+                  setSelectAllPersonnel(newValue.length === personnelList.length);
+                }}
+                getOptionLabel={(option) => option.name}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    variant="outlined"
+                    size="small"
+                    label="Personel Seçin"
+                    placeholder="Personel ara..."
+                    InputProps={{
+                      ...params.InputProps,
+                      startAdornment: (
+                        <>
+                          <InputAdornment position="start">
+                            <SearchIcon />
+                          </InputAdornment>
+                          {params.InputProps.startAdornment}
+                        </>
+                      )
+                    }}
                   />
-                  {option.name}
-                </li>
-              )}
-              renderTags={(value, getTagProps) =>
-                value.map((option, index) => (
-                  <Chip 
-                    label={option.name} 
-                    {...getTagProps({ index })} 
+                )}
+                ref={autocompleteRef}
+                onOpen={() => setIsOpen(true)}
+                onClose={() => setIsOpen(false)}
+                ListboxProps={{ style: { maxHeight: '200px' } }}
+              />
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={selectAllPersonnel}
+                    onChange={(e) => handleSelectAllPersonnel(e.target.checked)}
                     size="small"
                   />
-                ))
-              }
-              ListboxProps={{
-                style: { paddingTop: 0 }
-              }}
-              ListboxComponent={(props) => (
-                <ul {...props}>
-                  <li style={{ 
-                    padding: '8px 16px', 
-                    borderBottom: '1px solid #eee', 
-                    backgroundColor: '#f5f5f5'
-                  }}>
-                    <FormControlLabel
-                      control={
-                        <Checkbox
-                          checked={selectAllPersonnel}
-                          onChange={(e) => handleSelectAllPersonnel(e.target.checked)}
-                        />
-                      }
-                      label="Tüm Personel"
-                      style={{ width: '100%' }}
-                    />
-                  </li>
-                  {props.children}
-                </ul>
-              )}
-              disableCloseOnSelect
-            />
-          </Grid>
-          
-          {/* Tarih Aralığı */}
-          <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={tr}>
-            <Grid item xs={12} md={3}>
+                }
+                label="Tüm personeli seç"
+              />
+            </Grid>
+            
+            {/* Tarih Aralığı Seçimi */}
+            <Grid item xs={12} md={5}>
               <DatePicker
                 label="Başlangıç Tarihi"
                 value={startDate}
                 onChange={(newValue) => setStartDate(newValue)}
-                slotProps={{ 
-                  textField: { 
-                    size: 'small',
-                    fullWidth: true
-                  } 
+                slotProps={{
+                  textField: {
+                    size: "small",
+                    fullWidth: true,
+                    variant: "outlined"
+                  },
                 }}
               />
             </Grid>
-            <Grid item xs={12} md={3}>
+            
+            <Grid item xs={12} md={5}>
               <DatePicker
                 label="Bitiş Tarihi"
                 value={endDate}
                 onChange={(newValue) => setEndDate(newValue)}
-                slotProps={{ 
-                  textField: { 
-                    size: 'small',
-                    fullWidth: true
-                  } 
+                slotProps={{
+                  textField: {
+                    size: "small",
+                    fullWidth: true,
+                    variant: "outlined"
+                  },
                 }}
               />
             </Grid>
-          </LocalizationProvider>
-          
-          {/* Filtrele Butonu */}
-          <Grid item xs={12} md={2}>
-            <Button 
-              variant="contained" 
-              color="primary" 
-              fullWidth
-              onClick={fetchWorkData}
-              disabled={loading || selectedPersonnel.length === 0 || !startDate || !endDate}
-            >
-              {loading ? <CircularProgress size={24} /> : 'Filtrele'}
-            </Button>
+            
+            <Grid item xs={12} md={2}>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={fetchWorkData}
+                disabled={loading || selectedPersonnel.length === 0 || !startDate || !endDate}
+                fullWidth
+                sx={{ height: '100%' }}
+              >
+                {loading ? 'Yükleniyor...' : 'Filtrele'}
+              </Button>
+            </Grid>
           </Grid>
-        </Grid>
-      </Paper>
+        </LocalizationProvider>
+      </FilterToggle>
       
-      {/* Veri Yükleniyor Göstergesi */}
-      {loading && (
-        <Box display="flex" justifyContent="center" my={4}>
+      {/* Sonuçlar Bölümü */}
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', p: 5 }}>
           <CircularProgress />
         </Box>
-      )}
-      
-      {/* Henüz Filtrelenmemiş Durumda Mesaj */}
-      {!isFiltered && !loading && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4, bgcolor: '#f8f9fa', borderRadius: 2 }}>
+      ) : !isFiltered ? (
+        <Box sx={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'center', 
+          justifyContent: 'center', 
+          p: 5, 
+          bgcolor: '#f8f9fa', 
+          borderRadius: 2,
+          minHeight: '200px' 
+        }}>
+          <FilterListIcon sx={{ fontSize: 40, color: 'text.secondary', mb: 2 }} />
+          <Typography variant="body1" color="text.secondary" align="center">
+            Personel ve tarih aralığı seçerek çalışma sürelerini görüntüleyebilirsiniz.
+          </Typography>
+        </Box>
+      ) : workData.length === 0 ? (
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          p: 4, 
+          bgcolor: '#f8f9fa', 
+          borderRadius: 2 
+        }}>
           <Typography variant="body1" color="text.secondary">
-            Lütfen personel seçip tarih aralığı belirleyin, ardından "Filtrele" butonuna tıklayın
+            Seçili tarih aralığında çalışma kaydı bulunamadı.
           </Typography>
+        </Box>
+      ) : (
+        <Box>
+          {/* Personel Tabloları */}
+          {!loading && workData.map((personnel) => (
+            <Box key={personnel.id} mb={4}>
+              <Typography variant="h6" component="h3" gutterBottom>
+                {personnel.name}
+              </Typography>
+              
+              {personnel.records.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  Bu personel için seçilen tarih aralığında kayıt bulunamadı
+                </Typography>
+              ) : (
+                <TableContainer component={Paper}>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Tarih</TableCell>
+                        <TableCell>Giriş Saati</TableCell>
+                        <TableCell>Çıkış Saati</TableCell>
+                        <TableCell>Toplam Çalışma</TableCell>
+                        <TableCell>Vardiya</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {/* Personel Kayıtları */}
+                      {personnel.records.map((record) => (
+                        <TableRow key={record.date}>
+                          <TableCell>{record.date}</TableCell>
+                          <TableCell>{formatTime(record.girisZamani)}</TableCell>
+                          <TableCell>{formatTime(record.cikisZamani)}</TableCell>
+                          <TableCell>{formatMinutesToHours(record.totalWorkMinutes)}</TableCell>
+                          <TableCell>{record.vardiyaAdi}</TableCell>
+                        </TableRow>
+                      ))}
+                      
+                      {/* Toplam Satırı */}
+                      <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
+                        <TableCell colSpan={1} sx={{ fontWeight: 'bold' }}>
+                          TOPLAM
+                        </TableCell>
+                        <TableCell sx={{ fontWeight: 'bold' }}>
+                          {personnel.totals.entriesCount} Giriş
+                        </TableCell>
+                        <TableCell sx={{ fontWeight: 'bold' }}>
+                          {personnel.totals.exitsCount} Çıkış
+                        </TableCell>
+                        <TableCell sx={{ fontWeight: 'bold' }}>
+                          {formatMinutesToHours(personnel.totals.totalWorkMinutes)}
+                        </TableCell>
+                        <TableCell></TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+              
+              <Divider sx={{ mt: 4 }} />
+            </Box>
+          ))}
         </Box>
       )}
-      
-      {/* Veri Yok Mesajı */}
-      {isFiltered && !loading && workData.length === 0 && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4, bgcolor: '#f8f9fa', borderRadius: 2 }}>
-          <Typography variant="body1" color="text.secondary">
-            Seçilen kriterlere uygun veri bulunamadı
-          </Typography>
-        </Box>
-      )}
-      
-      {/* Personel Tabloları */}
-      {!loading && workData.map((personnel) => (
-        <Box key={personnel.id} mb={4}>
-          <Typography variant="h6" component="h3" gutterBottom>
-            {personnel.name}
-          </Typography>
-          
-          {personnel.records.length === 0 ? (
-            <Typography variant="body2" color="text.secondary">
-              Bu personel için seçilen tarih aralığında kayıt bulunamadı
-            </Typography>
-          ) : (
-            <TableContainer component={Paper}>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Tarih</TableCell>
-                    <TableCell>Giriş Saati</TableCell>
-                    <TableCell>Çıkış Saati</TableCell>
-                    <TableCell>Toplam Çalışma</TableCell>
-                    <TableCell>Vardiya</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {/* Personel Kayıtları */}
-                  {personnel.records.map((record) => (
-                    <TableRow key={record.date}>
-                      <TableCell>{record.date}</TableCell>
-                      <TableCell>{formatTime(record.girisZamani)}</TableCell>
-                      <TableCell>{formatTime(record.cikisZamani)}</TableCell>
-                      <TableCell>{formatMinutesToHours(record.totalWorkMinutes)}</TableCell>
-                      <TableCell>{record.vardiyaAdi}</TableCell>
-                    </TableRow>
-                  ))}
-                  
-                  {/* Toplam Satırı */}
-                  <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
-                    <TableCell colSpan={1} sx={{ fontWeight: 'bold' }}>
-                      TOPLAM
-                    </TableCell>
-                    <TableCell sx={{ fontWeight: 'bold' }}>
-                      {personnel.totals.entriesCount} Giriş
-                    </TableCell>
-                    <TableCell sx={{ fontWeight: 'bold' }}>
-                      {personnel.totals.exitsCount} Çıkış
-                    </TableCell>
-                    <TableCell sx={{ fontWeight: 'bold' }}>
-                      {formatMinutesToHours(personnel.totals.totalWorkMinutes)}
-                    </TableCell>
-                    <TableCell></TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
-          
-          <Divider sx={{ mt: 4 }} />
-        </Box>
-      ))}
     </Box>
   );
 };

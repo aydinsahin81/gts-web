@@ -19,10 +19,16 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Grid
+  Grid,
+  Tooltip,
+  IconButton,
+  Collapse
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import FilterListIcon from '@mui/icons-material/FilterList';
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import { ref, get } from 'firebase/database';
 import { database } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -58,6 +64,9 @@ const PersonelListesi: React.FC<PersonelListesiProps> = ({ branchId, isManager =
   const [filteredPersonnel, setFilteredPersonnel] = useState<Personnel[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedShift, setSelectedShift] = useState<string>('all');
+  
+  // Filtre görünürlüğü için state
+  const [showFilters, setShowFilters] = useState(true);
   
   // Sayfalama için state değişkenleri
   const [page, setPage] = useState(0);
@@ -245,54 +254,87 @@ const PersonelListesi: React.FC<PersonelListesiProps> = ({ branchId, isManager =
   
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h6" component="h2" gutterBottom>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="h6" component="h2" gutterBottom sx={{ mb: 0 }}>
           Personel Listesi
         </Typography>
+        
+        {/* Filtre göster/gizle butonu */}
+        <Tooltip title={showFilters ? "Filtreleri Gizle" : "Filtreleri Göster"}>
+          <IconButton 
+            onClick={() => setShowFilters(!showFilters)}
+            color="primary"
+            size="small"
+            sx={{ 
+              bgcolor: showFilters ? 'primary.light' : 'transparent',
+              color: showFilters ? 'white' : 'primary.main',
+              '&:hover': { 
+                bgcolor: showFilters ? 'primary.main' : 'rgba(0, 0, 0, 0.04)' 
+              } 
+            }}
+          >
+            <FilterListIcon fontSize="small" sx={{ mr: 0.5 }} />
+            {showFilters ? <KeyboardArrowUpIcon fontSize="small" /> : <KeyboardArrowDownIcon fontSize="small" />}
+          </IconButton>
+        </Tooltip>
       </Box>
       
       {/* Filtreleme Alanı */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        {/* Personel Arama */}
-        <Grid item xs={12} md={6}>
-          <TextField
-            fullWidth
-            size="small"
-            placeholder="Personel Ara..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              ),
-            }}
-          />
-        </Grid>
-        
-        {/* Vardiya Filtresi */}
-        <Grid item xs={12} md={6}>
-          <FormControl fullWidth size="small">
-            <InputLabel id="shift-filter-label">Vardiya Filtresi</InputLabel>
-            <Select
-              labelId="shift-filter-label"
-              id="shift-filter"
-              value={selectedShift}
-              label="Vardiya Filtresi"
-              onChange={(e) => setSelectedShift(e.target.value)}
-            >
-              <MenuItem value="all">Tüm Vardiyalar</MenuItem>
-              <MenuItem value="unassigned">Vardiya Atanmamış</MenuItem>
-              {shifts.map((shift) => (
-                <MenuItem key={shift.id} value={shift.id}>
-                  {shift.name} ({shift.startTime}-{shift.endTime})
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </Grid>
-      </Grid>
+      <Collapse in={showFilters} timeout="auto">
+        <Paper 
+          elevation={1} 
+          sx={{ 
+            p: 2, 
+            mb: 2, 
+            borderRadius: 1,
+            borderLeft: '4px solid',
+            borderColor: 'primary.main',
+            bgcolor: 'background.default'
+          }}
+        >
+          <Grid container spacing={2}>
+            {/* Arama */}
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="İsim, Email veya Telefon Ara..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </Grid>
+            
+            {/* Vardiya Filtresi */}
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth size="small">
+                <InputLabel id="shift-filter-label">Vardiya Filtresi</InputLabel>
+                <Select
+                  labelId="shift-filter-label"
+                  id="shift-filter"
+                  value={selectedShift}
+                  label="Vardiya Filtresi"
+                  onChange={(e) => setSelectedShift(e.target.value)}
+                >
+                  <MenuItem value="all">Tüm Vardiyalar</MenuItem>
+                  <MenuItem value="unassigned">Vardiyası Olmayan</MenuItem>
+                  {shifts.map((shift) => (
+                    <MenuItem key={shift.id} value={shift.id}>
+                      {shift.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+          </Grid>
+        </Paper>
+      </Collapse>
       
       {/* Personel Tablosu */}
       {loading ? (

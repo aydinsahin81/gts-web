@@ -19,11 +19,17 @@ import {
   Select,
   MenuItem,
   Grid,
-  Stack
+  Stack,
+  Tooltip,
+  IconButton,
+  Collapse
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import PersonIcon from '@mui/icons-material/Person';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+import FilterListIcon from '@mui/icons-material/FilterList';
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import { ref, get, onValue } from 'firebase/database';
 import { database } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -46,6 +52,9 @@ const GirisCikisRaporlari: React.FC<GirisCikisRaporlariProps> = ({ branchId, isM
   // Vardiya zaman düzenleme modalı için state
   const [selectedReport, setSelectedReport] = useState<any | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  
+  // Filtre görünürlüğü için state
+  const [showFilters, setShowFilters] = useState(true);
 
   // Modal işlemleri
   const handleOpenModal = (report: any) => {
@@ -352,58 +361,91 @@ const GirisCikisRaporlari: React.FC<GirisCikisRaporlariProps> = ({ branchId, isM
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h6" component="h2" gutterBottom>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="h6" component="h2" gutterBottom sx={{ mb: 0 }}>
           Giriş Çıkış Raporları
         </Typography>
+        
+        {/* Filtre göster/gizle butonu */}
+        <Tooltip title={showFilters ? "Filtreleri Gizle" : "Filtreleri Göster"}>
+          <IconButton 
+            onClick={() => setShowFilters(!showFilters)}
+            color="primary"
+            size="small"
+            sx={{ 
+              bgcolor: showFilters ? 'primary.light' : 'transparent',
+              color: showFilters ? 'white' : 'primary.main',
+              '&:hover': { 
+                bgcolor: showFilters ? 'primary.main' : 'rgba(0, 0, 0, 0.04)' 
+              } 
+            }}
+          >
+            <FilterListIcon fontSize="small" sx={{ mr: 0.5 }} />
+            {showFilters ? <KeyboardArrowUpIcon fontSize="small" /> : <KeyboardArrowDownIcon fontSize="small" />}
+          </IconButton>
+        </Tooltip>
       </Box>
       
       {/* Filtreleme Alanı */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        {/* Personel/Vardiya Arama */}
-        <Grid item xs={12} md={6}>
-          <TextField
-            fullWidth
-            size="small"
-            placeholder="Personel veya Vardiya Ara..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              ),
-            }}
-          />
-        </Grid>
-        
-        {/* Durum Filtresi */}
-        <Grid item xs={12} md={6}>
-          <FormControl fullWidth size="small">
-            <InputLabel id="status-filter-label">Durum Filtresi</InputLabel>
-            <Select
-              labelId="status-filter-label"
-              id="status-filter"
-              value={statusFilter}
-              label="Durum Filtresi"
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <MenuItem value="all">Tüm Durumlar</MenuItem>
-              <MenuItem value="Normal Geldi">Normal Geldi</MenuItem>
-              <MenuItem value="Normal Giriş">Normal Giriş</MenuItem>
-              <MenuItem value="Erken Geldi">Erken Geldi</MenuItem>
-              <MenuItem value="Geç Geldi">Geç Geldi</MenuItem>
-              <MenuItem value="Normal Çıktı">Normal Çıktı</MenuItem>
-              <MenuItem value="Vardiya Tamamlandı">Vardiya Tamamlandı</MenuItem>
-              <MenuItem value="Erken Çıktı">Erken Çıktı</MenuItem>
-              <MenuItem value="Devam Ediyor">Devam Ediyor</MenuItem>
-              <MenuItem value="Giriş Yapılmamış">Giriş Yapılmamış</MenuItem>
-              <MenuItem value="Çıkış Yapılmamış">Çıkış Yapılmamış</MenuItem>
-            </Select>
-          </FormControl>
-        </Grid>
-      </Grid>
+      <Collapse in={showFilters} timeout="auto">
+        <Paper 
+          elevation={1} 
+          sx={{ 
+            p: 2, 
+            mb: 2, 
+            borderRadius: 1,
+            borderLeft: '4px solid',
+            borderColor: 'primary.main',
+            bgcolor: 'background.default'
+          }}
+        >
+          <Grid container spacing={2}>
+            {/* Personel/Vardiya Arama */}
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="Personel veya Vardiya Ara..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </Grid>
+            
+            {/* Durum Filtresi */}
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth size="small">
+                <InputLabel id="status-filter-label">Durum Filtresi</InputLabel>
+                <Select
+                  labelId="status-filter-label"
+                  id="status-filter"
+                  value={statusFilter}
+                  label="Durum Filtresi"
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                >
+                  <MenuItem value="all">Tüm Durumlar</MenuItem>
+                  <MenuItem value="Normal Geldi">Normal Geldi</MenuItem>
+                  <MenuItem value="Normal Giriş">Normal Giriş</MenuItem>
+                  <MenuItem value="Erken Geldi">Erken Geldi</MenuItem>
+                  <MenuItem value="Geç Geldi">Geç Geldi</MenuItem>
+                  <MenuItem value="Normal Çıktı">Normal Çıktı</MenuItem>
+                  <MenuItem value="Vardiya Tamamlandı">Vardiya Tamamlandı</MenuItem>
+                  <MenuItem value="Erken Çıktı">Erken Çıktı</MenuItem>
+                  <MenuItem value="Devam Ediyor">Devam Ediyor</MenuItem>
+                  <MenuItem value="Giriş Yapılmamış">Giriş Yapılmamış</MenuItem>
+                  <MenuItem value="Çıkış Yapılmamış">Çıkış Yapılmamış</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+          </Grid>
+        </Paper>
+      </Collapse>
       
       {/* Rapor Tablosu */}
       {loading ? (
@@ -522,4 +564,4 @@ const GirisCikisRaporlari: React.FC<GirisCikisRaporlariProps> = ({ branchId, isM
   );
 };
 
-export default GirisCikisRaporlari; 
+export default GirisCikisRaporlari;
