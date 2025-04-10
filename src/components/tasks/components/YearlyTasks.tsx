@@ -16,7 +16,8 @@ import {
   Paper,
   CircularProgress,
   Alert,
-  Tooltip
+  Tooltip,
+  TablePagination
 } from '@mui/material';
 import {
   Info as InfoIcon,
@@ -195,6 +196,37 @@ const YearlyTasks: React.FC<YearlyTasksProps> = ({
     return dateA.getTime() - dateB.getTime();
   });
 
+  // Sayfalama için state
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(50);
+  
+  // Sayfalandırılmış task verileri
+  const paginatedTasks = useMemo(() => {
+    const startIndex = page * rowsPerPage;
+    return sortedTasks.slice(startIndex, startIndex + rowsPerPage);
+  }, [sortedTasks, page, rowsPerPage]);
+  
+  // Filtre değişikliklerinde sayfa numarasını sıfırla
+  useEffect(() => {
+    setPage(0);
+  }, [sortedTasks]);
+  
+  // Sayfa değişimi
+  const handleChangePage = (
+    event: React.MouseEvent<HTMLButtonElement> | null,
+    newPage: number,
+  ) => {
+    setPage(newPage);
+  };
+
+  // Sayfa başına satır sayısı değişimi
+  const handleChangeRowsPerPage = (
+    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
   // Şube adını getir
   const getBranchName = (branchId: string) => {
     if (!branchId) return '-';
@@ -239,7 +271,7 @@ const YearlyTasks: React.FC<YearlyTasksProps> = ({
     <>
       {viewMode === 'card' ? (
         <Grid container spacing={2}>
-          {sortedTasks.map((task) => (
+          {paginatedTasks.map((task) => (
             <Grid item xs={12} sm={6} md={4} key={task.id}>
               <Card 
                 sx={{ 
@@ -376,113 +408,150 @@ const YearlyTasks: React.FC<YearlyTasksProps> = ({
               </Card>
             </Grid>
           ))}
+          
+          {/* Kart görünümü için sayfalandırma */}
+          {sortedTasks.length > 0 && (
+            <Grid item xs={12}>
+              <Box sx={{ mt: 2 }}>
+                <TablePagination
+                  component="div"
+                  count={sortedTasks.length}
+                  page={page}
+                  onPageChange={handleChangePage}
+                  rowsPerPage={rowsPerPage}
+                  onRowsPerPageChange={handleChangeRowsPerPage}
+                  rowsPerPageOptions={[25, 50, 100]}
+                  labelRowsPerPage="Sayfa başına satır:"
+                  labelDisplayedRows={({ from, to, count }) => `${count} kayıttan ${from}-${to} arası gösteriliyor`}
+                />
+              </Box>
+            </Grid>
+          )}
         </Grid>
       ) : (
-        <TableContainer component={Paper} sx={{ boxShadow: '0 4px 8px rgba(0,0,0,0.1)', borderRadius: 2 }}>
-          <Table sx={{ minWidth: 650 }} size="small">
-            <TableHead>
-              <TableRow sx={{ backgroundColor: 'primary.light' }}>
-                <TableCell sx={{ color: 'primary.contrastText', fontWeight: 'bold' }}>Durum</TableCell>
-                <TableCell sx={{ color: 'primary.contrastText', fontWeight: 'bold' }}>Görev Adı</TableCell>
-                <TableCell sx={{ color: 'primary.contrastText', fontWeight: 'bold' }}>Görev Açıklaması</TableCell>
-                <TableCell sx={{ color: 'primary.contrastText', fontWeight: 'bold' }}>Planlama Tarihi</TableCell>
-                <TableCell sx={{ color: 'primary.contrastText', fontWeight: 'bold' }}>Personel</TableCell>
-                <TableCell sx={{ color: 'primary.contrastText', fontWeight: 'bold' }}>Şube</TableCell>
-                <TableCell sx={{ color: 'primary.contrastText', fontWeight: 'bold' }}>Görev Grubu</TableCell>
-                <TableCell sx={{ color: 'primary.contrastText', fontWeight: 'bold' }}>Yıllık Plan Görev Detayları</TableCell>
-                <TableCell sx={{ color: 'primary.contrastText', fontWeight: 'bold' }}>İşlemler</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {sortedTasks.map((task) => (
-                <TableRow
-                  key={task.id}
-                  hover
-                  onClick={() => onShowTaskDetail(task)}
-                  sx={{ 
-                    cursor: 'pointer',
-                    '&:last-child td, &:last-child th': { border: 0 },
-                    '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' }
-                  }}
-                >
-                  <TableCell>
-                    <Chip
-                      label="Yıllık Plan"
-                      color="info"
-                      size="small"
-                      icon={<AssignmentIcon sx={{ fontSize: '0.7rem !important' }} />}
-                      sx={{ fontWeight: 'medium', fontSize: '0.7rem' }}
-                    />
-                  </TableCell>
-                  <TableCell>{task.name}</TableCell>
-                  <TableCell sx={{ maxWidth: 200 }}>
-                    <Typography 
-                      variant="body2" 
-                      sx={{ 
-                        overflow: 'hidden', 
-                        textOverflow: 'ellipsis', 
-                        whiteSpace: 'nowrap' 
-                      }}
-                    >
-                      {task.description || '-'}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    {task.planDate ? new Date(task.planDate).toLocaleDateString('tr-TR') : '-'}
-                  </TableCell>
-                  <TableCell>{task.personnelName || '-'}</TableCell>
-                  <TableCell>{task.branchName || getBranchName(task.branchesId) || '-'}</TableCell>
-                  <TableCell>{task.groupName || '-'}</TableCell>
-                  <TableCell sx={{ maxWidth: 250 }}>
-                    <Typography 
-                      variant="body2" 
-                      sx={{ 
-                        overflow: 'hidden', 
-                        textOverflow: 'ellipsis', 
-                        whiteSpace: 'normal',
-                        maxWidth: '250px',
-                        maxHeight: '100px'
-                      }}
-                    >
-                      {task.yearlyPlanDetails || '-'}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Box sx={{ display: 'flex' }}>
-                      <Tooltip title="Detayları Görüntüle">
-                        <IconButton
-                          size="small"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onShowTaskDetail(task);
-                          }}
-                          sx={{ color: 'primary.main' }}
-                        >
-                          <InfoIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      
-                      {onDeleteTask && (
-                        <Tooltip title="Görevi Sil">
+        <>
+          <TableContainer component={Paper} sx={{ boxShadow: '0 4px 8px rgba(0,0,0,0.1)', borderRadius: 2 }}>
+            <Table sx={{ minWidth: 650 }} size="small" stickyHeader>
+              <TableHead>
+                <TableRow sx={{ backgroundColor: 'primary.light' }}>
+                  <TableCell sx={{ color: 'primary.contrastText', fontWeight: 'bold' }}>Durum</TableCell>
+                  <TableCell sx={{ color: 'primary.contrastText', fontWeight: 'bold' }}>Görev Adı</TableCell>
+                  <TableCell sx={{ color: 'primary.contrastText', fontWeight: 'bold' }}>Görev Açıklaması</TableCell>
+                  <TableCell sx={{ color: 'primary.contrastText', fontWeight: 'bold' }}>Planlama Tarihi</TableCell>
+                  <TableCell sx={{ color: 'primary.contrastText', fontWeight: 'bold' }}>Personel</TableCell>
+                  <TableCell sx={{ color: 'primary.contrastText', fontWeight: 'bold' }}>Şube</TableCell>
+                  <TableCell sx={{ color: 'primary.contrastText', fontWeight: 'bold' }}>Görev Grubu</TableCell>
+                  <TableCell sx={{ color: 'primary.contrastText', fontWeight: 'bold' }}>Yıllık Plan Görev Detayları</TableCell>
+                  <TableCell sx={{ color: 'primary.contrastText', fontWeight: 'bold' }}>İşlemler</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {paginatedTasks.map((task) => (
+                  <TableRow
+                    key={task.id}
+                    hover
+                    onClick={() => onShowTaskDetail(task)}
+                    sx={{ 
+                      cursor: 'pointer',
+                      '&:last-child td, &:last-child th': { border: 0 },
+                      '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' }
+                    }}
+                  >
+                    <TableCell>
+                      <Chip
+                        label="Yıllık Plan"
+                        color="info"
+                        size="small"
+                        icon={<AssignmentIcon sx={{ fontSize: '0.7rem !important' }} />}
+                        sx={{ fontWeight: 'medium', fontSize: '0.7rem' }}
+                      />
+                    </TableCell>
+                    <TableCell>{task.name}</TableCell>
+                    <TableCell sx={{ maxWidth: 200 }}>
+                      <Typography 
+                        variant="body2" 
+                        sx={{ 
+                          overflow: 'hidden', 
+                          textOverflow: 'ellipsis', 
+                          whiteSpace: 'nowrap' 
+                        }}
+                      >
+                        {task.description || '-'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      {task.planDate ? new Date(task.planDate).toLocaleDateString('tr-TR') : '-'}
+                    </TableCell>
+                    <TableCell>{task.personnelName || '-'}</TableCell>
+                    <TableCell>{task.branchName || getBranchName(task.branchesId) || '-'}</TableCell>
+                    <TableCell>{task.groupName || '-'}</TableCell>
+                    <TableCell sx={{ maxWidth: 250 }}>
+                      <Typography 
+                        variant="body2" 
+                        sx={{ 
+                          overflow: 'hidden', 
+                          textOverflow: 'ellipsis', 
+                          whiteSpace: 'normal',
+                          maxWidth: '250px',
+                          maxHeight: '100px'
+                        }}
+                      >
+                        {task.yearlyPlanDetails || '-'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex' }}>
+                        <Tooltip title="Detayları Görüntüle">
                           <IconButton
                             size="small"
                             onClick={(e) => {
                               e.stopPropagation();
-                              onDeleteTask(task.id, task.personnelId);
+                              onShowTaskDetail(task);
                             }}
-                            sx={{ color: 'error.main' }}
+                            sx={{ color: 'primary.main' }}
                           >
-                            <DeleteIcon fontSize="small" />
+                            <InfoIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
-                      )}
-                    </Box>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+                        
+                        {onDeleteTask && (
+                          <Tooltip title="Görevi Sil">
+                            <IconButton
+                              size="small"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onDeleteTask(task.id, task.personnelId);
+                              }}
+                              sx={{ color: 'error.main' }}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          
+          {/* Liste görünümü için sayfalandırma */}
+          {sortedTasks.length > 0 && (
+            <TablePagination
+              component="div"
+              count={sortedTasks.length}
+              page={page}
+              onPageChange={handleChangePage}
+              rowsPerPage={rowsPerPage}
+              onRowsPerPageChange={handleChangeRowsPerPage}
+              rowsPerPageOptions={[25, 50, 100]}
+              labelRowsPerPage="Sayfa başına satır:"
+              labelDisplayedRows={({ from, to, count }) => `${count} kayıttan ${from}-${to} arası gösteriliyor`}
+              sx={{ mt: 1 }}
+            />
+          )}
+        </>
       )}
     </>
   );

@@ -17,7 +17,8 @@ import {
   TableHead,
   TableRow,
   Paper,
-  CircularProgress
+  CircularProgress,
+  TablePagination
 } from '@mui/material';
 import {
   Assignment as AssignmentIcon,
@@ -168,6 +169,37 @@ const MonthlyTasksTable: React.FC<MonthlyTasksTableProps> = ({
   companyId,
   onDeleteTask
 }) => {
+  // Sayfalama için state
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(50);
+  
+  // Sayfalandırılmış task verileri
+  const paginatedTasks = useMemo(() => {
+    const startIndex = page * rowsPerPage;
+    return tasks.slice(startIndex, startIndex + rowsPerPage);
+  }, [tasks, page, rowsPerPage]);
+  
+  // Filtre değişikliklerinde sayfa numarasını sıfırla
+  useEffect(() => {
+    setPage(0);
+  }, [tasks]);
+  
+  // Sayfa değişimi
+  const handleChangePage = (
+    event: React.MouseEvent<HTMLButtonElement> | null,
+    newPage: number,
+  ) => {
+    setPage(newPage);
+  };
+
+  // Sayfa başına satır sayısı değişimi
+  const handleChangeRowsPerPage = (
+    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
   if (tasks.length === 0) {
     return (
       <Box sx={{ textAlign: 'center', py: 4 }}>
@@ -180,7 +212,7 @@ const MonthlyTasksTable: React.FC<MonthlyTasksTableProps> = ({
 
   return (
     <TableContainer component={Paper} sx={{ borderRadius: 2, boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
-      <Table size="small">
+      <Table size="small" stickyHeader>
         <TableHead>
           <TableRow sx={{ bgcolor: 'background.paper' }}>
             <TableCell width={50}>#</TableCell>
@@ -195,7 +227,7 @@ const MonthlyTasksTable: React.FC<MonthlyTasksTableProps> = ({
           </TableRow>
         </TableHead>
         <TableBody>
-          {tasks.map((task) => (
+          {paginatedTasks.map((task) => (
             <TableRow 
               key={task.id} 
               hover 
@@ -317,6 +349,21 @@ const MonthlyTasksTable: React.FC<MonthlyTasksTableProps> = ({
           ))}
         </TableBody>
       </Table>
+      
+      {/* Sayfalama */}
+      {tasks.length > 0 && (
+        <TablePagination
+          component="div"
+          count={tasks.length}
+          page={page}
+          onPageChange={handleChangePage}
+          rowsPerPage={rowsPerPage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+          rowsPerPageOptions={[25, 50, 100]}
+          labelRowsPerPage="Sayfa başına satır:"
+          labelDisplayedRows={({ from, to, count }) => `${count} kayıttan ${from}-${to} arası gösteriliyor`}
+        />
+      )}
     </TableContainer>
   );
 };
@@ -335,6 +382,37 @@ const CompletedMonthlyTasksTable: React.FC<{
   getStatusLabel,
   tableTitle = "Tamamlanan Görevler"
 }) => {
+  // Sayfalama için state
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(50);
+  
+  // Sayfalandırılmış task verileri
+  const paginatedTasks = useMemo(() => {
+    const startIndex = page * rowsPerPage;
+    return tasks.slice(startIndex, startIndex + rowsPerPage);
+  }, [tasks, page, rowsPerPage]);
+  
+  // Filtre değişikliklerinde sayfa numarasını sıfırla
+  useEffect(() => {
+    setPage(0);
+  }, [tasks]);
+  
+  // Sayfa değişimi
+  const handleChangePage = (
+    event: React.MouseEvent<HTMLButtonElement> | null,
+    newPage: number,
+  ) => {
+    setPage(newPage);
+  };
+
+  // Sayfa başına satır sayısı değişimi
+  const handleChangeRowsPerPage = (
+    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
   // Tarihi formatlama fonksiyonu
   const formatTimestamp = (timestamp: number) => {
     if (!timestamp) return '-';
@@ -377,7 +455,7 @@ const CompletedMonthlyTasksTable: React.FC<{
           </TableRow>
         </TableHead>
         <TableBody>
-          {tasks.map((task) => (
+          {paginatedTasks.map((task) => (
             <TableRow 
               key={task.id} 
               hover
@@ -471,6 +549,21 @@ const CompletedMonthlyTasksTable: React.FC<{
           )}
         </TableBody>
       </Table>
+      
+      {/* Sayfalama */}
+      {tasks.length > 0 && (
+        <TablePagination
+          component="div"
+          count={tasks.length}
+          page={page}
+          onPageChange={handleChangePage}
+          rowsPerPage={rowsPerPage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+          rowsPerPageOptions={[25, 50, 100]}
+          labelRowsPerPage="Sayfa başına satır:"
+          labelDisplayedRows={({ from, to, count }) => `${count} kayıttan ${from}-${to} arası gösteriliyor`}
+        />
+      )}
     </TableContainer>
   );
 };
