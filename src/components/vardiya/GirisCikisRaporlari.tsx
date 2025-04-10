@@ -23,7 +23,8 @@ import {
   Tooltip,
   IconButton,
   Collapse,
-  Button
+  Button,
+  Autocomplete
 } from '@mui/material';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
@@ -47,18 +48,47 @@ interface GirisCikisRaporlariProps {
   isManager?: boolean;
 }
 
+// Durum seçeneği tipi tanımı
+interface StatusOption {
+  value: string;
+  label: string;
+  color: string;
+}
+
 const GirisCikisRaporlari: React.FC<GirisCikisRaporlariProps> = ({ branchId, isManager = false }) => {
   const { currentUser, userDetails } = useAuth();
   const [loading, setLoading] = useState(true);
   const [reports, setReports] = useState<any[]>([]);
   const [filteredReports, setFilteredReports] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [personnelData, setPersonnelData] = useState<{[key: string]: any}>({});
   
   // Tarih filtresi için state
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
+  
+  // Datepicker açma fonksiyonları için state
+  const [startPickerOpen, setStartPickerOpen] = useState(false);
+  const [endPickerOpen, setEndPickerOpen] = useState(false);
+  
+  // Durum listesi
+  const statusOptions: StatusOption[] = [
+    { value: 'all', label: 'Tüm Durumlar', color: 'default' },
+    { value: 'devam-eden-personel', label: 'Devam Eden Personel', color: 'info' },
+    { value: 'Normal Giriş', label: 'Normal Giriş', color: 'success' },
+    { value: 'Erken Geldi', label: 'Erken Geldi', color: 'info' },
+    { value: 'Geç Geldi', label: 'Geç Geldi', color: 'warning' },
+    { value: 'Normal Çıktı', label: 'Normal Çıktı', color: 'success' },
+    { value: 'Vardiya Tamamlandı', label: 'Vardiya Tamamlandı', color: 'success' },
+    { value: 'Erken Çıktı', label: 'Erken Çıktı', color: 'warning' },
+    { value: 'Devam Ediyor', label: 'Devam Ediyor', color: 'info' },
+    { value: 'Giriş Yapılmamış', label: 'Giriş Yapılmamış', color: 'error' },
+    { value: 'Çıkış Yapılmamış', label: 'Çıkış Yapılmamış', color: 'error' }
+  ];
+  
+  // Seçili durum
+  const selectedStatus = statusOptions.find(option => option.value === statusFilter) || statusOptions[0];
   
   // Vardiya zaman düzenleme modalı için state
   const [selectedReport, setSelectedReport] = useState<any | null>(null);
@@ -66,10 +96,6 @@ const GirisCikisRaporlari: React.FC<GirisCikisRaporlariProps> = ({ branchId, isM
   
   // Filtre görünürlüğü için state
   const [showFilters, setShowFilters] = useState(true);
-
-  // Datepicker açma fonksiyonları için state
-  const [startPickerOpen, setStartPickerOpen] = useState(false);
-  const [endPickerOpen, setEndPickerOpen] = useState(false);
 
   // Takvim referansları
   const startDatePickerRef = React.useRef<any>(null);
@@ -363,7 +389,7 @@ const GirisCikisRaporlari: React.FC<GirisCikisRaporlariProps> = ({ branchId, isM
     }
     
     // Durum filtresi
-    if (statusFilter !== 'all') {
+    if (statusFilter && statusFilter !== 'all') {
       if (statusFilter === 'devam-eden-personel') {
         // Giriş yapmış fakat henüz çıkış yapmamış personelleri filtrele
         filtered = filtered.filter(report => 
@@ -518,32 +544,54 @@ const GirisCikisRaporlari: React.FC<GirisCikisRaporlariProps> = ({ branchId, isM
               />
             </Grid>
             
-            {/* Durum Filtresi */}
+            {/* Durum Filtresi - Autocomplete */}
             <Grid item xs={12} md={4}>
-              <FormControl fullWidth size="small">
-                <InputLabel id="status-filter-label">Durum Filtresi</InputLabel>
-                <Select
-                  labelId="status-filter-label"
-                  id="status-filter"
-                  value={statusFilter}
-                  label="Durum Filtresi"
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                >
-                  <MenuItem value="all">Tüm Durumlar</MenuItem>
-                  <MenuItem value="devam-eden-personel" sx={{ fontWeight: 'bold', color: 'info.main' }}>
-                    Devam Eden Personel
-                  </MenuItem>
-                  <MenuItem value="Normal Giriş">Normal Giriş</MenuItem>
-                  <MenuItem value="Erken Geldi">Erken Geldi</MenuItem>
-                  <MenuItem value="Geç Geldi">Geç Geldi</MenuItem>
-                  <MenuItem value="Normal Çıktı">Normal Çıktı</MenuItem>
-                  <MenuItem value="Vardiya Tamamlandı">Vardiya Tamamlandı</MenuItem>
-                  <MenuItem value="Erken Çıktı">Erken Çıktı</MenuItem>
-                  <MenuItem value="Devam Ediyor">Devam Ediyor</MenuItem>
-                  <MenuItem value="Giriş Yapılmamış">Giriş Yapılmamış</MenuItem>
-                  <MenuItem value="Çıkış Yapılmamış">Çıkış Yapılmamış</MenuItem>
-                </Select>
-              </FormControl>
+              <Autocomplete
+                value={selectedStatus}
+                onChange={(_, newValue: StatusOption | null) => {
+                  setStatusFilter(newValue ? newValue.value : 'all');
+                }}
+                options={statusOptions}
+                getOptionLabel={(option) => option.label}
+                renderInput={(params) => (
+                  <TextField 
+                    {...params} 
+                    label="Durum Filtresi" 
+                    size="small"
+                    placeholder="Durum seçin..."
+                  />
+                )}
+                renderOption={(props, option) => (
+                  <Box component="li" {...props}>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <Chip 
+                        label=" " 
+                        size="small" 
+                        sx={{ 
+                          minWidth: 20, 
+                          backgroundColor: 
+                            option.color === 'default' ? 'grey.400' :
+                            option.color === 'success' ? 'success.light' : 
+                            option.color === 'warning' ? 'warning.light' : 
+                            option.color === 'error' ? 'error.light' : 
+                            'info.light'
+                        }} 
+                      />
+                      <Typography 
+                        variant="body2"
+                        sx={{
+                          fontWeight: option.value === 'devam-eden-personel' ? 'bold' : 'normal',
+                          color: option.value === 'devam-eden-personel' ? 'info.main' : 'inherit'
+                        }}
+                      >
+                        {option.label}
+                      </Typography>
+                    </Stack>
+                  </Box>
+                )}
+                isOptionEqualToValue={(option, value) => option.value === value.value}
+                disableClearable
+              />
             </Grid>
             
             {/* Tarih Aralığı Filtresi */}
