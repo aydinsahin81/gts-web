@@ -29,6 +29,27 @@ const getCellStyle = (rowNumber: number) => {
   };
 };
 
+// Haftalık günleri temsil eden dizi
+const weekDayNames = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'];
+
+// Gün adını alma yardımcı fonksiyonu
+const getDayName = (dayNumber: number) => {
+  const day = weekDayNames[dayNumber] || `Gün ${dayNumber}`;
+  return day;
+};
+
+// Görevin günlerini ve ilgili saatlerini çıkarma fonksiyonu
+const getTaskDays = (task: any) => {
+  if (!task || !task.days) return [];
+  
+  return Object.keys(task.days).map(day => ({
+    day: parseInt(day),
+    dayName: getDayName(parseInt(day)),
+    repetitionTimes: task.days[day].repetitionTimes || [],
+    dailyRepetitions: task.days[day].dailyRepetitions || 1
+  }));
+};
+
 // Günlük görevleri Excel'e aktarma
 export const exportDailyTasksToExcel = async (
   tasks: any[],
@@ -124,7 +145,7 @@ export const exportWeeklyTasksToExcel = async (
     worksheet.columns = [
       { header: 'Durum', key: 'status', width: 15 },
       { header: 'Görev Adı', key: 'name', width: 30 },
-      { header: 'Haftanın Günleri', key: 'weekDays', width: 30 },
+      { header: 'Günler', key: 'weekDays', width: 25 },
       { header: 'Görev Saatleri', key: 'times', width: 30 },
       { header: 'Tolerans', key: 'tolerance', width: 12 },
       { header: 'Personel', key: 'personnel', width: 20 },
@@ -136,22 +157,39 @@ export const exportWeeklyTasksToExcel = async (
       cell.style = getHeaderStyle();
     });
     
-    // Haftanın günlerini adlandırma
-    const weekDayNames = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'];
-    
     // Görev verilerini ekle
     tasks.forEach(task => {
+      // Görev günlerini çıkar
+      const taskDays = getTaskDays(task);
+      
       // Haftanın günleri
       let weekDaysText = '-';
-      if (task.weekDays && task.weekDays.length > 0) {
-        const dayNames = task.weekDays.map((day: number) => weekDayNames[day]);
-        weekDaysText = dayNames.join(', ');
+      if (taskDays.length > 0) {
+        weekDaysText = taskDays.map(day => day.dayName).join(', ');
       }
       
       // Görev saatleri
-      const taskTimes = task.repetitionTimes && task.repetitionTimes.length > 0
-        ? task.repetitionTimes.join(', ')
-        : '-';
+      let taskTimes = '-';
+      if (taskDays.length > 0) {
+        // Her gün için saatleri ekle
+        const timesByDay = taskDays.map(day => {
+          const times = day.repetitionTimes.join(', ');
+          return `${day.dayName}: ${times}`;
+        });
+        taskTimes = timesByDay.join(' | ');
+      } else if (task.repetitionTimes && task.repetitionTimes.length > 0) {
+        // Eğer gün bilgisi yoksa ama saatler varsa
+        taskTimes = task.repetitionTimes.join(', ');
+      } else if (task.taskTime) {
+        // Tamamlanmış görevler için
+        taskTimes = task.taskTime;
+      }
+      
+      // Tarih bilgisi (tamamlanmış görevler için)
+      let dateInfo = '-';
+      if (task.status === 'completed' || task.status === 'missed') {
+        dateInfo = task.taskDate || '-';
+      }
       
       // Tolerans bilgisi
       const toleranceInfo = `${task.startTolerance || 15} dk`;
