@@ -32,10 +32,21 @@ const getCellStyle = (rowNumber: number) => {
 // Haftalık günleri temsil eden dizi
 const weekDayNames = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'];
 
+// Ay isimlerini temsil eden dizi
+const monthNames = [
+  'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
+  'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'
+];
+
 // Gün adını alma yardımcı fonksiyonu
 const getDayName = (dayNumber: number) => {
   const day = weekDayNames[dayNumber] || `Gün ${dayNumber}`;
   return day;
+};
+
+// Ay adını alma yardımcı fonksiyonu
+const getMonthName = (monthNumber: number): string => {
+  return monthNames[monthNumber] || `Ay ${monthNumber}`;
 };
 
 // Görevin günlerini ve ilgili saatlerini çıkarma fonksiyonu
@@ -48,6 +59,54 @@ const getTaskDays = (task: any) => {
     repetitionTimes: task.days[day].repetitionTimes || [],
     dailyRepetitions: task.days[day].dailyRepetitions || 1
   }));
+};
+
+// Görevi ay/gün şeklinde formatlanmış şekilde döndüren yardımcı fonksiyon
+const getTaskMonthDays = (task: any) => {
+  if (!task) return [];
+  
+  const result = [];
+  
+  // task içindeki ay bilgilerini döngüye alıyoruz
+  for (const key in task) {
+    if (key.startsWith('month')) {
+      const monthNumber = parseInt(key.replace('month', ''));
+      const monthData = task[key];
+      const monthName = getMonthName(monthNumber);
+      
+      const days = [];
+      
+      // Ay içindeki günleri döngüye alıyoruz
+      for (const dayKey in monthData) {
+        if (dayKey.startsWith('day')) {
+          const dayNumber = parseInt(dayKey.replace('day', ''));
+          const dayData = monthData[dayKey];
+          
+          days.push({
+            day: dayNumber,
+            dailyRepetitions: dayData.dailyRepetitions || 1,
+            repetitionTimes: dayData.repetitionTimes || []
+          });
+        }
+      }
+      
+      if (days.length > 0) {
+        // Günleri sayısal olarak sırala
+        days.sort((a, b) => a.day - b.day);
+        
+        result.push({
+          month: monthNumber,
+          monthName,
+          days
+        });
+      }
+    }
+  }
+  
+  // Ayları sayısal olarak sırala
+  result.sort((a, b) => a.month - b.month);
+  
+  return result;
 };
 
 // Günlük görevleri Excel'e aktarma
@@ -241,8 +300,8 @@ export const exportMonthlyTasksToExcel = async (
     worksheet.columns = [
       { header: 'Durum', key: 'status', width: 15 },
       { header: 'Görev Adı', key: 'name', width: 30 },
-      { header: 'Ayın Günü', key: 'monthDay', width: 15 },
-      { header: 'Görev Saatleri', key: 'times', width: 30 },
+      { header: 'Aylar', key: 'months', width: 20 },
+      { header: 'Günler/Saatler', key: 'daysAndTimes', width: 40 },
       { header: 'Tolerans', key: 'tolerance', width: 12 },
       { header: 'Personel', key: 'personnel', width: 20 },
       { header: 'Açıklama', key: 'description', width: 40 }
@@ -255,13 +314,39 @@ export const exportMonthlyTasksToExcel = async (
     
     // Görev verilerini ekle
     tasks.forEach(task => {
-      // Görev saatleri
-      const taskTimes = task.repetitionTimes && task.repetitionTimes.length > 0
-        ? task.repetitionTimes.join(', ')
-        : '-';
+      // Aylar ve günler bilgisini çıkart
+      const monthDays = getTaskMonthDays(task);
       
-      // Ayın günü
-      const monthDay = task.monthDay ? `${task.monthDay}` : '-';
+      // Aylar
+      let monthsText = '-';
+      if (monthDays.length > 0) {
+        monthsText = monthDays.map(month => month.monthName).join(', ');
+      } else if (task.monthDay) {
+        // Eğer eski formatta aylık görev ise
+        monthsText = 'Her Ay';
+      }
+      
+      // Günler ve saatler
+      let daysAndTimesText = '-';
+      if (monthDays.length > 0) {
+        // Her ay için günler ve saatler
+        const monthDaysTexts = monthDays.map(month => {
+          // Her ay içindeki günler
+          const daysInfo = month.days.map(day => {
+            // Gün ve saatler
+            const times = day.repetitionTimes.join(', ');
+            return `${day.day}. gün: ${times}`;
+          });
+          return `${month.monthName}: ${daysInfo.join(' | ')}`;
+        });
+        daysAndTimesText = monthDaysTexts.join('\n');
+      } else if (task.monthDay && task.repetitionTimes && task.repetitionTimes.length > 0) {
+        // Eğer eski formatta aylık görev ise
+        daysAndTimesText = `Her ayın ${task.monthDay}. günü: ${task.repetitionTimes.join(', ')}`;
+      } else if (task.taskTime) {
+        // Tamamlanan görevler için
+        daysAndTimesText = task.taskTime;
+      }
       
       // Tolerans bilgisi
       const toleranceInfo = `${task.startTolerance || 15} dk`;
@@ -270,8 +355,8 @@ export const exportMonthlyTasksToExcel = async (
       worksheet.addRow({
         status: getStatusLabel(task.status || 'pending'),
         name: task.name,
-        monthDay: monthDay,
-        times: taskTimes,
+        months: monthsText,
+        daysAndTimes: daysAndTimesText,
         tolerance: toleranceInfo,
         personnel: task.personnelName || 'Atanmamış',
         description: task.description || ''
@@ -284,6 +369,14 @@ export const exportMonthlyTasksToExcel = async (
         row.eachCell(cell => {
           cell.style = getCellStyle(rowNumber);
         });
+        
+        // Günler/Saatler sütunu için yüksek satır
+        row.getCell('daysAndTimes').alignment = {
+          wrapText: true,
+          vertical: 'top'
+        };
+        // Satır yüksekliğini ayarla
+        row.height = 60;
       }
     });
     
