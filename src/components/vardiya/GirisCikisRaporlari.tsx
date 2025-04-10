@@ -145,23 +145,23 @@ const GirisCikisRaporlari: React.FC<GirisCikisRaporlariProps> = ({ branchId, isM
               
               // Giriş durumu kontrolü - veritabanından direkt olarak al
               if (record.girisDurumu) {
+                // Büyük/küçük harf duyarsız kontrol için değeri küçük harfe çevirelim
+                const girisDurumuLower = record.girisDurumu.toLowerCase();
+                
                 // Veritabanındaki değeri görüntüleme için dönüştür
-                switch (record.girisDurumu) {
-                  case 'early':
-                    statusInfo.entryStatus = 'Erken Geldi';
-                    break;
-                  case 'late':
-                    statusInfo.entryStatus = 'Geç Geldi';
-                    break;
-                  case 'giriş yapılmamış':
-                    statusInfo.entryStatus = 'Giriş Yapılmamış';
-                    break;
-                  case 'normal':
-                    statusInfo.entryStatus = 'Normal Geldi';
-                    break;
-                  default:
-                    // Diğer durumlarda doğrudan değeri al
-                    statusInfo.entryStatus = record.girisDurumu;
+                if (girisDurumuLower === 'early') {
+                  statusInfo.entryStatus = 'Erken Geldi';
+                } else if (girisDurumuLower === 'late') {
+                  statusInfo.entryStatus = 'Geç Geldi';
+                } else if (girisDurumuLower === 'giriş yapılmamış') {
+                  statusInfo.entryStatus = 'Giriş Yapılmamış';
+                } else if (girisDurumuLower === 'normal') {
+                  statusInfo.entryStatus = 'Normal Geldi';
+                } else if (girisDurumuLower === 'ontime' || girisDurumuLower === 'on-time' || girisDurumuLower === 'on_time') {
+                  statusInfo.entryStatus = 'Normal Giriş';
+                } else {
+                  // Diğer durumlarda doğrudan değeri al
+                  statusInfo.entryStatus = record.girisDurumu;
                 }
               } else {
                 // Giriş durumu yoksa
@@ -171,20 +171,21 @@ const GirisCikisRaporlari: React.FC<GirisCikisRaporlariProps> = ({ branchId, isM
               // Çıkış durumu kontrolü - veritabanından direkt olarak al
               if (record.cikisZamani) {
                 if (record.cikisDurumu) {
+                  // Büyük/küçük harf duyarsız kontrol için değeri küçük harfe çevirelim
+                  const cikisDurumuLower = record.cikisDurumu.toLowerCase();
+                  
                   // Veritabanındaki değeri görüntüleme için dönüştür
-                  switch (record.cikisDurumu) {
-                    case 'earlyExit':
-                      statusInfo.exitStatus = 'Erken Çıktı';
-                      break;
-                    case 'çıkış yapılmamış':
-                      statusInfo.exitStatus = 'Çıkış Yapılmamış';
-                      break;
-                    case 'normal':
-                      statusInfo.exitStatus = 'Normal Çıktı';
-                      break;
-                    default:
-                      // Diğer durumlarda doğrudan değeri al
-                      statusInfo.exitStatus = record.cikisDurumu;
+                  if (cikisDurumuLower === 'earlyexit' || cikisDurumuLower === 'early-exit' || cikisDurumuLower === 'early_exit') {
+                    statusInfo.exitStatus = 'Erken Çıktı';
+                  } else if (cikisDurumuLower === 'çıkış yapılmamış') {
+                    statusInfo.exitStatus = 'Çıkış Yapılmamış';
+                  } else if (cikisDurumuLower === 'normal') {
+                    statusInfo.exitStatus = 'Normal Çıktı';
+                  } else if (cikisDurumuLower === 'complete' || cikisDurumuLower === 'completed') {
+                    statusInfo.exitStatus = 'Vardiya Tamamlandı';
+                  } else {
+                    // Diğer durumlarda doğrudan değeri al
+                    statusInfo.exitStatus = record.cikisDurumu;
                   }
                 } else {
                   statusInfo.exitStatus = 'Çıkış Durumu Belirsiz';
@@ -314,6 +315,8 @@ const GirisCikisRaporlari: React.FC<GirisCikisRaporlariProps> = ({ branchId, isM
     switch (status) {
       case 'Normal Geldi':
       case 'Normal Çıktı':
+      case 'Normal Giriş':
+      case 'Vardiya Tamamlandı':
         return 'success';
       case 'Erken Geldi':
         return 'info';
@@ -372,9 +375,11 @@ const GirisCikisRaporlari: React.FC<GirisCikisRaporlariProps> = ({ branchId, isM
             >
               <MenuItem value="all">Tüm Durumlar</MenuItem>
               <MenuItem value="Normal Geldi">Normal Geldi</MenuItem>
+              <MenuItem value="Normal Giriş">Normal Giriş</MenuItem>
               <MenuItem value="Erken Geldi">Erken Geldi</MenuItem>
               <MenuItem value="Geç Geldi">Geç Geldi</MenuItem>
               <MenuItem value="Normal Çıktı">Normal Çıktı</MenuItem>
+              <MenuItem value="Vardiya Tamamlandı">Vardiya Tamamlandı</MenuItem>
               <MenuItem value="Erken Çıktı">Erken Çıktı</MenuItem>
               <MenuItem value="Devam Ediyor">Devam Ediyor</MenuItem>
               <MenuItem value="Giriş Yapılmamış">Giriş Yapılmamış</MenuItem>
