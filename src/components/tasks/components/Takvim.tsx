@@ -1,17 +1,358 @@
-import React from 'react';
-import { Box, Typography, Paper } from '@mui/material';
+import React, { useState, useEffect } from 'react';
+import { Box, Typography, Paper, IconButton, Tooltip, FormControl, Select, MenuItem, InputLabel } from '@mui/material';
+import FullCalendar from '@fullcalendar/react';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import timeGridPlugin from '@fullcalendar/timegrid';
+import interactionPlugin from '@fullcalendar/interaction';
+import { format } from 'date-fns';
+import { tr } from 'date-fns/locale';
+import { styled } from '@mui/material/styles';
+import { 
+  Today as TodayIcon, 
+  ChevronLeft as ChevronLeftIcon, 
+  ChevronRight as ChevronRightIcon,
+  Event as EventIcon,
+  ViewDay as ViewDayIcon,
+  ViewWeek as ViewWeekIcon,
+  CalendarMonth as MonthIcon
+} from '@mui/icons-material';
+
+const aylar = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 
+  'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+const gunler = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
+
+// Style için çeşitli bileşenler
+const CalendarContainer = styled(Box)(({ theme }) => ({
+  height: 'calc(100vh - 190px)', // Header ve tabların yüksekliğini çıkar
+  width: '100%',
+  '& .fc': {
+    '--fc-border-color': theme.palette.divider,
+    '--fc-button-text-color': theme.palette.primary.main,
+    '--fc-button-bg-color': 'transparent',
+    '--fc-button-border-color': theme.palette.primary.main,
+    '--fc-button-hover-bg-color': theme.palette.primary.main,
+    '--fc-button-hover-text-color': theme.palette.common.white,
+    '--fc-button-active-bg-color': theme.palette.primary.dark,
+    '--fc-today-bg-color': `${theme.palette.primary.main}10`,
+    '--fc-event-bg-color': theme.palette.primary.main,
+    '--fc-event-border-color': theme.palette.primary.dark,
+    '--fc-page-bg-color': theme.palette.background.paper,
+    '--fc-neutral-bg-color': theme.palette.background.default,
+    fontFamily: theme.typography.fontFamily,
+  },
+  '& .fc .fc-toolbar': {
+    flexWrap: 'wrap',
+    gap: '10px',
+    marginBottom: '1rem'
+  },
+  '& .fc .fc-toolbar-title': {
+    fontSize: '1.5rem',
+    fontWeight: 700,
+    color: theme.palette.text.primary
+  },
+  '& .fc-theme-standard td, .fc-theme-standard th': {
+    borderColor: theme.palette.divider
+  },
+  '& .fc .fc-day-today': {
+    backgroundColor: `${theme.palette.primary.main}10`,
+  },
+  '& .fc-day-header': {
+    fontWeight: 600,
+    padding: '10px 0'
+  },
+  '& .fc-event': {
+    borderRadius: '4px',
+    padding: '2px 4px',
+    fontSize: '0.85rem',
+    cursor: 'pointer',
+    borderWidth: '0',
+    boxShadow: '0 2px 5px rgba(0,0,0,0.08)',
+    transition: 'transform 0.1s ease-in-out, box-shadow 0.1s ease-in-out',
+    '&:hover': {
+      transform: 'translateY(-1px) scale(1.01)',
+      boxShadow: '0 4px 8px rgba(0,0,0,0.12)'
+    }
+  },
+  '& .fc-col-header-cell': {
+    padding: '8px 0'
+  },
+  '& .fc-day-number': {
+    fontWeight: 500,
+    padding: '5px'
+  },
+  '& .fc-daygrid-event': {
+    whiteSpace: 'normal'
+  },
+  // Mobil uyumluluk için
+  [theme.breakpoints.down('sm')]: {
+    '& .fc-toolbar': {
+      flexDirection: 'column',
+      alignItems: 'center'
+    },
+    '& .fc-dayGridMonth-view .fc-daygrid-day-events': {
+      margin: '0 2px'
+    },
+    '& .fc-header-toolbar .fc-toolbar-chunk': {
+      marginBottom: '8px'
+    }
+  }
+}));
+
+// Özel toolbar bileşeni
+const CalendarToolbar = ({ 
+  calendarRef, 
+  view, 
+  setView 
+} : { 
+  calendarRef: React.RefObject<FullCalendar | null>, 
+  view: string, 
+  setView: (view: string) => void 
+}) => {
+  
+  const [currentDate, setCurrentDate] = useState<Date>(new Date());
+  
+  useEffect(() => {
+    const calendar = calendarRef.current;
+    if (calendar) {
+      const api = calendar.getApi();
+      setCurrentDate(api.getDate());
+    }
+  }, [calendarRef, view]);
+  
+  const handlePrev = () => {
+    const calendarApi = calendarRef.current?.getApi();
+    if (calendarApi) {
+      calendarApi.prev();
+      setCurrentDate(calendarApi.getDate());
+    }
+  };
+
+  const handleNext = () => {
+    const calendarApi = calendarRef.current?.getApi();
+    if (calendarApi) {
+      calendarApi.next();
+      setCurrentDate(calendarApi.getDate());
+    }
+  };
+
+  const handleToday = () => {
+    const calendarApi = calendarRef.current?.getApi();
+    if (calendarApi) {
+      calendarApi.today();
+      setCurrentDate(calendarApi.getDate());
+    }
+  };
+
+  const changeView = (newView: string) => {
+    const calendarApi = calendarRef.current?.getApi();
+    if (calendarApi) {
+      calendarApi.changeView(newView);
+      setView(newView);
+    }
+  };
+  
+  const formatCurrentDate = () => {
+    let result = '';
+    
+    if (view === 'timeGridDay') {
+      result = `${currentDate.getDate()} ${aylar[currentDate.getMonth()]} ${currentDate.getFullYear()}, ${gunler[currentDate.getDay()]}`;
+    } else if (view === 'timeGridWeek') {
+      result = `${aylar[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
+    } else {
+      result = `${aylar[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
+    }
+    
+    return result;
+  };
+
+  return (
+    <Box sx={{ mb: 2 }}>
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: 1
+      }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Tooltip title="Önceki">
+            <IconButton onClick={handlePrev} color="primary" size="small">
+              <ChevronLeftIcon />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Bugün">
+            <IconButton onClick={handleToday} color="primary" size="small">
+              <TodayIcon />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Sonraki">
+            <IconButton onClick={handleNext} color="primary" size="small">
+              <ChevronRightIcon />
+            </IconButton>
+          </Tooltip>
+          
+          <Typography variant="h5" sx={{ fontWeight: 600, ml: 2 }}>
+            {formatCurrentDate()}
+          </Typography>
+        </Box>
+
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Tooltip title="Gün Görünümü">
+            <IconButton 
+              onClick={() => changeView('timeGridDay')} 
+              color={view === 'timeGridDay' ? 'secondary' : 'default'}
+              size="small"
+            >
+              <ViewDayIcon />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Hafta Görünümü">
+            <IconButton 
+              onClick={() => changeView('timeGridWeek')} 
+              color={view === 'timeGridWeek' ? 'secondary' : 'default'}
+              size="small"
+            >
+              <ViewWeekIcon />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Ay Görünümü">
+            <IconButton 
+              onClick={() => changeView('dayGridMonth')} 
+              color={view === 'dayGridMonth' ? 'secondary' : 'default'}
+              size="small"
+            >
+              <MonthIcon />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      </Box>
+    </Box>
+  );
+};
 
 interface TakvimProps {
   companyId: string | null;
 }
 
 const Takvim: React.FC<TakvimProps> = ({ companyId }) => {
+  const [view, setView] = useState<string>('dayGridMonth');
+  const [events, setEvents] = useState<any[]>([]);
+  const calendarRef = React.useRef<FullCalendar>(null);
+
+  // Örnek etkinlikler
+  useEffect(() => {
+    // Burada normalde Firebase'den etkinlikleri çekeceğiz
+    // Şimdilik örnek etkinlikler ekliyoruz
+    const sampleEvents = [
+      {
+        id: '1',
+        title: 'Toplantı',
+        start: new Date(new Date().setHours(10, 0, 0)),
+        end: new Date(new Date().setHours(11, 30, 0)),
+        backgroundColor: '#4caf50',
+        borderColor: '#388e3c',
+      },
+      {
+        id: '2',
+        title: 'Proje Sunumu',
+        start: new Date(new Date().setDate(new Date().getDate() + 1)),
+        allDay: true,
+        backgroundColor: '#2196f3',
+        borderColor: '#1976d2',
+      },
+      {
+        id: '3',
+        title: 'Eğitim',
+        start: new Date(new Date().setDate(new Date().getDate() + 3)),
+        end: new Date(new Date().setDate(new Date().getDate() + 4)),
+        backgroundColor: '#ff9800',
+        borderColor: '#f57c00',
+      }
+    ];
+    
+    setEvents(sampleEvents);
+  }, []);
+
+  // Etkinlik tıklama
+  const handleEventClick = (info: any) => {
+    console.log('Etkinlik tıklandı:', info.event);
+    // Burada etkinlik detay modalı açılabilir
+    alert(`Etkinlik: ${info.event.title}`);
+  };
+
+  // Tarih tıklama - yeni etkinlik ekleme
+  const handleDateClick = (info: any) => {
+    console.log('Tarih tıklandı:', info.date);
+    // Burada yeni etkinlik ekleme modalı açılabilir
+    const title = prompt('Etkinlik adı:');
+    if (title) {
+      const newEvent = {
+        id: Math.random().toString(),
+        title,
+        start: info.date,
+        allDay: info.allDay,
+        backgroundColor: '#4caf50',
+        borderColor: '#388e3c',
+      };
+      
+      setEvents([...events, newEvent]);
+    }
+  };
+
   return (
-    <Box sx={{ mt: 2 }}>
-      <Paper sx={{ p: 3, borderRadius: 2 }}>
-        <Typography variant="h6" align="center">
-          Takvim İçeriği Burada Olacak
-        </Typography>
+    <Box sx={{ mt: 2, p: 0 }}>
+      <Paper sx={{ p: 2, borderRadius: 2, height: 'calc(100vh - 165px)', overflow: 'hidden' }}>
+        <CalendarToolbar calendarRef={calendarRef} view={view} setView={setView} />
+        
+        <CalendarContainer>
+          <FullCalendar
+            ref={calendarRef}
+            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+            initialView="dayGridMonth"
+            headerToolbar={false} // Özel toolbar kullanıyoruz
+            events={events}
+            eventClick={handleEventClick}
+            dateClick={handleDateClick}
+            height="100%"
+            dayMaxEvents={3} // 3'ten fazla etkinlik varsa "daha fazla" bağlantısı göster
+            moreLinkClick="popover" // Fazla etkinlikler için pop-up
+            nowIndicator={true}
+            editable={true}
+            droppable={true}
+            selectable={true}
+            selectMirror={true}
+            weekends={true}
+            firstDay={1} // Pazartesi
+            slotMinTime="07:00:00"
+            slotMaxTime="19:00:00"
+            allDaySlot={true}
+            slotDuration="00:30:00"
+            businessHours={{
+              daysOfWeek: [1, 2, 3, 4, 5], // Pazartesi - Cuma
+              startTime: '09:00',
+              endTime: '17:00',
+            }}
+            eventTimeFormat={{
+              hour: '2-digit',
+              minute: '2-digit',
+              meridiem: false
+            }}
+            dayHeaderFormat={{
+              weekday: 'long' // Gün adları uzun format (Pazartesi, Salı, vb.)
+            }}
+            buttonText={{
+              today: 'Bugün',
+              month: 'Ay',
+              week: 'Hafta',
+              day: 'Gün',
+              list: 'Liste'
+            }}
+            weekText="Hft"
+            allDayText="Tüm gün"
+            moreLinkText="daha fazla"
+            noEventsText="Gösterilecek etkinlik yok"
+          />
+        </CalendarContainer>
       </Paper>
     </Box>
   );
