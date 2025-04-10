@@ -24,6 +24,7 @@ import ManagerPage from './pages/ManagerDashboard';
 import ManagerProfilePage from './pages/ManagerProfile';
 import SuperAdmin from './components/superadmin/SuperAdmin';
 import TaskCheckerEndpoint from './api/TaskCheckerEndpoint';
+import Reservations from './components/reservations/Reservations';
 
 // Henüz oluşturulmamış diğer sayfalar için geçici bileşenler
 // const Reports = () => <div>Raporlar Sayfası</div>;
@@ -214,6 +215,7 @@ const App: React.FC = () => {
                 <Route path="/reports" element={<MainLayout><Reports /></MainLayout>} />
                 <Route path="/messages" element={<MainLayout><Messages /></MainLayout>} />
                 <Route path="/surveys" element={<MainLayout><Surveys /></MainLayout>} />
+                <Route path="/reservations" element={<MainLayout><Reservations /></MainLayout>} />
                 <Route path="/branches" element={<MainLayout><BranchesPage /></MainLayout>} />
                 <Route path="/customer-screen" element={<MainLayout><CustomerScreenPage /></MainLayout>} />
                 <Route path="/profile" element={<MainLayout><Profile /></MainLayout>} />

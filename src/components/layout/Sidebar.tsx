@@ -30,6 +30,7 @@ import MessageIcon from '@mui/icons-material/Message';
 import PollIcon from '@mui/icons-material/Poll';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import BusinessIcon from '@mui/icons-material/Business';
+import EventSeatIcon from '@mui/icons-material/EventSeat';
 
 const SidebarContainer = styled(Box)<{ isCollapsed: boolean }>(({ theme, isCollapsed }) => ({
   width: isCollapsed ? 70 : 260,
@@ -301,6 +302,14 @@ const Sidebar: React.FC<SidebarProps> = ({ openMobile, onCloseMobile, onCollapse
           '/surveys', 
           'Anketler', 
           <PollIcon 
+            sx={{ fontSize: isSmallScreen ? 16 : 24 }} 
+          />
+        )}
+        
+        {renderMenuItem(
+          '/reservations', 
+          'Rezervasyon', 
+          <EventSeatIcon 
             sx={{ fontSize: isSmallScreen ? 16 : 24 }} 
           />
         )}
