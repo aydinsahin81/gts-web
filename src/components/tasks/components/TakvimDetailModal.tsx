@@ -355,22 +355,102 @@ const TakvimDetailModal: React.FC<TakvimDetailModalProps> = ({
                   {weeklyTasks.length > 0 ? (
                     <List>
                       {weeklyTasks.map((task) => (
-                        <ListItem key={task.id}>
-                          <ListItemIcon>
-                            <Avatar 
-                              sx={{ 
-                                bgcolor: `${getStatusColor(task.status)}20`,
-                                color: getStatusColor(task.status)
-                              }}
-                            >
-                              {getStatusIcon(task.status)}
-                            </Avatar>
-                          </ListItemIcon>
-                          <ListItemText
-                            primary={task.name}
-                            secondary={task.description}
-                          />
-                        </ListItem>
+                        <React.Fragment key={task.id}>
+                          <ListItem 
+                            sx={{ 
+                              borderRadius: 1,
+                              mb: 1, 
+                              bgcolor: 'background.paper',
+                              '&:hover': {
+                                bgcolor: 'action.hover',
+                              } 
+                            }}
+                          >
+                            <ListItemIcon>
+                              <Avatar 
+                                sx={{ 
+                                  bgcolor: `${getStatusColor(task.status)}20`,
+                                  color: getStatusColor(task.status)
+                                }}
+                              >
+                                {getStatusIcon(task.status)}
+                              </Avatar>
+                            </ListItemIcon>
+                            <ListItemText
+                              primary={
+                                <Typography variant="subtitle1" sx={{ fontWeight: 'medium' }}>
+                                  {task.name}
+                                </Typography>
+                              }
+                              secondary={
+                                <Box sx={{ mt: 0.5 }}>
+                                  <Typography variant="body2" color="text.secondary">
+                                    {task.description}
+                                  </Typography>
+                                  <Box sx={{ display: 'flex', alignItems: 'center', mt: 1, gap: 1 }}>
+                                    <Chip 
+                                      size="small" 
+                                      label={getStatusLabel(task.status)}
+                                      sx={{ 
+                                        bgcolor: `${getStatusColor(task.status)}20`,
+                                        color: getStatusColor(task.status),
+                                        height: 20,
+                                        fontSize: '0.7rem'
+                                      }} 
+                                    />
+                                    {task.completionType && (
+                                      <Chip 
+                                        size="small" 
+                                        label={task.completionType === 'qr' ? 'QR Kod' : 'Manuel'}
+                                        sx={{ 
+                                          bgcolor: '#9c27b020',
+                                          color: '#9c27b0',
+                                          height: 20,
+                                          fontSize: '0.7rem'
+                                        }} 
+                                      />
+                                    )}
+                                    <Chip 
+                                      size="small" 
+                                      label={`${task.startTolerance || 15} dk tolerans`}
+                                      sx={{ 
+                                        bgcolor: '#3f51b520',
+                                        color: '#3f51b5',
+                                        height: 20,
+                                        fontSize: '0.7rem'
+                                      }} 
+                                    />
+                                  </Box>
+                                </Box>
+                              }
+                            />
+                            
+                            {task.repetitionTimes && task.repetitionTimes.length > 0 && (
+                              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '70px' }}>
+                                <Typography variant="caption" color="text.secondary">
+                                  {task.repetitionTimes.length > 1 ? 'Görev Saatleri' : 'Görev Saati'}
+                                </Typography>
+                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mt: 0.5, alignItems: 'center' }}>
+                                  {task.repetitionTimes.map((time: string, index: number) => (
+                                    <Chip 
+                                      key={index}
+                                      size="small" 
+                                      label={time}
+                                      sx={{ 
+                                        bgcolor: '#2196f320',
+                                        color: '#2196f3',
+                                        fontSize: '0.75rem',
+                                        height: 20,
+                                        my: 0.2
+                                      }} 
+                                    />
+                                  ))}
+                                </Box>
+                              </Box>
+                            )}
+                          </ListItem>
+                          <Divider variant="inset" component="li" />
+                        </React.Fragment>
                       ))}
                     </List>
                   ) : (

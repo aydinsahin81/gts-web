@@ -334,8 +334,9 @@ const Takvim: React.FC<TakvimProps> = ({ companyId }) => {
 
     setLoading(true);
     
-    // Günlük görevleri dinle
+    // Görevleri dinle
     const tasksRef = ref(database, `companies/${companyId}/tasks`);
+    const weeklyTasksRef = ref(database, `companies/${companyId}/weeklyTasks`);
     
     const handleTasksData = (snapshot: any) => {
       if (!snapshot.exists()) {
@@ -353,53 +354,95 @@ const Takvim: React.FC<TakvimProps> = ({ companyId }) => {
       
       setAllTasks(tasksArray);
       
-      // Günlük görevleri bul
-      const dailyTasks = tasksArray.filter(task => 
-        task.isRecurring && task.repeatType === 'daily'
-      );
-      
-      // Eğer günlük görevler varsa, takvimin her günü için bir görev göster
-      if (dailyTasks.length > 0) {
-        // Takvimin nasıl kullanılacağına bağlı olarak, 
-        // bir aylık event oluşturabiliriz (geçmiş ve gelecek için)
+      // Haftalık görevler için
+      get(weeklyTasksRef).then((weeklySnapshot) => {
+        let weeklyTasksData: any[] = [];
         
-        // Bugün
-        const today = new Date();
+        if (weeklySnapshot.exists()) {
+          const data = weeklySnapshot.val();
+          weeklyTasksData = Object.keys(data).map(key => ({
+            id: key,
+            ...data[key]
+          }));
+        }
+        
+        // Günlük görevleri bul
+        const dailyTasks = tasksArray.filter(task => 
+          task.isRecurring && task.repeatType === 'daily'
+        );
         
         // Takvim eventlerini oluştur
         const calendarEvents = [];
         
-        // Geçmiş 90 gün ve gelecek 180 gün için günlük görevler oluştur
-        // Bu aralığı değiştirebilirsiniz, örneğin ihtiyaca göre 30/60 veya 180/365 gibi
-        for (let i = -90; i <= 180; i++) {
+        // Bugün
+        const today = new Date();
+        
+        // Geçmiş ve gelecek tarih aralığı
+        const pastDays = 90;
+        const futureDays = 180;
+        
+        // Her gün için event oluştur
+        for (let i = -pastDays; i <= futureDays; i++) {
           const date = new Date();
           date.setDate(today.getDate() + i);
           
-          // Her gün için bir "Günlük Görevler" eventi oluştur
-          calendarEvents.push({
-            id: `daily-tasks-${i}`,
-            title: 'Günlük Görevler',
-            start: new Date(date.setHours(0, 0, 0, 0)),
-            end: new Date(date.setHours(23, 59, 59, 999)),
-            allDay: true,
-            backgroundColor: '#2196F3', // Mavi
-            borderColor: '#1976D2',
-            extendedProps: {
-              taskCount: dailyTasks.length,
-              taskType: 'daily',
-              date: new Date(date)
-            }
+          const currentDay = date.getDay(); // 0: Pazar, 1: Pazartesi, ...
+          
+          // O güne ait haftalık görevleri bul
+          const weeklyTasksForDay = weeklyTasksData.filter(task => {
+            if (!task.days) return false;
+            
+            // task.days nesnesinde gün numarası (0-6) key olarak var mı kontrol et
+            return task.days[currentDay] !== undefined;
           });
+          
+          // Haftalık görevler için event oluştur
+          if (weeklyTasksForDay.length > 0) {
+            calendarEvents.push({
+              id: `weekly-tasks-${i}`,
+              title: 'Haftalık Görevler',
+              start: new Date(date.setHours(0, 0, 0, 0)),
+              end: new Date(date.setHours(23, 59, 59, 999)),
+              allDay: true,
+              backgroundColor: '#9C27B0', // Mor
+              borderColor: '#7B1FA2',
+              extendedProps: {
+                taskCount: weeklyTasksForDay.length,
+                taskType: 'weekly',
+                date: new Date(date),
+                dayOfWeek: currentDay
+              }
+            });
+          }
+          
+          // Eğer günlük görevler varsa
+          if (dailyTasks.length > 0) {
+            calendarEvents.push({
+              id: `daily-tasks-${i}`,
+              title: 'Günlük Görevler',
+              start: new Date(date.setHours(0, 0, 0, 0)),
+              end: new Date(date.setHours(23, 59, 59, 999)),
+              allDay: true,
+              backgroundColor: '#2196F3', // Mavi
+              borderColor: '#1976D2',
+              extendedProps: {
+                taskCount: dailyTasks.length,
+                taskType: 'daily',
+                date: new Date(date)
+              }
+            });
+          }
         }
         
         setEvents(calendarEvents);
-      } else {
-        setEvents([]);
-      }
-      
-      setLoading(false);
+        setLoading(false);
+      }).catch(error => {
+        console.error("Haftalık görevleri yüklerken hata:", error);
+        setLoading(false);
+      });
     };
     
+    // Görevi çek
     onValue(tasksRef, handleTasksData);
     
     // Cleanup
@@ -420,20 +463,55 @@ const Takvim: React.FC<TakvimProps> = ({ companyId }) => {
     const selectedDateEnd = new Date(info.date);
     selectedDateEnd.setHours(23, 59, 59, 999);
     
-    // Günün görevlerini filtrele
+    // Seçilen günün haftanın kaçıncı günü olduğunu bul (0: Pazar, 1: Pazartesi, ...)
+    const selectedDayOfWeek = selectedDateStart.getDay();
+    
+    // Günlük görevleri filtrele
     const dayTasks = allTasks.filter(task => {
       if (task.isRecurring && task.repeatType === 'daily') {
         return true; // Günlük tekrar eden görevler her gün için geçerli
       }
-      
       return false;
     });
     
-    setDailyTasks(dayTasks);
-    setWeeklyTasks([]);
-    setMonthlyTasks([]);
-    setModalOpen(true);
-    setLoading(false);
+    // Haftalık görevleri çek
+    const weeklyTasksRef = ref(database, `companies/${companyId}/weeklyTasks`);
+    
+    get(weeklyTasksRef).then((snapshot) => {
+      let weeklyTasks: any[] = [];
+      
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        
+        // Tüm haftalık görevleri dön
+        Object.keys(data).forEach(taskId => {
+          const task = data[taskId];
+          
+          // Görevin seçilen güne (haftanın günü olarak) ait olup olmadığını kontrol et
+          if (task.days && task.days[selectedDayOfWeek]) {
+            weeklyTasks.push({
+              id: taskId,
+              ...task,
+              // Tekrarlama zamanlarını da ekle
+              repetitionTimes: task.days[selectedDayOfWeek].repetitionTimes || []
+            });
+          }
+        });
+      }
+      
+      setDailyTasks(dayTasks);
+      setWeeklyTasks(weeklyTasks);
+      setMonthlyTasks([]);
+      setModalOpen(true);
+      setLoading(false);
+    }).catch(error => {
+      console.error("Haftalık görevleri yüklerken hata:", error);
+      setDailyTasks(dayTasks);
+      setWeeklyTasks([]);
+      setMonthlyTasks([]);
+      setModalOpen(true);
+      setLoading(false);
+    });
   };
 
   // Modal kapatma işleyici
