@@ -817,15 +817,32 @@ const GirisCikisRaporlari: React.FC<GirisCikisRaporlariProps> = ({ branchId, isM
               </TableRow>
             </TableHead>
             <TableBody>
-                {paginatedReports.map((report) => (
+                {paginatedReports.map((report) => {
+                  // Rapor tarihini Date nesnesine çevir
+                  const dateParts = report.date.split('-');
+                  const day = parseInt(dateParts[0], 10);
+                  const month = parseInt(dateParts[1], 10) - 1; // JavaScript ayları 0'dan başlar
+                  const year = parseInt(dateParts[2], 10);
+                  const reportDate = new Date(year, month, day);
+                  
+                  // Bugünün tarihini saat 00:00:00'a ayarla
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  
+                  // Rapor bugünden önceki bir güne ait ve eksik giriş/çıkış var mı?
+                  const isOldMissingEntry = reportDate < today && 
+                    (report.checkIn === '--:--' || report.checkOut === '--:--');
+                  
+                  return (
                   <TableRow 
                     key={report.id} 
                     hover
                     onClick={() => handleOpenModal(report)}
                     sx={{ 
                       cursor: 'pointer',
+                      backgroundColor: isOldMissingEntry ? 'rgba(229, 115, 115, 0.1)' : 'inherit',
                       '&:hover': { 
-                        backgroundColor: 'rgba(0, 0, 0, 0.04)'
+                        backgroundColor: isOldMissingEntry ? 'rgba(229, 115, 115, 0.2)' : 'rgba(0, 0, 0, 0.04)'
                       }
                     }}
                   >
@@ -835,26 +852,43 @@ const GirisCikisRaporlari: React.FC<GirisCikisRaporlariProps> = ({ branchId, isM
                         sx={{ 
                           width: 32, 
                           height: 32, 
-                          bgcolor: 'primary.main',
+                          bgcolor: isOldMissingEntry ? 'error.main' : 'primary.main',
                           mr: 1.5
                         }}
                       >
                         <PersonIcon fontSize="small" />
                       </Avatar>
-                      <Typography variant="body2" fontWeight="medium">
+                      <Typography 
+                        variant="body2" 
+                        fontWeight={isOldMissingEntry ? 'bold' : 'medium'}
+                        color={isOldMissingEntry ? 'error.main' : 'inherit'}
+                      >
                         {report.personnel}
                       </Typography>
                     </Box>
                   </TableCell>
                   <TableCell>
-                    <Typography variant="body2">
+                    <Typography 
+                      variant="body2"
+                      color={isOldMissingEntry ? 'error.main' : 'inherit'}
+                    >
                       {report.shift}
                     </Typography>
                   </TableCell>
                   <TableCell>
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <CalendarTodayIcon fontSize="small" sx={{ mr: 0.5, color: 'text.secondary' }} />
-                      <Typography variant="body2">
+                      <CalendarTodayIcon 
+                        fontSize="small" 
+                        sx={{ 
+                          mr: 0.5, 
+                          color: isOldMissingEntry ? 'error.main' : 'text.secondary' 
+                        }} 
+                      />
+                      <Typography 
+                        variant="body2"
+                        color={isOldMissingEntry ? 'error.main' : 'inherit'}
+                        fontWeight={isOldMissingEntry ? 'bold' : 'normal'}
+                      >
                         {report.date}
                       </Typography>
                     </Box>
@@ -863,8 +897,15 @@ const GirisCikisRaporlari: React.FC<GirisCikisRaporlariProps> = ({ branchId, isM
                     <Typography 
                       variant="body2"
                       sx={{ 
-                        color: report.originalRecord.girisElleDuzenlendi ? 'error.main' : 'inherit',
-                        fontWeight: report.originalRecord.girisElleDuzenlendi ? 'bold' : 'normal'
+                        color: isOldMissingEntry && report.checkIn === '--:--' 
+                          ? 'error.main' 
+                          : report.originalRecord.girisElleDuzenlendi 
+                            ? 'error.main' 
+                            : 'inherit',
+                        fontWeight: (isOldMissingEntry && report.checkIn === '--:--') || 
+                                   report.originalRecord.girisElleDuzenlendi 
+                                   ? 'bold' 
+                                   : 'normal'
                       }}
                     >
                       {report.checkIn}
@@ -874,8 +915,15 @@ const GirisCikisRaporlari: React.FC<GirisCikisRaporlariProps> = ({ branchId, isM
                     <Typography 
                       variant="body2"
                       sx={{ 
-                        color: report.originalRecord.cikisElleDuzenlendi ? 'error.main' : 'inherit',
-                        fontWeight: report.originalRecord.cikisElleDuzenlendi ? 'bold' : 'normal'
+                        color: isOldMissingEntry && report.checkOut === '--:--' 
+                          ? 'error.main' 
+                          : report.originalRecord.cikisElleDuzenlendi 
+                            ? 'error.main' 
+                            : 'inherit',
+                        fontWeight: (isOldMissingEntry && report.checkOut === '--:--') || 
+                                   report.originalRecord.cikisElleDuzenlendi 
+                                   ? 'bold' 
+                                   : 'normal'
                       }}
                     >
                       {report.checkOut}
@@ -887,7 +935,7 @@ const GirisCikisRaporlari: React.FC<GirisCikisRaporlariProps> = ({ branchId, isM
                         <Chip 
                           label={report.statusInfo.entryStatus}
                           size="small" 
-                          color={getStatusColor(report.statusInfo.entryStatus)}
+                          color={isOldMissingEntry ? 'error' : getStatusColor(report.statusInfo.entryStatus)}
                           sx={{ fontSize: '11px', height: 24, mb: 0.5 }}
                         />
                       )}
@@ -895,14 +943,15 @@ const GirisCikisRaporlari: React.FC<GirisCikisRaporlariProps> = ({ branchId, isM
                         <Chip 
                           label={report.statusInfo.exitStatus}
                           size="small" 
-                          color={getStatusColor(report.statusInfo.exitStatus)}
+                          color={isOldMissingEntry ? 'error' : getStatusColor(report.statusInfo.exitStatus)}
                           sx={{ fontSize: '11px', height: 24, mb: 0.5 }}
                         />
                       )}
                     </Stack>
                   </TableCell>
                 </TableRow>
-              ))}
+                );
+              })}
             </TableBody>
           </Table>
           </Paper>
