@@ -696,6 +696,41 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
           groupId: selectedGroupId || undefined,
           branchesId // Şube ID'sini ekle
         });
+      } else if (isRecurring && repeatType === 'yearly') {
+        // Yıllık görevleri SADECE yearlyTasks koleksiyonuna kaydet
+        try {
+          // Veritabanında yearlyTasks koleksiyonuna kaydet
+          const yearlyTasksRef = ref(database, `companies/${companyId}/yearlyTasks`);
+          const newTaskRef = push(yearlyTasksRef);
+          
+          // Personel ve grup bilgilerini bul
+          const personel = personnel.find(p => p.id === selectedPersonnelId);
+          const group = filteredTaskGroups.find(g => g.id === selectedGroupId);
+          
+          // Yıllık görev verilerini hazırla
+          const yearlyTaskData = {
+            name: taskName,
+            description: taskDescription,
+            personnelId: selectedPersonnelId,
+            personnelName: personel?.name || '',
+            groupId: selectedGroupId,
+            groupName: group?.name || '',
+            branchesId: branchesId || '',
+            branchName: getBranchName(branchesId || ''),
+            planDate: `${selectedYear}-${yearDate}`, // Tam tarih (yıl-ay-gün)
+            yearlyPlanDetails: yearlyPlanDetails,
+            createdAt: Date.now(),
+            status: 'pending' // Varsayılan durum
+          };
+          
+          // Veriyi kaydet
+          await set(newTaskRef, yearlyTaskData);
+          console.log('Yıllık görev planı başarıyla kaydedildi:', yearlyTaskData);
+        } catch (error) {
+          console.error('Yıllık görev kaydedilirken hata:', error);
+          setError('Yıllık görev planı kaydedilirken bir hata oluştu. Lütfen tekrar deneyin.');
+          throw error;
+        }
       } else {
         // Normal görevler için mevcut işlemi kullan
         await onAddTask({
@@ -711,46 +746,8 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
           groupId: selectedGroupId || undefined,
           weekDays: isRecurring && repeatType === 'weekly' ? weekDays : undefined,
           monthDay: isRecurring && repeatType === 'monthly' ? monthDay : undefined,
-          yearDate: isRecurring && repeatType === 'yearly' ? yearDate : undefined,
-          yearlyPlanDetails: isRecurring && repeatType === 'yearly' ? yearlyPlanDetails : undefined,
           branchesId // Şube ID'sini ekle
         });
-        
-        // Eğer yıllık görev ise yearlyTasks koleksiyonuna ayrıca kaydet
-        if (isRecurring && repeatType === 'yearly') {
-          try {
-            // Veritabanında yearlyTasks koleksiyonuna kaydet
-            const yearlyTasksRef = ref(database, `companies/${companyId}/yearlyTasks`);
-            const newTaskRef = push(yearlyTasksRef);
-            
-            // Personel ve grup bilgilerini bul
-            const personel = personnel.find(p => p.id === selectedPersonnelId);
-            const group = filteredTaskGroups.find(g => g.id === selectedGroupId);
-            
-            // Yıllık görev verilerini hazırla
-            const yearlyTaskData = {
-              name: taskName,
-              description: taskDescription,
-              personnelId: selectedPersonnelId,
-              personnelName: personel?.name || '',
-              groupId: selectedGroupId,
-              groupName: group?.name || '',
-              branchesId: branchesId || '',
-              branchName: getBranchName(branchesId || ''),
-              planDate: `${selectedYear}-${yearDate}`, // Tam tarih (yıl-ay-gün)
-              yearlyPlanDetails: yearlyPlanDetails,
-              createdAt: Date.now()
-            };
-            
-            // Veriyi kaydet
-            await set(newTaskRef, yearlyTaskData);
-            console.log('Yıllık görev planı başarıyla kaydedildi:', yearlyTaskData);
-          } catch (error) {
-            console.error('Yıllık görev kaydedilirken hata:', error);
-            setError('Yıllık görev planı kaydedilirken bir hata oluştu. Lütfen tekrar deneyin.');
-            throw error;
-          }
-        }
       }
       
       onClose();
