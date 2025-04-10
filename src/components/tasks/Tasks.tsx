@@ -82,6 +82,7 @@ import {
   Search as SearchIcon,
   Today as TodayIcon,
   DateRange as WeekIcon,
+  CalendarViewDay as TakvimIcon,
   CalendarMonth as MonthIcon,
   CalendarToday as YearIcon,
   Business as BusinessIcon,
@@ -108,6 +109,7 @@ import { saveAs } from 'file-saver';
 import WeeklyTasks from './components/WeeklyTasks';
 import { MonthlyTasks } from './components';
 import { YearlyTasks } from './components';
+import { Takvim } from './components';
 import { ExcelExportButton } from './utils/exportUtils';
 const uuidv4 = uuidModule.v4;
 
@@ -2155,6 +2157,12 @@ const Tasks: React.FC<TasksProps> = ({ branchId, isManager = false }) => {
             icon={<YearIcon />} 
             iconPosition="start"
           />
+          <Tab 
+            value="takvim" 
+            label="Takvim" 
+            icon={<TakvimIcon />} 
+            iconPosition="start"
+          />
         </Tabs>
       </Box>
 
@@ -2770,6 +2778,12 @@ const Tasks: React.FC<TasksProps> = ({ branchId, isManager = false }) => {
             onYearlyTasksDataChange={handleYearlyTasksDataChange}
           />
         </>
+      )}
+
+      {taskType === 'takvim' && (
+        <Takvim
+          companyId={companyId}
+        />
       )}
 
       {/* Görev Detay Modalı - hem yöneticiler hem normal kullanıcılar görebilir */}
