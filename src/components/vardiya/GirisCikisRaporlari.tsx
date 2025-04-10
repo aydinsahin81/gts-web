@@ -280,18 +280,18 @@ const GirisCikisRaporlari: React.FC<GirisCikisRaporlariProps> = ({ branchId, isM
                 
                 // Veritabanındaki değeri görüntüleme için dönüştür
                 if (girisDurumuLower === 'early') {
-                  statusInfo.entryStatus = 'Erken Geldi';
+                    statusInfo.entryStatus = 'Erken Geldi';
                 } else if (girisDurumuLower === 'late') {
-                  statusInfo.entryStatus = 'Geç Geldi';
+                    statusInfo.entryStatus = 'Geç Geldi';
                 } else if (girisDurumuLower === 'giriş yapılmamış') {
-                  statusInfo.entryStatus = 'Giriş Yapılmamış';
+                    statusInfo.entryStatus = 'Giriş Yapılmamış';
                 } else if (girisDurumuLower === 'normal') {
-                  statusInfo.entryStatus = 'Normal Geldi';
+                    statusInfo.entryStatus = 'Normal Geldi';
                 } else if (girisDurumuLower === 'ontime' || girisDurumuLower === 'on-time' || girisDurumuLower === 'on_time') {
                   statusInfo.entryStatus = 'Normal Giriş';
                 } else {
-                  // Diğer durumlarda doğrudan değeri al
-                  statusInfo.entryStatus = record.girisDurumu;
+                    // Diğer durumlarda doğrudan değeri al
+                    statusInfo.entryStatus = record.girisDurumu;
                 }
               } else {
                 // Giriş durumu yoksa
@@ -306,16 +306,16 @@ const GirisCikisRaporlari: React.FC<GirisCikisRaporlariProps> = ({ branchId, isM
                   
                   // Veritabanındaki değeri görüntüleme için dönüştür
                   if (cikisDurumuLower === 'earlyexit' || cikisDurumuLower === 'early-exit' || cikisDurumuLower === 'early_exit') {
-                    statusInfo.exitStatus = 'Erken Çıktı';
+                      statusInfo.exitStatus = 'Erken Çıktı';
                   } else if (cikisDurumuLower === 'çıkış yapılmamış') {
-                    statusInfo.exitStatus = 'Çıkış Yapılmamış';
+                      statusInfo.exitStatus = 'Çıkış Yapılmamış';
                   } else if (cikisDurumuLower === 'normal') {
-                    statusInfo.exitStatus = 'Normal Çıktı';
+                      statusInfo.exitStatus = 'Normal Çıktı';
                   } else if (cikisDurumuLower === 'complete' || cikisDurumuLower === 'completed') {
                     statusInfo.exitStatus = 'Vardiya Tamamlandı';
                   } else {
-                    // Diğer durumlarda doğrudan değeri al
-                    statusInfo.exitStatus = record.cikisDurumu;
+                      // Diğer durumlarda doğrudan değeri al
+                      statusInfo.exitStatus = record.cikisDurumu;
                   }
                 } else {
                   statusInfo.exitStatus = 'Çıkış Durumu Belirsiz';
@@ -341,6 +341,10 @@ const GirisCikisRaporlari: React.FC<GirisCikisRaporlariProps> = ({ branchId, isM
             });
           }
         });
+        
+        // Rapor verisi ile ilgili bilgi yazdır
+        console.log('Yüklenen rapor verileri:', reportsList);
+        console.log('Örnek veri örüntüsü:', reportsList.length > 0 ? reportsList[0].originalRecord : 'Veri yok');
         
         // Tarihe göre sırala (en yeni en üstte)
         reportsList.sort((a, b) => {
@@ -402,9 +406,9 @@ const GirisCikisRaporlari: React.FC<GirisCikisRaporlariProps> = ({ branchId, isM
         );
       } else {
         // Diğer durum filtreleri
-        filtered = filtered.filter(report => {
-          const { entryStatus, exitStatus } = report.statusInfo;
-          return entryStatus === statusFilter || exitStatus === statusFilter;
+      filtered = filtered.filter(report => {
+        const { entryStatus, exitStatus } = report.statusInfo;
+        return entryStatus === statusFilter || exitStatus === statusFilter;
         });
       }
     }
@@ -558,24 +562,24 @@ const GirisCikisRaporlari: React.FC<GirisCikisRaporlariProps> = ({ branchId, isM
           }}
         >
           <Grid container spacing={2}>
-            {/* Personel/Vardiya Arama */}
+        {/* Personel/Vardiya Arama */}
             <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                size="small"
-                placeholder="Personel veya Vardiya Ara..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon />
-                    </InputAdornment>
-                  ),
-                }}
-              />
-            </Grid>
-            
+          <TextField
+            fullWidth
+            size="small"
+            placeholder="Personel veya Vardiya Ara..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon />
+                </InputAdornment>
+              ),
+            }}
+          />
+        </Grid>
+        
             {/* Durum Filtresi - Autocomplete */}
             <Grid item xs={12} md={4}>
               <Autocomplete
@@ -588,7 +592,7 @@ const GirisCikisRaporlari: React.FC<GirisCikisRaporlariProps> = ({ branchId, isM
                 renderInput={(params) => (
                   <TextField 
                     {...params} 
-                    label="Durum Filtresi" 
+              label="Durum Filtresi"
                     size="small"
                     placeholder="Durum seçin..."
                   />
@@ -777,8 +781,8 @@ const GirisCikisRaporlari: React.FC<GirisCikisRaporlariProps> = ({ branchId, isM
                   </Box>
                 </Box>
               </LocalizationProvider>
-            </Grid>
-          </Grid>
+        </Grid>
+      </Grid>
         </Paper>
       </Collapse>
       
@@ -797,22 +801,22 @@ const GirisCikisRaporlari: React.FC<GirisCikisRaporlariProps> = ({ branchId, isM
         <Box>
           <Paper sx={{ 
             width: '100%', 
-            boxShadow: '0 2px 10px rgba(0, 0, 0, 0.05)',
+          boxShadow: '0 2px 10px rgba(0, 0, 0, 0.05)',
             borderRadius: 2,
             mb: 1
-          }}>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell width="25%">Personel</TableCell>
-                  <TableCell width="20%">Vardiya</TableCell>
-                  <TableCell width="15%">Tarih</TableCell>
-                  <TableCell width="10%">Giriş</TableCell>
-                  <TableCell width="10%">Çıkış</TableCell>
-                  <TableCell width="20%">Durum</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
+        }}>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell width="25%">Personel</TableCell>
+                <TableCell width="20%">Vardiya</TableCell>
+                <TableCell width="15%">Tarih</TableCell>
+                <TableCell width="10%">Giriş</TableCell>
+                <TableCell width="10%">Çıkış</TableCell>
+                <TableCell width="20%">Durum</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
                 {paginatedReports.map((report) => (
                   <TableRow 
                     key={report.id} 
@@ -825,70 +829,82 @@ const GirisCikisRaporlari: React.FC<GirisCikisRaporlariProps> = ({ branchId, isM
                       }
                     }}
                   >
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        <Avatar 
-                          sx={{ 
-                            width: 32, 
-                            height: 32, 
-                            bgcolor: 'primary.main',
-                            mr: 1.5
-                          }}
-                        >
-                          <PersonIcon fontSize="small" />
-                        </Avatar>
-                        <Typography variant="body2" fontWeight="medium">
-                          {report.personnel}
-                        </Typography>
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">
-                        {report.shift}
+                  <TableCell>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <Avatar 
+                        sx={{ 
+                          width: 32, 
+                          height: 32, 
+                          bgcolor: 'primary.main',
+                          mr: 1.5
+                        }}
+                      >
+                        <PersonIcon fontSize="small" />
+                      </Avatar>
+                      <Typography variant="body2" fontWeight="medium">
+                        {report.personnel}
                       </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        <CalendarTodayIcon fontSize="small" sx={{ mr: 0.5, color: 'text.secondary' }} />
-                        <Typography variant="body2">
-                          {report.date}
-                        </Typography>
-                      </Box>
-                    </TableCell>
-                    <TableCell>
+                    </Box>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2">
+                      {report.shift}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <CalendarTodayIcon fontSize="small" sx={{ mr: 0.5, color: 'text.secondary' }} />
                       <Typography variant="body2">
-                        {report.checkIn}
+                        {report.date}
                       </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">
-                        {report.checkOut}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Stack direction="row" spacing={0.5} flexWrap="wrap">
-                        {report.statusInfo.entryStatus && (
-                          <Chip 
-                            label={report.statusInfo.entryStatus}
-                            size="small" 
-                            color={getStatusColor(report.statusInfo.entryStatus)}
-                            sx={{ fontSize: '11px', height: 24, mb: 0.5 }}
-                          />
-                        )}
-                        {report.statusInfo.exitStatus && (
-                          <Chip 
-                            label={report.statusInfo.exitStatus}
-                            size="small" 
-                            color={getStatusColor(report.statusInfo.exitStatus)}
-                            sx={{ fontSize: '11px', height: 24, mb: 0.5 }}
-                          />
-                        )}
-                      </Stack>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                    </Box>
+                  </TableCell>
+                  <TableCell>
+                    <Typography 
+                      variant="body2"
+                      sx={{ 
+                        color: report.originalRecord.girisElleDuzenlendi ? 'error.main' : 'inherit',
+                        fontWeight: report.originalRecord.girisElleDuzenlendi ? 'bold' : 'normal'
+                      }}
+                    >
+                      {report.checkIn}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Typography 
+                      variant="body2"
+                      sx={{ 
+                        color: report.originalRecord.cikisElleDuzenlendi ? 'error.main' : 'inherit',
+                        fontWeight: report.originalRecord.cikisElleDuzenlendi ? 'bold' : 'normal'
+                      }}
+                    >
+                      {report.checkOut}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Stack direction="row" spacing={0.5} flexWrap="wrap">
+                      {report.statusInfo.entryStatus && (
+                        <Chip 
+                          label={report.statusInfo.entryStatus}
+                          size="small" 
+                          color={getStatusColor(report.statusInfo.entryStatus)}
+                          sx={{ fontSize: '11px', height: 24, mb: 0.5 }}
+                        />
+                      )}
+                      {report.statusInfo.exitStatus && (
+                        <Chip 
+                          label={report.statusInfo.exitStatus}
+                          size="small" 
+                          color={getStatusColor(report.statusInfo.exitStatus)}
+                          sx={{ fontSize: '11px', height: 24, mb: 0.5 }}
+                        />
+                      )}
+                    </Stack>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
           </Paper>
           
           {/* Sayfalama */}
@@ -918,4 +934,4 @@ const GirisCikisRaporlari: React.FC<GirisCikisRaporlariProps> = ({ branchId, isM
   );
 };
 
-export default GirisCikisRaporlari;
+export default GirisCikisRaporlari; 

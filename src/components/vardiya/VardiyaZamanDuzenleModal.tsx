@@ -168,8 +168,27 @@ const VardiyaZamanDuzenleModal: React.FC<VardiyaZamanDuzenleModalProps> = ({
           girisDate.setMinutes(girisZamani.getMinutes());
         }
         
-        updateData['girisZamani'] = girisDate.getTime();
-        updateData['girisDurumu'] = 'onTime'; // Varsayılan olarak "onTime" durumu
+        // Orijinal giriş saatiyle karşılaştır, değişiklik varsa elle düzenlendi bilgisi ekle
+        const orijinalGirisSaat = report.originalRecord.girisZamani 
+          ? new Date(report.originalRecord.girisZamani).getHours() 
+          : null;
+        const orijinalGirisDakika = report.originalRecord.girisZamani 
+          ? new Date(report.originalRecord.girisZamani).getMinutes() 
+          : null;
+        
+        // Giriş saati veya dakikası değiştiyse
+        if (orijinalGirisSaat === null || 
+            orijinalGirisDakika === null || 
+            orijinalGirisSaat !== girisZamani.getHours() || 
+            orijinalGirisDakika !== girisZamani.getMinutes()) {
+          updateData['girisZamani'] = girisDate.getTime();
+          updateData['girisDurumu'] = 'onTime'; // Varsayılan olarak "onTime" durumu
+          updateData['girisElleDuzenlendi'] = true; // Elle düzenlendi bilgisini ekle
+          console.log('Giriş saati değiştirildi:', `${orijinalGirisSaat}:${orijinalGirisDakika} -> ${girisZamani.getHours()}:${girisZamani.getMinutes()}`);
+        } else {
+          // Değişiklik yoksa sadece zamanı güncelle, "elle düzenlendi" bilgisini ekleme
+          updateData['girisZamani'] = girisDate.getTime();
+        }
       }
       
       // Çıkış zamanı varsa ekle
@@ -193,9 +212,33 @@ const VardiyaZamanDuzenleModal: React.FC<VardiyaZamanDuzenleModalProps> = ({
           cikisDate.setMinutes(cikisZamani.getMinutes());
         }
         
-        updateData['cikisZamani'] = cikisDate.getTime();
-        updateData['cikisDurumu'] = 'complete'; // Varsayılan olarak "complete" durumu
+        // Orijinal çıkış saatiyle karşılaştır, değişiklik varsa elle düzenlendi bilgisi ekle
+        const orijinalCikisSaat = report.originalRecord.cikisZamani 
+          ? new Date(report.originalRecord.cikisZamani).getHours() 
+          : null;
+        const orijinalCikisDakika = report.originalRecord.cikisZamani 
+          ? new Date(report.originalRecord.cikisZamani).getMinutes() 
+          : null;
+        
+        // Çıkış saati veya dakikası değiştiyse
+        if (orijinalCikisSaat === null || 
+            orijinalCikisDakika === null || 
+            orijinalCikisSaat !== cikisZamani.getHours() || 
+            orijinalCikisDakika !== cikisZamani.getMinutes()) {
+          updateData['cikisZamani'] = cikisDate.getTime();
+          updateData['cikisDurumu'] = 'complete'; // Varsayılan olarak "complete" durumu
+          updateData['cikisElleDuzenlendi'] = true; // Elle düzenlendi bilgisini ekle
+          console.log('Çıkış saati değiştirildi:', `${orijinalCikisSaat}:${orijinalCikisDakika} -> ${cikisZamani.getHours()}:${cikisZamani.getMinutes()}`);
+        } else {
+          // Değişiklik yoksa sadece zamanı güncelle, "elle düzenlendi" bilgisini ekleme
+          updateData['cikisZamani'] = cikisDate.getTime();
+        }
       }
+      
+      // Güncellenecek veriyi konsola yazdır
+      console.log('Güncellenecek veri:', updateData);
+      console.log('Veritabanı yolu:', `companies/${userDetails.companyId}/vardiyaListesi/${report.date}/${report.personnelId}`);
+      console.log('Report bilgisi:', report);
       
       // Eğer güncellenecek veri yoksa hata ver
       if (Object.keys(updateData).length === 0) {
@@ -205,16 +248,22 @@ const VardiyaZamanDuzenleModal: React.FC<VardiyaZamanDuzenleModalProps> = ({
       // Veritabanı referansı
       const recordRef = ref(database, `companies/${userDetails.companyId}/vardiyaListesi/${report.date}/${report.personnelId}`);
       
-      // Güncelleme işlemi
-      await update(recordRef, updateData);
-      
-      // Başarılı mesajı göster
-      setSuccess(true);
-      
-      // 2 saniye sonra modalı kapat
-      setTimeout(() => {
-        onClose();
-      }, 2000);
+      try {
+        // Güncelleme işlemi
+        await update(recordRef, updateData);
+        console.log('Veritabanı güncelleme başarılı');
+        
+        // Başarılı mesajı göster
+        setSuccess(true);
+        
+        // 2 saniye sonra modalı kapat
+        setTimeout(() => {
+          onClose();
+        }, 2000);
+      } catch (updateError) {
+        console.error('Veritabanı güncelleme hatası:', updateError);
+        throw updateError;
+      }
       
     } catch (err) {
       console.error('Vardiya bilgisi güncellenirken hata:', err);
