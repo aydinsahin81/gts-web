@@ -4,11 +4,12 @@ import PersonelListesi from './PersonelListesi';
 import VardiyaListesi from './VardiyaListesi';
 import GirisCikisRaporlari from './GirisCikisRaporlari';
 import ToplamSure from './ToplamSure';
-import { Download as DownloadIcon, QrCode as QrCodeIcon, Info as InfoIcon, Person as PersonIcon, Schedule as ScheduleIcon, AssignmentTurnedIn as ReportIcon, Timer as TimerIcon } from '@mui/icons-material';
+import { Download as DownloadIcon, QrCode as QrCodeIcon, Info as InfoIcon, Person as PersonIcon, Schedule as ScheduleIcon, AssignmentTurnedIn as ReportIcon, Timer as TimerIcon, Palette as PaletteIcon } from '@mui/icons-material';
 import * as ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { QRCodeCanvas } from 'qrcode.react';
 import { useAuth } from '../../contexts/AuthContext';
+import VardiyaQrPrintModal from './VardiyaQrPrintModal';
 
 // Kaydırılabilir ana içerik için styled component
 const ScrollableContent = styled(Box)(({ theme }) => ({
@@ -74,6 +75,7 @@ const Shifts: React.FC<ShiftsProps> = ({ branchId, isManager = false }) => {
   const [downloadingQr, setDownloadingQr] = useState(false);
   const [infoModalOpen, setInfoModalOpen] = useState(false);
   const { userDetails } = useAuth();
+  const [qrDesignModalOpen, setQrDesignModalOpen] = useState(false);
 
   const handleChange = (event: React.SyntheticEvent, newValue: number) => {
     setValue(newValue);
@@ -345,6 +347,15 @@ const Shifts: React.FC<ShiftsProps> = ({ branchId, isManager = false }) => {
           </Button>
           <Button
             variant="contained"
+            color="warning"
+            startIcon={<PaletteIcon />}
+            onClick={() => setQrDesignModalOpen(true)}
+            size="small"
+          >
+            QR Tasarla
+          </Button>
+          <Button
+            variant="contained"
             color="info"
             startIcon={<DownloadIcon />}
             onClick={exportToExcel}
@@ -472,6 +483,14 @@ const Shifts: React.FC<ShiftsProps> = ({ branchId, isManager = false }) => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* QR Tasarım Modal'ı */}
+      <VardiyaQrPrintModal 
+        open={qrDesignModalOpen} 
+        onClose={() => setQrDesignModalOpen(false)}
+        companyId={userDetails?.companyId}
+        branchId={branchId}
+      />
     </Paper>
   );
 };
