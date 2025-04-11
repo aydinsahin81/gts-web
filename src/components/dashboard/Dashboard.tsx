@@ -312,14 +312,19 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
   
   // Widget seçimi için state'ler
   const [widgetSelectorOpen, setWidgetSelectorOpen] = useState(false);
-  const [selectedWidgets, setSelectedWidgets] = useState<string[]>(['stats', 'taskStatus', 'personnelPerformance']);
+  const [selectedWidgets, setSelectedWidgets] = useState<string[]>(['statsDaily', 'statsWeeklyMonthly', 'taskStatus', 'personnelPerformance']);
   
   // Widget listesi
   const widgets = [
     {
-      id: 'stats',
-      title: 'İstatistik Kartları',
-      description: 'Toplam personel, görev ve diğer istatistikler'
+      id: 'statsDaily',
+      title: 'Günlük İstatistik Kartları',
+      description: 'Toplam personel, görev ve günlük görev istatistikleri'
+    },
+    {
+      id: 'statsWeeklyMonthly',
+      title: 'Haftalık/Aylık İstatistik Kartları',
+      description: 'Haftalık ve aylık görev istatistikleri'
     },
     {
       id: 'taskStatus',
@@ -404,6 +409,16 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
   
   const handleNavigateToTasks = () => {
     navigate('/tasks');
+  };
+  
+  // Haftalık görevlere yönlendirme
+  const handleNavigateToWeeklyTasks = () => {
+    navigate('/tasks', { state: { activeTab: 'weekly' } });
+  };
+
+  // Aylık görevlere yönlendirme
+  const handleNavigateToMonthlyTasks = () => {
+    navigate('/tasks', { state: { activeTab: 'monthly' } });
   };
   
   // Veri güncellemesini işler
@@ -1138,7 +1153,7 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
       </Box>
 
       {/* İstatistik Kartları */}
-      {selectedWidgets.includes('stats') && (
+      {selectedWidgets.includes('statsDaily') && (
         <StatsCards
           stats={stats}
           isManager={isManager}
@@ -1146,6 +1161,29 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
           onTasksClick={handleNavigateToTasks}
           onPendingTasksClick={handleOpenPendingTasksModal}
           onCompletedTasksClick={handleOpenAllCompletedTasksModal}
+          onWeeklyPendingTasksClick={handleNavigateToWeeklyTasks}
+          onWeeklyCompletedTasksClick={handleNavigateToWeeklyTasks}
+          onMonthlyPendingTasksClick={handleNavigateToMonthlyTasks}
+          onMonthlyCompletedTasksClick={handleNavigateToMonthlyTasks}
+          showDailyStats={true}
+          showWeeklyMonthly={false}
+        />
+      )}
+      
+      {selectedWidgets.includes('statsWeeklyMonthly') && (
+        <StatsCards
+          stats={stats}
+          isManager={isManager}
+          onPersonnelClick={handleNavigateToPersonnel}
+          onTasksClick={handleNavigateToTasks}
+          onPendingTasksClick={handleOpenPendingTasksModal}
+          onCompletedTasksClick={handleOpenAllCompletedTasksModal}
+          onWeeklyPendingTasksClick={handleNavigateToWeeklyTasks}
+          onWeeklyCompletedTasksClick={handleNavigateToWeeklyTasks}
+          onMonthlyPendingTasksClick={handleNavigateToMonthlyTasks}
+          onMonthlyCompletedTasksClick={handleNavigateToMonthlyTasks}
+          showDailyStats={false}
+          showWeeklyMonthly={true}
         />
       )}
       

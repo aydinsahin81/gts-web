@@ -75,6 +75,8 @@ interface StatsCardsProps {
     monthlyCompletedTasks?: number;
   };
   isManager?: boolean;
+  showDailyStats?: boolean;
+  showWeeklyMonthly?: boolean;
   onPersonnelClick?: () => void;
   onTasksClick?: () => void;
   onPendingTasksClick?: () => void;
@@ -88,6 +90,8 @@ interface StatsCardsProps {
 const StatsCards: React.FC<StatsCardsProps> = ({
   stats,
   isManager = false,
+  showDailyStats = true,
+  showWeeklyMonthly = true,
   onPersonnelClick,
   onTasksClick,
   onPendingTasksClick,
@@ -99,159 +103,167 @@ const StatsCards: React.FC<StatsCardsProps> = ({
 }) => {
   return (
     <Grid container spacing={1} sx={{ mb: 2 }} className="stat-cards-section">
-      <Grid item xs={12} sm={6} md={3}>
-        <StatsCard 
-          bgcolor={THEME_COLORS.personnel} 
-          onClick={isManager ? undefined : onPersonnelClick}
-          sx={{ cursor: isManager ? 'default' : 'pointer' }}
-        >
-          <IconBox bgcolor={THEME_COLORS.personnel}>
-            <PeopleIcon />
-          </IconBox>
-          <StatsText>
-            <Typography variant="h6" fontWeight="bold">
-              {stats.totalPersonnel}
-            </Typography>
-            <Typography variant="body2" color="textSecondary">
-              Toplam Personel
-            </Typography>
-          </StatsText>
-        </StatsCard>
-      </Grid>
-      
-      <Grid item xs={12} sm={6} md={3}>
-        <StatsCard 
-          bgcolor={THEME_COLORS.tasks} 
-          onClick={isManager ? undefined : onTasksClick}
-          sx={{ cursor: isManager ? 'default' : 'pointer' }}
-        >
-          <IconBox bgcolor={THEME_COLORS.tasks}>
-            <TaskIcon />
-          </IconBox>
-          <StatsText>
-            <Typography variant="h6" fontWeight="bold">
-              {stats.totalTasks}
-            </Typography>
-            <Typography variant="body2" color="textSecondary">
-              Toplam Görev
-            </Typography>
-          </StatsText>
-        </StatsCard>
-      </Grid>
-      
-      <Grid item xs={12} sm={6} md={3}>
-        <StatsCard 
-          bgcolor={THEME_COLORS.pending} 
-          onClick={onPendingTasksClick}
-        >
-          <IconBox bgcolor={THEME_COLORS.pending}>
-            <PendingIcon />
-          </IconBox>
-          <StatsText>
-            <Typography variant="h6" fontWeight="bold">
-              {stats.pendingTasks}
-            </Typography>
-            <Typography variant="body2" color="textSecondary">
-              Devam Eden Günlük Görev
-            </Typography>
-          </StatsText>
-        </StatsCard>
-      </Grid>
-      
-      <Grid item xs={12} sm={6} md={3}>
-        <StatsCard 
-          bgcolor={THEME_COLORS.completed}
-          onClick={onCompletedTasksClick}
-        >
-          <IconBox bgcolor={THEME_COLORS.completed}>
-            <CompletedIcon />
-          </IconBox>
-          <StatsText>
-            <Typography variant="h6" fontWeight="bold">
-              {stats.completedTasks}
-            </Typography>
-            <Typography variant="body2" color="textSecondary">
-              Tamamlanan Günlük Görev
-            </Typography>
-          </StatsText>
-        </StatsCard>
-      </Grid>
+      {showDailyStats && (
+        <>
+          <Grid item xs={12} sm={6} md={3}>
+            <StatsCard 
+              bgcolor={THEME_COLORS.personnel} 
+              onClick={isManager ? undefined : onPersonnelClick}
+              sx={{ cursor: isManager ? 'default' : 'pointer' }}
+            >
+              <IconBox bgcolor={THEME_COLORS.personnel}>
+                <PeopleIcon />
+              </IconBox>
+              <StatsText>
+                <Typography variant="h6" fontWeight="bold">
+                  {stats.totalPersonnel}
+                </Typography>
+                <Typography variant="body2" color="textSecondary">
+                  Toplam Personel
+                </Typography>
+              </StatsText>
+            </StatsCard>
+          </Grid>
+          
+          <Grid item xs={12} sm={6} md={3}>
+            <StatsCard 
+              bgcolor={THEME_COLORS.tasks} 
+              onClick={isManager ? undefined : onTasksClick}
+              sx={{ cursor: isManager ? 'default' : 'pointer' }}
+            >
+              <IconBox bgcolor={THEME_COLORS.tasks}>
+                <TaskIcon />
+              </IconBox>
+              <StatsText>
+                <Typography variant="h6" fontWeight="bold">
+                  {stats.totalTasks}
+                </Typography>
+                <Typography variant="body2" color="textSecondary">
+                  Toplam Görev
+                </Typography>
+              </StatsText>
+            </StatsCard>
+          </Grid>
+          
+          <Grid item xs={12} sm={6} md={3}>
+            <StatsCard 
+              bgcolor={THEME_COLORS.pending} 
+              onClick={onPendingTasksClick}
+            >
+              <IconBox bgcolor={THEME_COLORS.pending}>
+                <PendingIcon />
+              </IconBox>
+              <StatsText>
+                <Typography variant="h6" fontWeight="bold">
+                  {stats.pendingTasks}
+                </Typography>
+                <Typography variant="body2" color="textSecondary">
+                  Devam Eden Günlük Görev
+                </Typography>
+              </StatsText>
+            </StatsCard>
+          </Grid>
+          
+          <Grid item xs={12} sm={6} md={3}>
+            <StatsCard 
+              bgcolor={THEME_COLORS.completed}
+              onClick={onCompletedTasksClick}
+            >
+              <IconBox bgcolor={THEME_COLORS.completed}>
+                <CompletedIcon />
+              </IconBox>
+              <StatsText>
+                <Typography variant="h6" fontWeight="bold">
+                  {stats.completedTasks}
+                </Typography>
+                <Typography variant="body2" color="textSecondary">
+                  Tamamlanan Günlük Görev
+                </Typography>
+              </StatsText>
+            </StatsCard>
+          </Grid>
+        </>
+      )}
 
-      <Grid item xs={12} sm={6} md={3}>
-        <StatsCard 
-          bgcolor={THEME_COLORS.weeklyPending} 
-          onClick={onWeeklyPendingTasksClick}
-        >
-          <IconBox bgcolor={THEME_COLORS.weeklyPending}>
-            <CalendarIcon />
-          </IconBox>
-          <StatsText>
-            <Typography variant="h6" fontWeight="bold">
-              {stats.weeklyPendingTasks || 0}
-            </Typography>
-            <Typography variant="body2" color="textSecondary">
-              Toplam Haftalık Görev
-            </Typography>
-          </StatsText>
-        </StatsCard>
-      </Grid>
-      
-      <Grid item xs={12} sm={6} md={3}>
-        <StatsCard 
-          bgcolor={THEME_COLORS.weeklyCompleted}
-          onClick={onWeeklyCompletedTasksClick}
-        >
-          <IconBox bgcolor={THEME_COLORS.weeklyCompleted}>
-            <CalendarIcon />
-          </IconBox>
-          <StatsText>
-            <Typography variant="h6" fontWeight="bold">
-              {stats.weeklyCompletedTasks || 0}
-            </Typography>
-            <Typography variant="body2" color="textSecondary">
-              Tamamlanan Haftalık Görev
-            </Typography>
-          </StatsText>
-        </StatsCard>
-      </Grid>
-      
-      <Grid item xs={12} sm={6} md={3}>
-        <StatsCard 
-          bgcolor={THEME_COLORS.monthlyPending} 
-          onClick={onMonthlyPendingTasksClick}
-        >
-          <IconBox bgcolor={THEME_COLORS.monthlyPending}>
-            <CalendarIcon />
-          </IconBox>
-          <StatsText>
-            <Typography variant="h6" fontWeight="bold">
-              {stats.monthlyPendingTasks || 0}
-            </Typography>
-            <Typography variant="body2" color="textSecondary">
-              Toplam Aylık Görev
-            </Typography>
-          </StatsText>
-        </StatsCard>
-      </Grid>
-      
-      <Grid item xs={12} sm={6} md={3}>
-        <StatsCard 
-          bgcolor={THEME_COLORS.monthlyCompleted}
-          onClick={onMonthlyCompletedTasksClick}
-        >
-          <IconBox bgcolor={THEME_COLORS.monthlyCompleted}>
-            <CalendarIcon />
-          </IconBox>
-          <StatsText>
-            <Typography variant="h6" fontWeight="bold">
-              {stats.monthlyCompletedTasks || 0}
-            </Typography>
-            <Typography variant="body2" color="textSecondary">
-              Tamamlanan Aylık Görev
-            </Typography>
-          </StatsText>
-        </StatsCard>
-      </Grid>
+      {showWeeklyMonthly && (
+        <>
+          <Grid item xs={12} sm={6} md={3}>
+            <StatsCard 
+              bgcolor={THEME_COLORS.weeklyPending} 
+              onClick={onWeeklyPendingTasksClick}
+            >
+              <IconBox bgcolor={THEME_COLORS.weeklyPending}>
+                <CalendarIcon />
+              </IconBox>
+              <StatsText>
+                <Typography variant="h6" fontWeight="bold">
+                  {stats.weeklyPendingTasks || 0}
+                </Typography>
+                <Typography variant="body2" color="textSecondary">
+                  Toplam Haftalık Görev
+                </Typography>
+              </StatsText>
+            </StatsCard>
+          </Grid>
+          
+          <Grid item xs={12} sm={6} md={3}>
+            <StatsCard 
+              bgcolor={THEME_COLORS.weeklyCompleted}
+              onClick={onWeeklyCompletedTasksClick}
+            >
+              <IconBox bgcolor={THEME_COLORS.weeklyCompleted}>
+                <CalendarIcon />
+              </IconBox>
+              <StatsText>
+                <Typography variant="h6" fontWeight="bold">
+                  {stats.weeklyCompletedTasks || 0}
+                </Typography>
+                <Typography variant="body2" color="textSecondary">
+                  Tamamlanan Haftalık Görev
+                </Typography>
+              </StatsText>
+            </StatsCard>
+          </Grid>
+          
+          <Grid item xs={12} sm={6} md={3}>
+            <StatsCard 
+              bgcolor={THEME_COLORS.monthlyPending} 
+              onClick={onMonthlyPendingTasksClick}
+            >
+              <IconBox bgcolor={THEME_COLORS.monthlyPending}>
+                <CalendarIcon />
+              </IconBox>
+              <StatsText>
+                <Typography variant="h6" fontWeight="bold">
+                  {stats.monthlyPendingTasks || 0}
+                </Typography>
+                <Typography variant="body2" color="textSecondary">
+                  Toplam Aylık Görev
+                </Typography>
+              </StatsText>
+            </StatsCard>
+          </Grid>
+          
+          <Grid item xs={12} sm={6} md={3}>
+            <StatsCard 
+              bgcolor={THEME_COLORS.monthlyCompleted}
+              onClick={onMonthlyCompletedTasksClick}
+            >
+              <IconBox bgcolor={THEME_COLORS.monthlyCompleted}>
+                <CalendarIcon />
+              </IconBox>
+              <StatsText>
+                <Typography variant="h6" fontWeight="bold">
+                  {stats.monthlyCompletedTasks || 0}
+                </Typography>
+                <Typography variant="body2" color="textSecondary">
+                  Tamamlanan Aylık Görev
+                </Typography>
+              </StatsText>
+            </StatsCard>
+          </Grid>
+        </>
+      )}
     </Grid>
   );
 };
