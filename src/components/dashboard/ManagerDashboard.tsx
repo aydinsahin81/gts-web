@@ -8,8 +8,12 @@ import { database, auth } from '../../firebase';
 interface DashboardPermissions {
   dashboard: boolean;
   dashboard_stat_cards: boolean;
-  dashboard_task_distribution: boolean;
+  dashboard_task_status: boolean;
+  dashboard_weekly_task_status: boolean;
+  dashboard_monthly_task_status: boolean;
   dashboard_personnel_performance: boolean;
+  dashboard_weekly_personnel_performance: boolean;
+  dashboard_monthly_personnel_performance: boolean;
   dashboard_survey_charts: boolean;
   dashboard_missed_tasks: boolean;
   dashboard_completed_tasks: boolean;
@@ -23,8 +27,12 @@ const ManagerDashboard: React.FC = () => {
   const [permissions, setPermissions] = useState<DashboardPermissions>({
     dashboard: true,
     dashboard_stat_cards: false,
-    dashboard_task_distribution: false,
+    dashboard_task_status: false,
+    dashboard_weekly_task_status: false,
+    dashboard_monthly_task_status: false,
     dashboard_personnel_performance: false,
+    dashboard_weekly_personnel_performance: false,
+    dashboard_monthly_personnel_performance: false,
     dashboard_survey_charts: false,
     dashboard_missed_tasks: false,
     dashboard_completed_tasks: false,
@@ -88,11 +96,28 @@ const ManagerDashboard: React.FC = () => {
           // Alt izinleri al
           const subPermissions = permissionsData.dashboard_subPermissions || {};
           
+          // Not: ManagerPermissionsModal.tsx'de ID'leri güncelledik ancak
+          // mevcut veritabanındaki eski ID'ler ile geriye dönük uyumluluk sağlamalıyız
           const newPermissions = {
             dashboard: dashboardEnabled,
+            // İstatistik kartları aynı ID'yi kullanıyor
             dashboard_stat_cards: subPermissions.dashboard_stat_cards === true,
-            dashboard_task_distribution: subPermissions.dashboard_task_distribution === true,
+            
+            // Eski dashboard_task_distribution ID'sini veya yeni dashboard_task_status ID'sini kontrol et
+            dashboard_task_status: subPermissions.dashboard_task_status === true || subPermissions.dashboard_task_distribution === true,
+            
+            // Yeni eklenen grafikler için izinleri al
+            dashboard_weekly_task_status: subPermissions.dashboard_weekly_task_status === true,
+            dashboard_monthly_task_status: subPermissions.dashboard_monthly_task_status === true,
+            
+            // Personel performans grafiği - eski veya yeni izin kontrol
             dashboard_personnel_performance: subPermissions.dashboard_personnel_performance === true,
+            
+            // Yeni eklenen personel performans grafikleri
+            dashboard_weekly_personnel_performance: subPermissions.dashboard_weekly_personnel_performance === true,
+            dashboard_monthly_personnel_performance: subPermissions.dashboard_monthly_personnel_performance === true,
+            
+            // Diğer izinler
             dashboard_survey_charts: subPermissions.dashboard_survey_charts === true,
             dashboard_missed_tasks: subPermissions.dashboard_missed_tasks === true,
             dashboard_completed_tasks: subPermissions.dashboard_completed_tasks === true,
@@ -106,8 +131,12 @@ const ManagerDashboard: React.FC = () => {
           // CSS filtrelerini ayarla
           setCssFilters({
             'hide-stat-cards': !newPermissions.dashboard_stat_cards,
-            'hide-task-distribution': !newPermissions.dashboard_task_distribution,
+            'hide-task-status': !newPermissions.dashboard_task_status,
+            'hide-weekly-task-status': !newPermissions.dashboard_weekly_task_status,
+            'hide-monthly-task-status': !newPermissions.dashboard_monthly_task_status,
             'hide-personnel-performance': !newPermissions.dashboard_personnel_performance,
+            'hide-weekly-personnel-performance': !newPermissions.dashboard_weekly_personnel_performance,
+            'hide-monthly-personnel-performance': !newPermissions.dashboard_monthly_personnel_performance,
             'hide-survey-charts': !newPermissions.dashboard_survey_charts,
             'hide-missed-tasks': !newPermissions.dashboard_missed_tasks,
             'hide-completed-tasks': !newPermissions.dashboard_completed_tasks,
@@ -119,12 +148,17 @@ const ManagerDashboard: React.FC = () => {
           console.log("Yönetici dashboard izinleri:", subPermissions);
         } else {
           console.log("Yönetici izinleri bulunamadı, varsayılan izinleri kullanılıyor.");
-          // Varsayılan olarak sadece ana dashboard izni ver
+          // Varsayılan olarak tüm dashboard izinleri devre dışı
+          // Ana dashboard izni açık, alt izinler kapalı
           setPermissions({
-            dashboard: true,
+            dashboard: true, // Ana dashboard izni aktif olmalı
             dashboard_stat_cards: false,
-            dashboard_task_distribution: false,
+            dashboard_task_status: false,
+            dashboard_weekly_task_status: false,
+            dashboard_monthly_task_status: false,
             dashboard_personnel_performance: false,
+            dashboard_weekly_personnel_performance: false,
+            dashboard_monthly_personnel_performance: false,
             dashboard_survey_charts: false,
             dashboard_missed_tasks: false,
             dashboard_completed_tasks: false,
@@ -133,11 +167,15 @@ const ManagerDashboard: React.FC = () => {
             dashboard_task_locations: false
           });
           
-          // Tüm bölümleri gizle
+          // Tüm bölümleri gizlemek için CSS filtrelerini ayarla
           setCssFilters({
             'hide-stat-cards': true,
-            'hide-task-distribution': true,
+            'hide-task-status': true,
+            'hide-weekly-task-status': true,
+            'hide-monthly-task-status': true,
             'hide-personnel-performance': true,
+            'hide-weekly-personnel-performance': true,
+            'hide-monthly-personnel-performance': true,
             'hide-survey-charts': true,
             'hide-missed-tasks': true,
             'hide-completed-tasks': true,
@@ -169,9 +207,25 @@ const ManagerDashboard: React.FC = () => {
       `);
     }
     
-    if (cssFilters['hide-task-distribution']) {
+    if (cssFilters['hide-task-status']) {
       cssRules.push(`
-        .dashboard-container .task-distribution-section {
+        .dashboard-container .task-status-section {
+          display: none !important;
+        }
+      `);
+    }
+    
+    if (cssFilters['hide-weekly-task-status']) {
+      cssRules.push(`
+        .dashboard-container .weekly-task-status-section {
+          display: none !important;
+        }
+      `);
+    }
+    
+    if (cssFilters['hide-monthly-task-status']) {
+      cssRules.push(`
+        .dashboard-container .monthly-task-status-section {
           display: none !important;
         }
       `);
@@ -180,6 +234,22 @@ const ManagerDashboard: React.FC = () => {
     if (cssFilters['hide-personnel-performance']) {
       cssRules.push(`
         .dashboard-container .personnel-performance-section {
+          display: none !important;
+        }
+      `);
+    }
+    
+    if (cssFilters['hide-weekly-personnel-performance']) {
+      cssRules.push(`
+        .dashboard-container .weekly-personnel-performance-section {
+          display: none !important;
+        }
+      `);
+    }
+    
+    if (cssFilters['hide-monthly-personnel-performance']) {
+      cssRules.push(`
+        .dashboard-container .monthly-personnel-performance-section {
           display: none !important;
         }
       `);
