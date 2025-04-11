@@ -52,6 +52,8 @@ interface YearlyTasksProps {
   getTaskTimeColor: (task: any, timeString: string) => string;
   onDeleteTask?: (taskId: string, personnelId: string) => Promise<void>;
   onYearlyTasksDataChange?: (tasks: any[]) => void;
+  branchId?: string | null;
+  isManager?: boolean;
 }
 
 const YearlyTasks: React.FC<YearlyTasksProps> = ({
@@ -68,7 +70,9 @@ const YearlyTasks: React.FC<YearlyTasksProps> = ({
   getStatusLabel,
   getTaskTimeColor,
   onDeleteTask,
-  onYearlyTasksDataChange
+  onYearlyTasksDataChange,
+  branchId,
+  isManager = false
 }) => {
   const [yearlyTasks, setYearlyTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -159,6 +163,45 @@ const YearlyTasks: React.FC<YearlyTasksProps> = ({
 
   // Görevleri filtrele
   const filteredTasks = yearlyTasks.filter(task => {
+    // Şube filtreleme (manager ve branchId varsa)
+    if (isManager && branchId) {
+      // Görev direkt şube ID'sine sahipse kontrol et
+      if (task.branchesId) {
+        // Eğer task.branchesId bir string ise doğrudan karşılaştır
+        if (typeof task.branchesId === 'string' && task.branchesId !== branchId) {
+          return false;
+        }
+        // Eğer task.branchesId bir nesne ise anahtarlarını kontrol et
+        else if (typeof task.branchesId === 'object' && !Object.keys(task.branchesId).includes(branchId)) {
+          return false;
+        }
+      } 
+      // Görev doğrudan şube ID'sine sahip değilse, personelin şube ID'sini kontrol et
+      else if (task.personnelId) {
+        const person = personnel.find(p => p.id === task.personnelId);
+        if (person) {
+          // branchesId bir nesne olabilir veya string olabilir
+          if (typeof person.branchesId === 'object' && person.branchesId !== null) {
+            // Nesne durumunda, anahtarlarını kontrol et
+            if (!Object.keys(person.branchesId).includes(branchId)) {
+              return false;
+            }
+          } else {
+            // String durumunda direk karşılaştır
+            if (person.branchesId !== branchId) {
+              return false;
+            }
+          }
+        } else {
+          // Personel bulunamadıysa, gösterme
+          return false;
+        }
+      } else {
+        // Hem görevin hem de personelin şube bilgisi yoksa, gösterme
+        return false;
+      }
+    }
+    
     // Durum filtreleme
     if (statusFilter !== 'all' && task.status !== statusFilter) {
       return false;

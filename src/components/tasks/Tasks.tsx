@@ -2824,6 +2824,8 @@ const Tasks: React.FC<TasksProps> = ({ branchId, isManager = false }) => {
             getTaskTimeColor={getTaskTimeColor}
             onDeleteTask={handleDeleteYearlyTask}
             onYearlyTasksDataChange={handleYearlyTasksDataChange}
+            branchId={branchId}
+            isManager={isManager}
           />
         </>
       )}
