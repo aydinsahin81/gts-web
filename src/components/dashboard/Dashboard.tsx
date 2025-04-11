@@ -78,8 +78,10 @@ import { useNavigate } from 'react-router-dom';
 import SurveyCharts from './SurveyCharts';
 import TaskStatusChart from './TaskStatusChart';
 import WeeklyTaskStatusChart from './WeeklyTaskStatusChart';
+import MonthlyTaskStatusChart from './MonthlyTaskStatusChart';
 import PersonnelPerformanceChart from './PersonnelPerformanceChart';
 import WeeklyPersonnelPerformanceChart from './WeeklyPersonnelPerformanceChart';
+import MonthlyPersonnelPerformanceChart from './MonthlyPersonnelPerformanceChart';
 import WidgetSelectorModal from './WidgetSelectorModal';
 import StatsCards from './StatsCards';
 
@@ -282,8 +284,10 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
   const [tasks, setTasks] = useState<any[]>([]); // Tüm görevler için liste
   const [taskStatusData, setTaskStatusData] = useState<any[]>([]);
   const [weeklyTaskStatusData, setWeeklyTaskStatusData] = useState<any[]>([]);
+  const [monthlyTaskStatusData, setMonthlyTaskStatusData] = useState<any[]>([]);
   const [personnelPerformanceData, setPersonnelPerformanceData] = useState<any[]>([]);
   const [weeklyPersonnelPerformanceData, setWeeklyPersonnelPerformanceData] = useState<any[]>([]);
+  const [monthlyPersonnelPerformanceData, setMonthlyPersonnelPerformanceData] = useState<any[]>([]);
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [recentMissedTasks, setRecentMissedTasks] = useState<any[]>([]);
   const [recentCompletedTasks, setRecentCompletedTasks] = useState<any[]>([]);
@@ -313,8 +317,10 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
   // Görev durum dağılımı ve personel performansı için açıklama modalları için state
   const [taskStatusInfoModalOpen, setTaskStatusInfoModalOpen] = useState(false);
   const [weeklyTaskStatusInfoModalOpen, setWeeklyTaskStatusInfoModalOpen] = useState(false);
+  const [monthlyTaskStatusInfoModalOpen, setMonthlyTaskStatusInfoModalOpen] = useState(false);
   const [personnelPerformanceInfoModalOpen, setPersonnelPerformanceInfoModalOpen] = useState(false);
   const [weeklyPersonnelPerformanceInfoModalOpen, setWeeklyPersonnelPerformanceInfoModalOpen] = useState(false);
+  const [monthlyPersonnelPerformanceInfoModalOpen, setMonthlyPersonnelPerformanceInfoModalOpen] = useState(false);
   
   // selectedWidgets için localStorage'dan başlangıç değerini alma işlevi
   const getInitialSelectedWidgets = (): string[] => {
@@ -592,9 +598,9 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
     setWorstPerformers(worstPerformers);
     
     // Haftalık görevleri hesapla
-    let weeklyCompletedTasksCount = 0;
     let weeklyPendingTasksCount = 0;
-
+    let weeklyCompletedTasksCount = 0;
+    
     // Haftalık aktif görevleri say
     if (companyData && companyData.weeklyTasks) {
       Object.entries(companyData.weeklyTasks).forEach(([taskId, taskData]: [string, any]) => {
@@ -635,8 +641,8 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
     }
 
     // Aylık görevleri hesapla
-    let monthlyCompletedTasksCount = 0;
-    let monthlyPendingTasksCount = 0;
+    let monthlyCompletedCount = 0;
+    let monthlyPendingCount = 0;
 
     // Aylık aktif görevleri say
     if (companyData && companyData.monthlyTasks) {
@@ -650,7 +656,7 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
         }
         
         // Toplam aylık görev sayısını artır
-        monthlyPendingTasksCount++;
+        monthlyPendingCount++;
       });
     }
 
@@ -671,7 +677,7 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
             }
             
             // Tamamlanan aylık görev sayısını artır
-            monthlyCompletedTasksCount++;
+            monthlyCompletedCount++;
           });
         });
       });
@@ -683,10 +689,10 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
       totalTasks, // Sadece tasks altındaki görevleri göster, missedTasks'ı dahil etme
       completedTasks: totalCompletedTasks, // Değiştirildi: Toplam tamamlanan görev sayısı
       pendingTasks: activeTasksCount,
-      weeklyPendingTasks: weeklyPendingTasksCount,
-      weeklyCompletedTasks: weeklyCompletedTasksCount,
-      monthlyPendingTasks: monthlyPendingTasksCount,
-      monthlyCompletedTasks: monthlyCompletedTasksCount,
+      weeklyPendingTasks: companyData?.weeklyTasks ? Object.keys(companyData.weeklyTasks).length : 0,
+      weeklyCompletedTasks: companyData?.completedWeeklyTasks ? Object.keys(companyData.completedWeeklyTasks).length : 0,
+      monthlyPendingTasks: companyData?.monthlyTasks ? Object.keys(companyData.monthlyTasks).length : 0,
+      monthlyCompletedTasks: companyData?.completedMonthlyTasks ? Object.keys(companyData.completedMonthlyTasks).length : 0,
     });
     
     // Görev durumu verilerini hazırla
@@ -702,9 +708,19 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
     const weeklyMissedTasksCount = companyData?.missedWeeklyTasks ? Object.keys(companyData.missedWeeklyTasks).length : 0;
     
     setWeeklyTaskStatusData([
-      { name: 'Tamamlanan', value: weeklyCompletedTasksCount, color: THEME_COLORS.completed },
-      { name: 'Devam Eden', value: weeklyPendingTasksCount, color: '#1976D2' },
+      { name: 'Tamamlanan', value: companyData?.completedWeeklyTasks ? Object.keys(companyData.completedWeeklyTasks).length : 0, color: THEME_COLORS.completed },
+      { name: 'Devam Eden', value: companyData?.weeklyTasks ? Object.keys(companyData.weeklyTasks).length : 0, color: '#1976D2' },
       { name: 'Tamamlanmamış', value: weeklyMissedTasksCount, color: '#F44336' },
+    ].filter(item => item.value > 0));
+    
+    // Aylık görev durumu verilerini pasta grafik için hazırla
+    // Genel görev durumu için companyData verilerini kullan
+    const monthlyMissedTasksCount = companyData?.missedMonthlyTasks ? Object.keys(companyData.missedMonthlyTasks).length : 0;
+    
+    setMonthlyTaskStatusData([
+      { name: 'Tamamlanan', value: companyData?.completedMonthlyTasks ? Object.keys(companyData.completedMonthlyTasks).length : 0, color: THEME_COLORS.completed },
+      { name: 'Devam Eden', value: companyData?.monthlyTasks ? Object.keys(companyData.monthlyTasks).length : 0, color: '#1976D2' },
+      { name: 'Tamamlanmamış', value: monthlyMissedTasksCount, color: '#F44336' },
     ].filter(item => item.value > 0));
     
     // Personel performans verilerini hazırla
@@ -922,6 +938,67 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
       .slice(0, 5); // İlk 5 personeli al
     
     setWeeklyPersonnelPerformanceData(weeklyPerformanceData);
+
+    // Aylık personel performans verilerini hazırla
+    // Personellerin tamamladığı aylık görev sayılarını hesapla
+    const monthlyPersonnelPerformance: { [key: string]: { name: string, completed: number, pending: number, missed: number } } = {};
+    
+    personnelList.forEach(person => {
+      monthlyPersonnelPerformance[person.id] = {
+        name: person.name,
+        completed: 0,
+        pending: 0,
+        missed: 0
+      };
+    });
+    
+    // Aktif aylık görevleri hesapla
+    if (companyData && companyData.monthlyTasks) {
+      Object.entries(companyData.monthlyTasks).forEach(([taskId, taskData]: [string, any]) => {
+        if (taskData.personnelId && monthlyPersonnelPerformance[taskData.personnelId]) {
+          monthlyPersonnelPerformance[taskData.personnelId].pending += 1;
+        }
+      });
+    }
+    
+    // Tamamlanan aylık görevleri hesapla
+    if (companyData && companyData.completedMonthlyTasks) {
+      Object.entries(companyData.completedMonthlyTasks).forEach(([taskId, taskDates]: [string, any]) => {
+        Object.entries(taskDates).forEach(([date, timeSlots]: [string, any]) => {
+          Object.entries(timeSlots).forEach(([time, taskData]: [string, any]) => {
+            if (taskData.personnelId && monthlyPersonnelPerformance[taskData.personnelId]) {
+              monthlyPersonnelPerformance[taskData.personnelId].completed += 1;
+            }
+          });
+        });
+      });
+    }
+    
+    // Kaçırılan aylık görevleri hesapla
+    if (companyData && companyData.missedMonthlyTasks) {
+      Object.entries(companyData.missedMonthlyTasks).forEach(([taskId, taskDates]: [string, any]) => {
+        Object.entries(taskDates).forEach(([date, timeSlots]: [string, any]) => {
+          Object.entries(timeSlots).forEach(([time, taskData]: [string, any]) => {
+            if (taskData.personnelId && monthlyPersonnelPerformance[taskData.personnelId]) {
+              monthlyPersonnelPerformance[taskData.personnelId].missed += 1;
+            }
+          });
+        });
+      });
+    }
+    
+    // Aylık performans verilerini grafiğe uygun hale getir
+    const monthlyPerformanceData = Object.values(monthlyPersonnelPerformance)
+      .filter(p => p.completed > 0 || p.pending > 0 || p.missed > 0) // Görevi olan personelleri göster
+      .sort((a, b) => {
+        // Toplam görev sayısına göre sırala (tüm kategoriler)
+        const totalA = a.completed + a.pending + a.missed;
+        const totalB = b.completed + b.pending + b.missed;
+        return totalB - totalA;
+      })
+      .slice(0, 5); // İlk 5 personeli al
+    
+    setMonthlyPersonnelPerformanceData(monthlyPerformanceData);
   };
   
   // Filter locations based on selections
@@ -1162,6 +1239,22 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
     setWeeklyPersonnelPerformanceInfoModalOpen(false);
   };
   
+  const handleMonthlyTaskStatusInfoOpen = () => {
+    setMonthlyTaskStatusInfoModalOpen(true);
+  };
+
+  const handleMonthlyTaskStatusInfoClose = () => {
+    setMonthlyTaskStatusInfoModalOpen(false);
+  };
+  
+  const handleMonthlyPersonnelPerformanceInfoOpen = () => {
+    setMonthlyPersonnelPerformanceInfoModalOpen(true);
+  };
+
+  const handleMonthlyPersonnelPerformanceInfoClose = () => {
+    setMonthlyPersonnelPerformanceInfoModalOpen(false);
+  };
+  
   // Modal'ı aç
   const handleOpenWidgetSelector = () => {
     setWidgetSelectorOpen(true);
@@ -1187,12 +1280,17 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
     {
       id: 'taskStatus',
       title: 'Günlük Görev Durumu Dağılımı',
-      description: 'Günlük görevlerin durumlarına göre dağılım grafiği'
+      description: 'Günlük görevlerin tamamlanma durumlarını gösteren pasta grafiği'
     },
     {
       id: 'weeklyTaskStatus',
       title: 'Haftalık Görev Durumu Dağılımı',
-      description: 'Haftalık görevlerin durumlarına göre dağılım grafiği'
+      description: 'Haftalık görevlerin tamamlanma durumlarını gösteren pasta grafiği'
+    },
+    {
+      id: 'monthlyTaskStatus',
+      title: 'Aylık Görev Durumu Dağılımı',
+      description: 'Aylık görevlerin tamamlanma durumlarını gösteren pasta grafiği'
     },
     {
       id: 'personnelPerformance',
@@ -1203,6 +1301,11 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
       id: 'weeklyPersonnelPerformance',
       title: 'Personel Performansı - Haftalık Görevler',
       description: 'Personellerin haftalık görev performans grafiği'
+    },
+    {
+      id: 'monthlyPersonnelPerformance',
+      title: 'Personel Performansı - Aylık Görevler',
+      description: 'Personellerin aylık görev performans grafiği'
     },
     {
       id: 'surveyCharts',
@@ -1307,21 +1410,30 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
       {/* Grafikler */}
       <Grid container spacing={1} sx={{ mb: 2 }}>
         {selectedWidgets.includes('taskStatus') && (
-        <Grid item xs={12} md={6} className="task-distribution-section">
+          <Grid item xs={12} md={6} className="task-status-section">
             <TaskStatusChart 
               taskStatusData={taskStatusData} 
-              onInfoClick={handleTaskStatusInfoOpen} 
+              onInfoClick={handleTaskStatusInfoOpen}
             />
-        </Grid>
+          </Grid>
         )}
         
         {selectedWidgets.includes('weeklyTaskStatus') && (
-        <Grid item xs={12} md={6} className="weekly-task-distribution-section">
+          <Grid item xs={12} md={6} className="weekly-task-status-section">
             <WeeklyTaskStatusChart 
               weeklyTaskStatusData={weeklyTaskStatusData} 
-              onInfoClick={handleWeeklyTaskStatusInfoOpen} 
+              onInfoClick={handleWeeklyTaskStatusInfoOpen}
             />
-        </Grid>
+          </Grid>
+        )}
+
+        {selectedWidgets.includes('monthlyTaskStatus') && (
+          <Grid item xs={12} md={6} className="monthly-task-status-section">
+            <MonthlyTaskStatusChart 
+              monthlyTaskStatusData={monthlyTaskStatusData} 
+              onInfoClick={handleMonthlyTaskStatusInfoOpen}
+            />
+          </Grid>
         )}
         
         {selectedWidgets.includes('personnelPerformance') && (
@@ -1338,6 +1450,15 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
             <WeeklyPersonnelPerformanceChart 
               weeklyPersonnelPerformanceData={weeklyPersonnelPerformanceData} 
               onInfoClick={handleWeeklyPersonnelPerformanceInfoOpen}
+            />
+          </Grid>
+        )}
+
+        {selectedWidgets.includes('monthlyPersonnelPerformance') && (
+        <Grid item xs={12} md={6} className="monthly-personnel-performance-section">
+            <MonthlyPersonnelPerformanceChart 
+              monthlyPersonnelPerformanceData={monthlyPersonnelPerformanceData} 
+              onInfoClick={handleMonthlyPersonnelPerformanceInfoOpen}
             />
           </Grid>
         )}
@@ -2131,6 +2252,120 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleWeeklyPersonnelPerformanceInfoClose}>Kapat</Button>
+        </DialogActions>
+      </Dialog>
+      
+      <Dialog open={monthlyTaskStatusInfoModalOpen} onClose={handleMonthlyTaskStatusInfoClose} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          <Box display="flex" alignItems="center">
+            <InfoIcon sx={{ mr: 1, color: 'primary.main' }} />
+            Aylık Görev Durumu Dağılımı Hakkında
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Typography paragraph>
+            Bu grafik şirketteki tüm aylık görevlerin durum dağılımını göstermektedir. Her dilim bir görev durumunu temsil eder:
+          </Typography>
+          <List>
+            <ListItem>
+              <ListItemAvatar>
+                <Avatar sx={{ bgcolor: THEME_COLORS.completed }}>
+                  <CompletedIcon />
+                </Avatar>
+              </ListItemAvatar>
+              <ListItemText 
+                primary="Tamamlanan" 
+                secondary="Tamamlanmış aylık görevlerin toplam sayısı"
+              />
+            </ListItem>
+            <ListItem>
+              <ListItemAvatar>
+                <Avatar sx={{ bgcolor: '#1976D2' }}>
+                  <TaskIcon />
+                </Avatar>
+              </ListItemAvatar>
+              <ListItemText 
+                primary="Devam Eden" 
+                secondary="Henüz tamamlanmamış, aktif aylık görevlerin sayısı"
+              />
+            </ListItem>
+            <ListItem>
+              <ListItemAvatar>
+                <Avatar sx={{ bgcolor: '#F44336' }}>
+                  <TaskIcon />
+                </Avatar>
+              </ListItemAvatar>
+              <ListItemText 
+                primary="Tamamlanmamış" 
+                secondary="Zamanında tamamlanamamış ve gecikmiş aylık görevlerin sayısı"
+              />
+            </ListItem>
+          </List>
+          <Typography paragraph>
+            Bu grafik şirketinizin aylık görevlerdeki genel performansını değerlendirmenize yardımcı olur. Tamamlanan görevlerin oranı yüksek olduğunda, personellerinizin aylık görevleri tamamlamakta başarılı olduğunu gösterir.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleMonthlyTaskStatusInfoClose}>Kapat</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Aylık Personel Performans Bilgi Modalı */}
+      <Dialog open={monthlyPersonnelPerformanceInfoModalOpen} onClose={handleMonthlyPersonnelPerformanceInfoClose} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          <Box display="flex" alignItems="center">
+            <InfoIcon sx={{ mr: 1, color: 'primary.main' }} />
+            Personel Performansı - Aylık Görevler Hakkında
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Typography paragraph sx={{ fontWeight: 'bold' }}>
+            Bu grafik, en aktif 5 personelinizin aylık görev performansını göstermektedir.
+          </Typography>
+          <Typography paragraph>
+            Her çubuk bir personelin görev dağılımını temsil eder:
+          </Typography>
+          <List>
+            <ListItem>
+              <ListItemAvatar>
+                <Avatar sx={{ bgcolor: THEME_COLORS.completed }}>
+                  <CompletedIcon />
+                </Avatar>
+              </ListItemAvatar>
+              <ListItemText 
+                primary="Tamamlanan" 
+                secondary="Personelin başarıyla tamamladığı aylık görevlerin toplam sayısı"
+              />
+            </ListItem>
+            <ListItem>
+              <ListItemAvatar>
+                <Avatar sx={{ bgcolor: '#1976D2' }}>
+                  <TaskIcon />
+                </Avatar>
+              </ListItemAvatar>
+              <ListItemText 
+                primary="Devam Eden" 
+                secondary="Personelin şu anda devam ettiği aylık görevlerin sayısı"
+              />
+            </ListItem>
+            <ListItem>
+              <ListItemAvatar>
+                <Avatar sx={{ bgcolor: '#F44336' }}>
+                  <TaskIcon />
+                </Avatar>
+              </ListItemAvatar>
+              <ListItemText 
+                primary="Kaçırılan" 
+                secondary="Personelin zamanında tamamlayamadığı aylık görevlerin sayısı"
+              />
+            </ListItem>
+          </List>
+          <Typography paragraph>
+            Bu grafik, toplam görev sayısına göre en çok aylık göreve sahip 5 personeli gösterir. Hangi personelin daha fazla aylık görev üstlendiğini ve bu görevleri ne kadar başarılı bir şekilde tamamladığını değerlendirmenize yardımcı olur.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleMonthlyPersonnelPerformanceInfoClose}>Kapat</Button>
         </DialogActions>
       </Dialog>
     </ScrollableContent>
