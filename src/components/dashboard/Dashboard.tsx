@@ -79,6 +79,7 @@ import SurveyCharts from './SurveyCharts';
 import TaskStatusChart from './TaskStatusChart';
 import WeeklyTaskStatusChart from './WeeklyTaskStatusChart';
 import PersonnelPerformanceChart from './PersonnelPerformanceChart';
+import WeeklyPersonnelPerformanceChart from './WeeklyPersonnelPerformanceChart';
 import WidgetSelectorModal from './WidgetSelectorModal';
 import StatsCards from './StatsCards';
 
@@ -282,6 +283,7 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
   const [taskStatusData, setTaskStatusData] = useState<any[]>([]);
   const [weeklyTaskStatusData, setWeeklyTaskStatusData] = useState<any[]>([]);
   const [personnelPerformanceData, setPersonnelPerformanceData] = useState<any[]>([]);
+  const [weeklyPersonnelPerformanceData, setWeeklyPersonnelPerformanceData] = useState<any[]>([]);
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [recentMissedTasks, setRecentMissedTasks] = useState<any[]>([]);
   const [recentCompletedTasks, setRecentCompletedTasks] = useState<any[]>([]);
@@ -312,6 +314,7 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
   const [taskStatusInfoModalOpen, setTaskStatusInfoModalOpen] = useState(false);
   const [weeklyTaskStatusInfoModalOpen, setWeeklyTaskStatusInfoModalOpen] = useState(false);
   const [personnelPerformanceInfoModalOpen, setPersonnelPerformanceInfoModalOpen] = useState(false);
+  const [weeklyPersonnelPerformanceInfoModalOpen, setWeeklyPersonnelPerformanceInfoModalOpen] = useState(false);
   
   // selectedWidgets için localStorage'dan başlangıç değerini alma işlevi
   const getInitialSelectedWidgets = (): string[] => {
@@ -858,6 +861,67 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
     
     // Set initial filtered tasks (most recent N tasks)
     setFilteredLocations(tasksWithLocation.slice(0, selectedTaskCount));
+    
+    // Haftalık görev performans verilerini hazırla
+    // Personellerin tamamladığı haftalık görev sayılarını hesapla
+    const weeklyPersonnelPerformance: { [key: string]: { name: string, completed: number, pending: number, missed: number } } = {};
+    
+    personnelList.forEach(person => {
+      weeklyPersonnelPerformance[person.id] = {
+        name: person.name,
+        completed: 0,
+        pending: 0,
+        missed: 0
+      };
+    });
+    
+    // Aktif haftalık görevleri hesapla
+    if (companyData && companyData.weeklyTasks) {
+      Object.entries(companyData.weeklyTasks).forEach(([taskId, taskData]: [string, any]) => {
+        if (taskData.personnelId && weeklyPersonnelPerformance[taskData.personnelId]) {
+          weeklyPersonnelPerformance[taskData.personnelId].pending += 1;
+        }
+      });
+    }
+    
+    // Tamamlanan haftalık görevleri hesapla
+    if (companyData && companyData.completedWeeklyTasks) {
+      Object.entries(companyData.completedWeeklyTasks).forEach(([taskId, taskDates]: [string, any]) => {
+        Object.entries(taskDates).forEach(([date, timeSlots]: [string, any]) => {
+          Object.entries(timeSlots).forEach(([time, taskData]: [string, any]) => {
+            if (taskData.personnelId && weeklyPersonnelPerformance[taskData.personnelId]) {
+              weeklyPersonnelPerformance[taskData.personnelId].completed += 1;
+            }
+          });
+        });
+      });
+    }
+    
+    // Kaçırılan haftalık görevleri hesapla
+    if (companyData && companyData.missedWeeklyTasks) {
+      Object.entries(companyData.missedWeeklyTasks).forEach(([taskId, taskDates]: [string, any]) => {
+        Object.entries(taskDates).forEach(([date, timeSlots]: [string, any]) => {
+          Object.entries(timeSlots).forEach(([time, taskData]: [string, any]) => {
+            if (taskData.personnelId && weeklyPersonnelPerformance[taskData.personnelId]) {
+              weeklyPersonnelPerformance[taskData.personnelId].missed += 1;
+            }
+          });
+        });
+      });
+    }
+    
+    // Haftalık performans verilerini grafiğe uygun hale getir
+    const weeklyPerformanceData = Object.values(weeklyPersonnelPerformance)
+      .filter(p => p.completed > 0 || p.pending > 0 || p.missed > 0) // Görevi olan personelleri göster
+      .sort((a, b) => {
+        // Toplam görev sayısına göre sırala (tüm kategoriler)
+        const totalA = a.completed + a.pending + a.missed;
+        const totalB = b.completed + b.pending + b.missed;
+        return totalB - totalA;
+      })
+      .slice(0, 5); // İlk 5 personeli al
+    
+    setWeeklyPersonnelPerformanceData(weeklyPerformanceData);
   };
   
   // Filter locations based on selections
@@ -1090,6 +1154,14 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
     setPersonnelPerformanceInfoModalOpen(false);
   };
   
+  const handleWeeklyPersonnelPerformanceInfoOpen = () => {
+    setWeeklyPersonnelPerformanceInfoModalOpen(true);
+  };
+
+  const handleWeeklyPersonnelPerformanceInfoClose = () => {
+    setWeeklyPersonnelPerformanceInfoModalOpen(false);
+  };
+  
   // Modal'ı aç
   const handleOpenWidgetSelector = () => {
     setWidgetSelectorOpen(true);
@@ -1126,6 +1198,11 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
       id: 'personnelPerformance',
       title: 'Personel Performansı - Günlük Görevler',
       description: 'Personellerin günlük görev performans grafiği'
+    },
+    {
+      id: 'weeklyPersonnelPerformance',
+      title: 'Personel Performansı - Haftalık Görevler',
+      description: 'Personellerin haftalık görev performans grafiği'
     },
     {
       id: 'surveyCharts',
@@ -1252,6 +1329,15 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
             <PersonnelPerformanceChart 
               personnelPerformanceData={personnelPerformanceData} 
               onInfoClick={handlePersonnelPerformanceInfoOpen}
+            />
+          </Grid>
+        )}
+        
+        {selectedWidgets.includes('weeklyPersonnelPerformance') && (
+        <Grid item xs={12} md={6} className="weekly-personnel-performance-section">
+            <WeeklyPersonnelPerformanceChart 
+              weeklyPersonnelPerformanceData={weeklyPersonnelPerformanceData} 
+              onInfoClick={handleWeeklyPersonnelPerformanceInfoOpen}
             />
           </Grid>
         )}
@@ -1987,6 +2073,64 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
         </DialogContent>
         <DialogActions>
           <Button onClick={handlePersonnelPerformanceInfoClose}>Kapat</Button>
+        </DialogActions>
+      </Dialog>
+      
+      <Dialog open={weeklyPersonnelPerformanceInfoModalOpen} onClose={handleWeeklyPersonnelPerformanceInfoClose} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          <Box display="flex" alignItems="center">
+            <InfoIcon sx={{ mr: 1, color: 'primary.main' }} />
+            Personel Performansı - Haftalık Görevler Hakkında
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Typography paragraph sx={{ fontWeight: 'bold' }}>
+            Bu grafik, en aktif 5 personelinizin haftalık görev performansını göstermektedir.
+          </Typography>
+          <Typography paragraph>
+            Her çubuk bir personelin görev dağılımını temsil eder:
+          </Typography>
+          <List>
+            <ListItem>
+              <ListItemAvatar>
+                <Avatar sx={{ bgcolor: THEME_COLORS.completed }}>
+                  <CompletedIcon />
+                </Avatar>
+              </ListItemAvatar>
+              <ListItemText 
+                primary="Tamamlanan" 
+                secondary="Personelin başarıyla tamamladığı haftalık görevlerin toplam sayısı"
+              />
+            </ListItem>
+            <ListItem>
+              <ListItemAvatar>
+                <Avatar sx={{ bgcolor: '#1976D2' }}>
+                  <TaskIcon />
+                </Avatar>
+              </ListItemAvatar>
+              <ListItemText 
+                primary="Devam Eden" 
+                secondary="Personelin şu anda devam ettiği haftalık görevlerin sayısı"
+              />
+            </ListItem>
+            <ListItem>
+              <ListItemAvatar>
+                <Avatar sx={{ bgcolor: '#F44336' }}>
+                  <TaskIcon />
+                </Avatar>
+              </ListItemAvatar>
+              <ListItemText 
+                primary="Kaçırılan" 
+                secondary="Personelin zamanında tamamlayamadığı haftalık görevlerin sayısı"
+              />
+            </ListItem>
+          </List>
+          <Typography paragraph>
+            Bu grafik, toplam görev sayısına göre en çok haftalık göreve sahip 5 personeli gösterir. Hangi personelin daha fazla haftalık görev üstlendiğini ve bu görevleri ne kadar başarılı bir şekilde tamamladığını değerlendirmenize yardımcı olur.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleWeeklyPersonnelPerformanceInfoClose}>Kapat</Button>
         </DialogActions>
       </Dialog>
     </ScrollableContent>
