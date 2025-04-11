@@ -516,6 +516,8 @@ interface WeeklyTasksProps {
   getTaskTimeColor: (task: any, timeString: string) => string;
   onDeleteTask?: (taskId: string, personnelId: string) => Promise<void>;
   onWeeklyTasksDataChange?: (tasks: any[]) => void;
+  branchId?: string | null;
+  isManager?: boolean;
 }
 
 const WeeklyTasks: React.FC<WeeklyTasksProps> = ({
@@ -532,7 +534,9 @@ const WeeklyTasks: React.FC<WeeklyTasksProps> = ({
   getStatusLabel,
   getTaskTimeColor,
   onDeleteTask,
-  onWeeklyTasksDataChange
+  onWeeklyTasksDataChange,
+  branchId,
+  isManager = false
 }) => {
   const [loading, setLoading] = useState(true);
   const [weeklyTasks, setWeeklyTasks] = useState<any[]>([]);
@@ -798,6 +802,27 @@ const WeeklyTasks: React.FC<WeeklyTasksProps> = ({
   const filteredTasks = useMemo(() => {
     let result = [...weeklyTasks];
     
+    // Şube yöneticisi ve şube ID'si varsa, şubeye göre filtrele
+    if (isManager && branchId) {
+      result = result.filter(task => {
+        // Görevin personeline göre şube kontrolü
+        if (task.personnelId) {
+          const person = personnel.find(p => p.id === task.personnelId);
+          if (person) {
+            // branchesId bir nesne olabilir veya string olabilir
+            if (typeof person.branchesId === 'object' && person.branchesId !== null) {
+              // Nesne durumunda, anahtarlarını kontrol et
+              return Object.keys(person.branchesId).includes(branchId);
+            } else {
+              // String durumunda direk karşılaştır
+              return person.branchesId === branchId;
+            }
+          }
+        }
+        return false;
+      });
+    }
+    
     // Durum filtresi uygulanıyor
     if (statusFilter !== 'all') {
       if (statusFilter === 'completed') {
@@ -830,12 +855,33 @@ const WeeklyTasks: React.FC<WeeklyTasksProps> = ({
     }
     
     return result;
-  }, [weeklyTasks, missedWeeklyTasks, statusFilter, personnelFilter, taskSearchTerm]);
+  }, [weeklyTasks, missedWeeklyTasks, statusFilter, personnelFilter, taskSearchTerm, isManager, branchId, personnel]);
 
   // Tamamlanan görevleri filtrele
   const filteredCompletedTasks = useMemo(() => {
     let result = [...completedWeeklyTasks];
     
+    // Şube yöneticisi ve şube ID'si varsa, şubeye göre filtrele
+    if (isManager && branchId) {
+      result = result.filter(task => {
+        // Görevin personeline göre şube kontrolü
+        if (task.personnelId) {
+          const person = personnel.find(p => p.id === task.personnelId);
+          if (person) {
+            // branchesId bir nesne olabilir veya string olabilir
+            if (typeof person.branchesId === 'object' && person.branchesId !== null) {
+              // Nesne durumunda, anahtarlarını kontrol et
+              return Object.keys(person.branchesId).includes(branchId);
+            } else {
+              // String durumunda direk karşılaştır
+              return person.branchesId === branchId;
+            }
+          }
+        }
+        return false;
+      });
+    }
+    
     // Personel filtresi uygulanıyor
     if (personnelFilter !== 'all') {
       result = result.filter(task => task.personnelId === personnelFilter);
@@ -850,12 +896,33 @@ const WeeklyTasks: React.FC<WeeklyTasksProps> = ({
     }
     
     return result;
-  }, [completedWeeklyTasks, personnelFilter, taskSearchTerm]);
+  }, [completedWeeklyTasks, personnelFilter, taskSearchTerm, isManager, branchId, personnel]);
 
   // Filtrelenmiş kaçırılan görevler
   const filteredMissedTasks = useMemo(() => {
     let result = [...missedWeeklyTasks];
     
+    // Şube yöneticisi ve şube ID'si varsa, şubeye göre filtrele
+    if (isManager && branchId) {
+      result = result.filter(task => {
+        // Görevin personeline göre şube kontrolü
+        if (task.personnelId) {
+          const person = personnel.find(p => p.id === task.personnelId);
+          if (person) {
+            // branchesId bir nesne olabilir veya string olabilir
+            if (typeof person.branchesId === 'object' && person.branchesId !== null) {
+              // Nesne durumunda, anahtarlarını kontrol et
+              return Object.keys(person.branchesId).includes(branchId);
+            } else {
+              // String durumunda direk karşılaştır
+              return person.branchesId === branchId;
+            }
+          }
+        }
+        return false;
+      });
+    }
+    
     // Personel filtresi uygulanıyor
     if (personnelFilter !== 'all') {
       result = result.filter(task => task.personnelId === personnelFilter);
@@ -870,7 +937,7 @@ const WeeklyTasks: React.FC<WeeklyTasksProps> = ({
     }
     
     return result;
-  }, [missedWeeklyTasks, personnelFilter, taskSearchTerm]);
+  }, [missedWeeklyTasks, personnelFilter, taskSearchTerm, isManager, branchId, personnel]);
 
   // Filtrelenmiş verileri üst bileşene gönder
   useEffect(() => {
