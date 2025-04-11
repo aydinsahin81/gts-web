@@ -1,4 +1,4 @@
- import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Box, 
   Card, 
@@ -381,9 +381,9 @@ const SurveyCharts: React.FC = () => {
                 <YAxis label={{ value: 'Yüzde (%)', angle: -90, position: 'insideLeft' }} />
                 <RechartsTooltip content={renderTrendTooltip} />
                 <Legend verticalAlign="bottom" height={36} />
-                <Bar dataKey="positivePercent" name="Olumlu" fill={SURVEY_COLORS.positive} stackId="a" barSize={12} />
-                <Bar dataKey="neutralPercent" name="Nötr" fill={SURVEY_COLORS.neutral} stackId="a" barSize={12} />
-                <Bar dataKey="negativePercent" name="Olumsuz" fill={SURVEY_COLORS.negative} stackId="a" barSize={12} />
+                <Bar dataKey="positivePercent" name="Olumlu" fill={SURVEY_COLORS.positive} stackId="a" barSize={30} />
+                <Bar dataKey="neutralPercent" name="Nötr" fill={SURVEY_COLORS.neutral} stackId="a" barSize={30} />
+                <Bar dataKey="negativePercent" name="Olumsuz" fill={SURVEY_COLORS.negative} stackId="a" barSize={30} />
               </BarChart>
             </ResponsiveContainer>
           )}
