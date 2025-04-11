@@ -695,33 +695,197 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
       monthlyCompletedTasks: companyData?.completedMonthlyTasks ? Object.keys(companyData.completedMonthlyTasks).length : 0,
     });
     
-    // Görev durumu verilerini hazırla
-    setTaskStatusData([
-      { name: 'Tamamlanan', value: totalCompletedTasks, color: THEME_COLORS.completed },
-      { name: 'Devam Eden', value: activeTasksCount, color: '#1976D2' },
-      { name: 'Bekleyen', value: waitingTasksCount, color: '#2196F3' },
-      { name: 'Bekliyor', value: pendingTasksCount, color: THEME_COLORS.pending },
-      { name: 'Tamamlanmamış', value: missedTasksCount, color: '#F44336' },
-    ].filter(item => item.value > 0));
-    
-    // Haftalık görev durumu verilerini hazırla
-    const weeklyMissedTasksCount = companyData?.missedWeeklyTasks ? Object.keys(companyData.missedWeeklyTasks).length : 0;
-    
-    setWeeklyTaskStatusData([
-      { name: 'Tamamlanan', value: companyData?.completedWeeklyTasks ? Object.keys(companyData.completedWeeklyTasks).length : 0, color: THEME_COLORS.completed },
-      { name: 'Devam Eden', value: companyData?.weeklyTasks ? Object.keys(companyData.weeklyTasks).length : 0, color: '#1976D2' },
-      { name: 'Tamamlanmamış', value: weeklyMissedTasksCount, color: '#F44336' },
-    ].filter(item => item.value > 0));
-    
-    // Aylık görev durumu verilerini pasta grafik için hazırla
-    // Genel görev durumu için companyData verilerini kullan
-    const monthlyMissedTasksCount = companyData?.missedMonthlyTasks ? Object.keys(companyData.missedMonthlyTasks).length : 0;
-    
-    setMonthlyTaskStatusData([
-      { name: 'Tamamlanan', value: companyData?.completedMonthlyTasks ? Object.keys(companyData.completedMonthlyTasks).length : 0, color: THEME_COLORS.completed },
-      { name: 'Devam Eden', value: companyData?.monthlyTasks ? Object.keys(companyData.monthlyTasks).length : 0, color: '#1976D2' },
-      { name: 'Tamamlanmamış', value: monthlyMissedTasksCount, color: '#F44336' },
-    ].filter(item => item.value > 0));
+    // Görev durumu verilerini hazırla - Şubeye özgü filtreler uygula
+    if (isManager && branchId) {
+      // Şube yöneticisi: Sadece kendi şubesine ait görevleri göster
+      // Şubeye ait personellerin görevlerini filtrele
+
+      // Günlük görevler için filtrelenmiş sayaçlar
+      let branchCompletedTasksCount = 0;
+      let branchActiveTasksCount = 0;
+      let branchWaitingTasksCount = 0;
+      let branchPendingTasksCount = 0;
+      let branchMissedTasksCount = 0;
+
+      // Personel ID'lerini şubeye göre filtrele
+      const branchPersonnelIds = personnelList
+        .filter(person => person.branchesId === branchId)
+        .map(person => person.id);
+
+      // Tamamlanan görevleri filtrele
+      if (companyData && companyData.completedTasks) {
+        Object.entries(companyData.completedTasks).forEach(([taskId, taskDates]: [string, any]) => {
+          Object.entries(taskDates).forEach(([date, timeSlots]: [string, any]) => {
+            Object.entries(timeSlots).forEach(([time, taskData]: [string, any]) => {
+              // Personel bilgisini kontrol et
+              const personnelId = taskData.completedBy || taskData.personnelId;
+              if (personnelId && branchPersonnelIds.includes(personnelId)) {
+                branchCompletedTasksCount++;
+              }
+            });
+          });
+        });
+      }
+
+      // Aktif görevleri filtrele
+      tasksList.forEach(task => {
+        // Personel şubeye ait mi kontrol et
+        if (task.personnelId && branchPersonnelIds.includes(task.personnelId)) {
+          if (task.status === 'assigned' || task.status === 'accepted') {
+            branchActiveTasksCount++;
+          } else if (task.status === 'pending') {
+            branchPendingTasksCount++;
+          } else if (task.status === 'waiting') {
+            branchWaitingTasksCount++;
+          }
+        }
+      });
+
+      // Kaçırılan görevleri filtrele
+      if (companyData && companyData.missedTasks) {
+        Object.entries(companyData.missedTasks).forEach(([taskId, taskDates]: [string, any]) => {
+          Object.entries(taskDates).forEach(([date, timeSlots]: [string, any]) => {
+            Object.entries(timeSlots).forEach(([time, taskData]: [string, any]) => {
+              // Task'ı bul ve personel bilgisini kontrol et
+              const personnelId = taskData.personnelId;
+              if (personnelId && branchPersonnelIds.includes(personnelId)) {
+                branchMissedTasksCount++;
+              }
+            });
+          });
+        });
+      }
+
+      // Şubeye ait filtrelenmiş verileri ayarla
+      setTaskStatusData([
+        { name: 'Tamamlanan', value: branchCompletedTasksCount, color: THEME_COLORS.completed },
+        { name: 'Devam Eden', value: branchActiveTasksCount, color: '#1976D2' },
+        { name: 'Bekleyen', value: branchWaitingTasksCount, color: '#2196F3' },
+        { name: 'Bekliyor', value: branchPendingTasksCount, color: THEME_COLORS.pending },
+        { name: 'Tamamlanmamış', value: branchMissedTasksCount, color: '#F44336' },
+      ].filter(item => item.value > 0));
+
+      // Haftalık görevler için filtrelenmiş sayaçlar
+      let branchWeeklyCompletedCount = 0;
+      let branchWeeklyPendingCount = 0;
+      let branchWeeklyMissedCount = 0;
+
+      // Haftalık devam eden görevleri filtrele
+      if (companyData && companyData.weeklyTasks) {
+        Object.entries(companyData.weeklyTasks).forEach(([taskId, taskData]: [string, any]) => {
+          if (taskData.personnelId && branchPersonnelIds.includes(taskData.personnelId)) {
+            branchWeeklyPendingCount++;
+          }
+        });
+      }
+
+      // Haftalık tamamlanan görevleri filtrele
+      if (companyData && companyData.completedWeeklyTasks) {
+        Object.entries(companyData.completedWeeklyTasks).forEach(([taskId, taskDates]: [string, any]) => {
+          Object.entries(taskDates).forEach(([date, timeSlots]: [string, any]) => {
+            Object.entries(timeSlots).forEach(([time, taskData]: [string, any]) => {
+              if (taskData.personnelId && branchPersonnelIds.includes(taskData.personnelId)) {
+                branchWeeklyCompletedCount++;
+              }
+            });
+          });
+        });
+      }
+
+      // Haftalık kaçırılan görevleri filtrele
+      if (companyData && companyData.missedWeeklyTasks) {
+        Object.entries(companyData.missedWeeklyTasks).forEach(([taskId, taskDates]: [string, any]) => {
+          Object.entries(taskDates).forEach(([date, timeSlots]: [string, any]) => {
+            Object.entries(timeSlots).forEach(([time, taskData]: [string, any]) => {
+              if (taskData.personnelId && branchPersonnelIds.includes(taskData.personnelId)) {
+                branchWeeklyMissedCount++;
+              }
+            });
+          });
+        });
+      }
+
+      // Şubeye ait haftalık verileri ayarla
+      setWeeklyTaskStatusData([
+        { name: 'Tamamlanan', value: branchWeeklyCompletedCount, color: THEME_COLORS.completed },
+        { name: 'Devam Eden', value: branchWeeklyPendingCount, color: '#1976D2' },
+        { name: 'Tamamlanmamış', value: branchWeeklyMissedCount, color: '#F44336' },
+      ].filter(item => item.value > 0));
+
+      // Aylık görevler için filtrelenmiş sayaçlar
+      let branchMonthlyCompletedCount = 0;
+      let branchMonthlyPendingCount = 0;
+      let branchMonthlyMissedCount = 0;
+
+      // Aylık devam eden görevleri filtrele
+      if (companyData && companyData.monthlyTasks) {
+        Object.entries(companyData.monthlyTasks).forEach(([taskId, taskData]: [string, any]) => {
+          if (taskData.personnelId && branchPersonnelIds.includes(taskData.personnelId)) {
+            branchMonthlyPendingCount++;
+          }
+        });
+      }
+
+      // Aylık tamamlanan görevleri filtrele
+      if (companyData && companyData.completedMonthlyTasks) {
+        Object.entries(companyData.completedMonthlyTasks).forEach(([taskId, taskDates]: [string, any]) => {
+          Object.entries(taskDates).forEach(([date, timeSlots]: [string, any]) => {
+            Object.entries(timeSlots).forEach(([time, taskData]: [string, any]) => {
+              if (taskData.personnelId && branchPersonnelIds.includes(taskData.personnelId)) {
+                branchMonthlyCompletedCount++;
+              }
+            });
+          });
+        });
+      }
+
+      // Aylık kaçırılan görevleri filtrele
+      if (companyData && companyData.missedMonthlyTasks) {
+        Object.entries(companyData.missedMonthlyTasks).forEach(([taskId, taskDates]: [string, any]) => {
+          Object.entries(taskDates).forEach(([date, timeSlots]: [string, any]) => {
+            Object.entries(timeSlots).forEach(([time, taskData]: [string, any]) => {
+              if (taskData.personnelId && branchPersonnelIds.includes(taskData.personnelId)) {
+                branchMonthlyMissedCount++;
+              }
+            });
+          });
+        });
+      }
+
+      // Şubeye ait aylık verileri ayarla
+      setMonthlyTaskStatusData([
+        { name: 'Tamamlanan', value: branchMonthlyCompletedCount, color: THEME_COLORS.completed },
+        { name: 'Devam Eden', value: branchMonthlyPendingCount, color: '#1976D2' },
+        { name: 'Tamamlanmamış', value: branchMonthlyMissedCount, color: '#F44336' },
+      ].filter(item => item.value > 0));
+    } else {
+      // Süper admin veya şube belirtilmemiş: Tüm görevleri göster
+      setTaskStatusData([
+        { name: 'Tamamlanan', value: totalCompletedTasks, color: THEME_COLORS.completed },
+        { name: 'Devam Eden', value: activeTasksCount, color: '#1976D2' },
+        { name: 'Bekleyen', value: waitingTasksCount, color: '#2196F3' },
+        { name: 'Bekliyor', value: pendingTasksCount, color: THEME_COLORS.pending },
+        { name: 'Tamamlanmamış', value: missedTasksCount, color: '#F44336' },
+      ].filter(item => item.value > 0));
+      
+      // Haftalık görev durumu verilerini hazırla
+      const weeklyMissedTasksCount = companyData?.missedWeeklyTasks ? Object.keys(companyData.missedWeeklyTasks).length : 0;
+      
+      setWeeklyTaskStatusData([
+        { name: 'Tamamlanan', value: companyData?.completedWeeklyTasks ? Object.keys(companyData.completedWeeklyTasks).length : 0, color: THEME_COLORS.completed },
+        { name: 'Devam Eden', value: companyData?.weeklyTasks ? Object.keys(companyData.weeklyTasks).length : 0, color: '#1976D2' },
+        { name: 'Tamamlanmamış', value: weeklyMissedTasksCount, color: '#F44336' },
+      ].filter(item => item.value > 0));
+      
+      // Aylık görev durumu verilerini pasta grafik için hazırla
+      const monthlyMissedTasksCount = companyData?.missedMonthlyTasks ? Object.keys(companyData.missedMonthlyTasks).length : 0;
+      
+      setMonthlyTaskStatusData([
+        { name: 'Tamamlanan', value: companyData?.completedMonthlyTasks ? Object.keys(companyData.completedMonthlyTasks).length : 0, color: THEME_COLORS.completed },
+        { name: 'Devam Eden', value: companyData?.monthlyTasks ? Object.keys(companyData.monthlyTasks).length : 0, color: '#1976D2' },
+        { name: 'Tamamlanmamış', value: monthlyMissedTasksCount, color: '#F44336' },
+      ].filter(item => item.value > 0));
+    }
     
     // Personel performans verilerini hazırla
     // Personellerin tamamladığı görev sayılarını hesapla
