@@ -79,6 +79,7 @@ import SurveyCharts from './SurveyCharts';
 import TaskStatusChart from './TaskStatusChart';
 import PersonnelPerformanceChart from './PersonnelPerformanceChart';
 import WidgetSelectorModal from './WidgetSelectorModal';
+import StatsCards from './StatsCards';
 
 // Leaflet için marker icon düzeltmeleri
 delete L.Icon.Default.prototype._getIconUrl;
@@ -1042,85 +1043,14 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
 
       {/* İstatistik Kartları */}
       {selectedWidgets.includes('stats') && (
-        <Grid container spacing={1} sx={{ mb: 2 }} className="stat-cards-section">
-          <Grid item xs={12} sm={6} md={3}>
-            <StatsCard 
-              bgcolor={THEME_COLORS.personnel} 
-              onClick={isManager ? undefined : handleNavigateToPersonnel}
-              sx={{ cursor: isManager ? 'default' : 'pointer' }}
-            >
-              <IconBox bgcolor={THEME_COLORS.personnel}>
-                <PeopleIcon />
-              </IconBox>
-              <StatsText>
-                <Typography variant="h6" fontWeight="bold">
-                  {stats.totalPersonnel}
-                </Typography>
-                <Typography variant="body2" color="textSecondary">
-                  Toplam Personel
-                </Typography>
-              </StatsText>
-            </StatsCard>
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={3}>
-            <StatsCard 
-              bgcolor={THEME_COLORS.tasks} 
-              onClick={isManager ? undefined : handleNavigateToTasks}
-              sx={{ cursor: isManager ? 'default' : 'pointer' }}
-            >
-              <IconBox bgcolor={THEME_COLORS.tasks}>
-                <TaskIcon />
-              </IconBox>
-              <StatsText>
-                <Typography variant="h6" fontWeight="bold">
-                  {stats.totalTasks}
-                </Typography>
-                <Typography variant="body2" color="textSecondary">
-                  Toplam Görev
-                </Typography>
-              </StatsText>
-            </StatsCard>
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={3}>
-            <StatsCard 
-              bgcolor={THEME_COLORS.pending} 
-              onClick={handleOpenPendingTasksModal}
-            >
-              <IconBox bgcolor={THEME_COLORS.pending}>
-                <PendingIcon />
-              </IconBox>
-              <StatsText>
-                <Typography variant="h6" fontWeight="bold">
-                  {stats.pendingTasks}
-                </Typography>
-                <Typography variant="body2" color="textSecondary">
-                  Devam Eden Görev
-                </Typography>
-              </StatsText>
-            </StatsCard>
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={3}>
-            <StatsCard 
-              bgcolor={THEME_COLORS.completed}
-              onClick={handleOpenAllCompletedTasksModal}
-            >
-              <IconBox bgcolor={THEME_COLORS.completed}>
-                <CompletedIcon />
-              </IconBox>
-              <StatsText>
-                <Typography variant="h6" fontWeight="bold">
-                  {stats.completedTasks}
-                </Typography>
-                <Typography variant="body2" color="textSecondary">
-                  Tamamlanan Görev
-                </Typography>
-              </StatsText>
-            </StatsCard>
-          </Grid>
-        </Grid>
+        <StatsCards
+          stats={stats}
+          isManager={isManager}
+          onPersonnelClick={handleNavigateToPersonnel}
+          onTasksClick={handleNavigateToTasks}
+          onPendingTasksClick={handleOpenPendingTasksModal}
+          onCompletedTasksClick={handleOpenAllCompletedTasksModal}
+        />
       )}
       
       {/* Grafikler */}
