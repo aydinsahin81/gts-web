@@ -75,6 +75,14 @@ interface SurveyResponse {
   };
   createdAt: number;
   taskId: string;
+  branchId?: string;
+  personnelId?: string;
+}
+
+// SurveyCharts bileşeni için prop arayüzü
+interface SurveyChartsProps {
+  branchId?: string | null;
+  isManager?: boolean;
 }
 
 // Son 1 ay için tarih hesaplama yardımcı fonksiyonu
@@ -92,15 +100,68 @@ const formatDate = (date: Date): string => {
   return `${day}-${month}-${year}`;
 };
 
-const SurveyCharts: React.FC = () => {
+const SurveyCharts: React.FC<SurveyChartsProps> = ({ branchId, isManager = false }) => {
   const { currentUser, userDetails } = useAuth();
   const [loading, setLoading] = useState(true);
   const [surveyResponses, setSurveyResponses] = useState<SurveyResponse[]>([]);
+  const [personnel, setPersonnel] = useState<any[]>([]);
+  const [tasks, setTasks] = useState<Record<string, any>>({});
   const [overallStatsData, setOverallStatsData] = useState<any[]>([]);
   const [trendData, setTrendData] = useState<any[]>([]);
   const [overallInfoModalOpen, setOverallInfoModalOpen] = useState(false);
   const [trendInfoModalOpen, setTrendInfoModalOpen] = useState(false);
   const theme = useTheme();
+
+  // Personel verilerini yükle (şube filtreleme için gerekli)
+  useEffect(() => {
+    if (!userDetails?.companyId) {
+      return;
+    }
+
+    const fetchPersonnel = async () => {
+      try {
+        const personnelRef = ref(database, `companies/${userDetails.companyId}/personnel`);
+        const snapshot = await get(personnelRef);
+        
+        if (snapshot.exists()) {
+          const personnelData = snapshot.val();
+          const personnelArray = Object.entries(personnelData).map(([id, data]: [string, any]) => ({
+            id,
+            name: data.name,
+            branchesId: data.branchesId || null
+          }));
+          
+          setPersonnel(personnelArray);
+        }
+      } catch (error) {
+        console.error("Personel verileri yüklenirken hata:", error);
+      }
+    };
+    
+    fetchPersonnel();
+  }, [userDetails]);
+
+  // Görev verilerini yükle (şube filtreleme için gerekli)
+  useEffect(() => {
+    if (!userDetails?.companyId) {
+      return;
+    }
+
+    const fetchTasks = async () => {
+      try {
+        const tasksRef = ref(database, `companies/${userDetails.companyId}/tasks`);
+        const snapshot = await get(tasksRef);
+        
+        if (snapshot.exists()) {
+          setTasks(snapshot.val());
+        }
+      } catch (error) {
+        console.error("Görev verileri yüklenirken hata:", error);
+      }
+    };
+    
+    fetchTasks();
+  }, [userDetails]);
 
   useEffect(() => {
     if (!userDetails?.companyId) {
@@ -137,19 +198,54 @@ const SurveyCharts: React.FC = () => {
               // Son 1 aylık cevapları filtrele
               const responseDate = new Date(response.createdAt);
               if (responseDate >= lastMonth) {
+                // İlgili görevi bul
+                const task = tasks[taskId];
+                
+                // Cevap için branch ve personnel bilgisini ekle
                 allResponses.push({
                   answers: response.answers,
                   createdAt: response.createdAt,
-                  taskId: taskId
+                  taskId: taskId,
+                  branchId: task?.branchId || null,
+                  personnelId: task?.personnelId || response.personnelId || null
                 });
               }
             });
           });
           
-          setSurveyResponses(allResponses);
+          // Şube yöneticisi ise, sadece kendi şubesindeki anket cevaplarını filtrele
+          let filteredResponses = allResponses;
+          
+          if (isManager && branchId) {
+            filteredResponses = allResponses.filter(response => {
+              // Şube ID'si varsa doğrudan kontrol et
+              if (response.branchId === branchId) {
+                return true;
+              }
+              
+              // Personel ID'siyle şubeyi kontrol et
+              if (response.personnelId) {
+                const person = personnel.find(p => p.id === response.personnelId);
+                return person && person.branchesId === branchId;
+              }
+              
+              // İlgili görevin personelini kontrol et
+              const task = tasks[response.taskId];
+              if (task && task.personnelId) {
+                const person = personnel.find(p => p.id === task.personnelId);
+                return person && person.branchesId === branchId;
+              }
+              
+              return false;
+            });
+            
+            console.log(`Şubeye göre filtrelendi: Toplam ${allResponses.length} cevaptan ${filteredResponses.length} cevap şubeye ait.`);
+          }
+          
+          setSurveyResponses(filteredResponses);
           
           // İstatistikleri hesapla
-          calculateStats(allResponses);
+          calculateStats(filteredResponses);
           
           setLoading(false);
         });
@@ -161,8 +257,11 @@ const SurveyCharts: React.FC = () => {
       }
     };
     
-    fetchSurveyData();
-  }, [userDetails]);
+    // Personel ve görev verileri yüklendikten sonra anket verilerini yükle
+    if (personnel.length > 0 || Object.keys(tasks).length > 0) {
+      fetchSurveyData();
+    }
+  }, [userDetails, branchId, isManager, personnel, tasks]);
   
   // İstatistikleri hesapla
   const calculateStats = (responses: SurveyResponse[]) => {
