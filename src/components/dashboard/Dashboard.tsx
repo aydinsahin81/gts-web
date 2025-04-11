@@ -310,63 +310,35 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
   const [taskStatusInfoModalOpen, setTaskStatusInfoModalOpen] = useState(false);
   const [personnelPerformanceInfoModalOpen, setPersonnelPerformanceInfoModalOpen] = useState(false);
   
+  // selectedWidgets için localStorage'dan başlangıç değerini alma işlevi
+  const getInitialSelectedWidgets = (): string[] => {
+    try {
+      const savedWidgets = localStorage.getItem('dashboardSelectedWidgets');
+      if (savedWidgets) {
+        return JSON.parse(savedWidgets);
+      }
+    } catch (error) {
+      console.error('localStorage okuma hatası:', error);
+    }
+    // Varsayılan widget listesi
+    return ['statsDaily', 'statsWeeklyMonthly', 'taskStatus', 'personnelPerformance'];
+  };
+  
   // Widget seçimi için state'ler
   const [widgetSelectorOpen, setWidgetSelectorOpen] = useState(false);
-  const [selectedWidgets, setSelectedWidgets] = useState<string[]>(['statsDaily', 'statsWeeklyMonthly', 'taskStatus', 'personnelPerformance']);
+  const [selectedWidgets, setSelectedWidgets] = useState<string[]>(getInitialSelectedWidgets());
   
-  // Widget listesi
-  const widgets = [
-    {
-      id: 'statsDaily',
-      title: 'Günlük İstatistik Kartları',
-      description: 'Toplam personel, görev ve günlük görev istatistikleri'
-    },
-    {
-      id: 'statsWeeklyMonthly',
-      title: 'Haftalık/Aylık İstatistik Kartları',
-      description: 'Haftalık ve aylık görev istatistikleri'
-    },
-    {
-      id: 'taskStatus',
-      title: 'Görev Durumu Dağılımı',
-      description: 'Görevlerin durumlarına göre dağılım grafiği'
-    },
-    {
-      id: 'personnelPerformance',
-      title: 'Personel Performansı',
-      description: 'Personellerin görev performans grafiği'
-    },
-    {
-      id: 'surveyCharts',
-      title: 'Anket Grafikleri',
-      description: 'Anket sonuçlarının grafiksel gösterimi'
-    },
-    {
-      id: 'missedTasks',
-      title: 'Geciken Görevler',
-      description: 'Son geciken görevlerin listesi'
-    },
-    {
-      id: 'completedTasks',
-      title: 'Tamamlanan Görevler',
-      description: 'Son tamamlanan görevlerin listesi'
-    },
-    {
-      id: 'worstPerformers',
-      title: 'En Çok Görev Geciktirenler',
-      description: 'En çok görev geciktiren personellerin listesi'
-    },
-    {
-      id: 'bestPerformers',
-      title: 'En Çok Görev Yapanlar',
-      description: 'En çok görev yapan personellerin listesi'
-    },
-    {
-      id: 'taskLocations',
-      title: 'Görev Konumları',
-      description: 'Görev tamamlama konumlarının harita üzerinde gösterimi'
-    }
-  ];
+  // Widget seçimini değiştir ve localStorage'a kaydet
+  const handleWidgetSelectionChange = (widgetId: string) => {
+    const newSelectedWidgets = selectedWidgets.includes(widgetId)
+      ? selectedWidgets.filter(id => id !== widgetId)
+      : [...selectedWidgets, widgetId];
+    
+    setSelectedWidgets(newSelectedWidgets);
+    
+    // Seçilen widget'ları localStorage'a kaydet
+    localStorage.setItem('dashboardSelectedWidgets', JSON.stringify(newSelectedWidgets));
+  };
   
   // Modal pencereleri için işlevler
   const handleOpenMissedTasksModal = () => {
@@ -918,27 +890,6 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
     setSelectedTasks([]);
   };
   
-  // Widget seçimini değiştir
-  const handleWidgetSelectionChange = (widgetId: string) => {
-    setSelectedWidgets(prev => {
-      if (prev.includes(widgetId)) {
-        return prev.filter(id => id !== widgetId);
-      } else {
-        return [...prev, widgetId];
-      }
-    });
-  };
-
-  // Modal'ı aç
-  const handleOpenWidgetSelector = () => {
-    setWidgetSelectorOpen(true);
-  };
-
-  // Modal'ı kapat
-  const handleCloseWidgetSelector = () => {
-    setWidgetSelectorOpen(false);
-  };
-  
   useEffect(() => {
     const setupDashboard = async () => {
       try {
@@ -1118,6 +1069,70 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
   const handlePersonnelPerformanceInfoClose = () => {
     setPersonnelPerformanceInfoModalOpen(false);
   };
+  
+  // Modal'ı aç
+  const handleOpenWidgetSelector = () => {
+    setWidgetSelectorOpen(true);
+  };
+
+  // Modal'ı kapat
+  const handleCloseWidgetSelector = () => {
+    setWidgetSelectorOpen(false);
+  };
+
+  // Widget listesi
+  const widgets = [
+    {
+      id: 'statsDaily',
+      title: 'Günlük İstatistik Kartları',
+      description: 'Toplam personel, görev ve günlük görev istatistikleri'
+    },
+    {
+      id: 'statsWeeklyMonthly',
+      title: 'Haftalık/Aylık İstatistik Kartları',
+      description: 'Haftalık ve aylık görev istatistikleri'
+    },
+    {
+      id: 'taskStatus',
+      title: 'Görev Durumu Dağılımı',
+      description: 'Görevlerin durumlarına göre dağılım grafiği'
+    },
+    {
+      id: 'personnelPerformance',
+      title: 'Personel Performansı',
+      description: 'Personellerin görev performans grafiği'
+    },
+    {
+      id: 'surveyCharts',
+      title: 'Anket Grafikleri',
+      description: 'Anket sonuçlarının grafiksel gösterimi'
+    },
+    {
+      id: 'missedTasks',
+      title: 'Geciken Görevler',
+      description: 'Son geciken görevlerin listesi'
+    },
+    {
+      id: 'completedTasks',
+      title: 'Tamamlanan Görevler',
+      description: 'Son tamamlanan görevlerin listesi'
+    },
+    {
+      id: 'worstPerformers',
+      title: 'En Çok Görev Geciktirenler',
+      description: 'En çok görev geciktiren personellerin listesi'
+    },
+    {
+      id: 'bestPerformers',
+      title: 'En Çok Görev Yapanlar',
+      description: 'En çok görev yapan personellerin listesi'
+    },
+    {
+      id: 'taskLocations',
+      title: 'Görev Konumları',
+      description: 'Görev tamamlama konumlarının harita üzerinde gösterimi'
+    }
+  ];
   
   return (
     <ScrollableContent>
