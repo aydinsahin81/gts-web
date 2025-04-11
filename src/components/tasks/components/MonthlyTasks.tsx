@@ -584,6 +584,8 @@ interface MonthlyTasksProps {
   getTaskTimeColor: (task: any, timeString: string) => string;
   onDeleteTask?: (taskId: string, personnelId: string) => Promise<void>;
   onMonthlyTasksDataChange?: (tasks: any[]) => void;
+  branchId?: string | null;
+  isManager?: boolean;
 }
 
 const MonthlyTasks: React.FC<MonthlyTasksProps> = ({
@@ -600,7 +602,9 @@ const MonthlyTasks: React.FC<MonthlyTasksProps> = ({
   getStatusLabel,
   getTaskTimeColor,
   onDeleteTask,
-  onMonthlyTasksDataChange
+  onMonthlyTasksDataChange,
+  branchId,
+  isManager = false
 }) => {
   const [monthlyTasks, setMonthlyTasks] = useState<any[]>([]);
   const [completedMonthlyTasks, setCompletedMonthlyTasks] = useState<any[]>([]);
@@ -845,6 +849,27 @@ const MonthlyTasks: React.FC<MonthlyTasksProps> = ({
   const filteredTasks = React.useMemo(() => {
     let result = [...monthlyTasks];
     
+    // Şube yöneticisi ve şube ID'si varsa, şubeye göre filtrele
+    if (isManager && branchId) {
+      result = result.filter(task => {
+        // Görevin personeline göre şube kontrolü
+        if (task.personnelId) {
+          const person = personnel.find(p => p.id === task.personnelId);
+          if (person) {
+            // branchesId bir nesne olabilir veya string olabilir
+            if (typeof person.branchesId === 'object' && person.branchesId !== null) {
+              // Nesne durumunda, anahtarlarını kontrol et
+              return Object.keys(person.branchesId).includes(branchId);
+            } else {
+              // String durumunda direk karşılaştır
+              return person.branchesId === branchId;
+            }
+          }
+        }
+        return false;
+      });
+    }
+    
     // Duruma göre filtrele
     if (statusFilter !== 'all') {
       if (statusFilter === 'completed') {
@@ -876,12 +901,33 @@ const MonthlyTasks: React.FC<MonthlyTasksProps> = ({
     }
     
     return result;
-  }, [monthlyTasks, statusFilter, personnelFilter, taskSearchTerm]);
+  }, [monthlyTasks, statusFilter, personnelFilter, taskSearchTerm, isManager, branchId, personnel]);
   
   // Tamamlanan görevleri filtrele
   const filteredCompletedTasks = useMemo(() => {
     let result = [...completedMonthlyTasks];
     
+    // Şube yöneticisi ve şube ID'si varsa, şubeye göre filtrele
+    if (isManager && branchId) {
+      result = result.filter(task => {
+        // Görevin personeline göre şube kontrolü
+        if (task.personnelId) {
+          const person = personnel.find(p => p.id === task.personnelId);
+          if (person) {
+            // branchesId bir nesne olabilir veya string olabilir
+            if (typeof person.branchesId === 'object' && person.branchesId !== null) {
+              // Nesne durumunda, anahtarlarını kontrol et
+              return Object.keys(person.branchesId).includes(branchId);
+            } else {
+              // String durumunda direk karşılaştır
+              return person.branchesId === branchId;
+            }
+          }
+        }
+        return false;
+      });
+    }
+    
     // Personel filtresi uygulanıyor
     if (personnelFilter !== 'all') {
       result = result.filter(task => task.personnelId === personnelFilter);
@@ -896,12 +942,33 @@ const MonthlyTasks: React.FC<MonthlyTasksProps> = ({
     }
     
     return result;
-  }, [completedMonthlyTasks, personnelFilter, taskSearchTerm]);
+  }, [completedMonthlyTasks, personnelFilter, taskSearchTerm, isManager, branchId, personnel]);
   
   // Filtrelenmiş kaçırılan görevler
   const filteredMissedTasks = useMemo(() => {
     let result = [...missedMonthlyTasks];
     
+    // Şube yöneticisi ve şube ID'si varsa, şubeye göre filtrele
+    if (isManager && branchId) {
+      result = result.filter(task => {
+        // Görevin personeline göre şube kontrolü
+        if (task.personnelId) {
+          const person = personnel.find(p => p.id === task.personnelId);
+          if (person) {
+            // branchesId bir nesne olabilir veya string olabilir
+            if (typeof person.branchesId === 'object' && person.branchesId !== null) {
+              // Nesne durumunda, anahtarlarını kontrol et
+              return Object.keys(person.branchesId).includes(branchId);
+            } else {
+              // String durumunda direk karşılaştır
+              return person.branchesId === branchId;
+            }
+          }
+        }
+        return false;
+      });
+    }
+    
     // Personel filtresi uygulanıyor
     if (personnelFilter !== 'all') {
       result = result.filter(task => task.personnelId === personnelFilter);
@@ -916,7 +983,7 @@ const MonthlyTasks: React.FC<MonthlyTasksProps> = ({
     }
     
     return result;
-  }, [missedMonthlyTasks, personnelFilter, taskSearchTerm]);
+  }, [missedMonthlyTasks, personnelFilter, taskSearchTerm, isManager, branchId, personnel]);
   
   // Filtrelenmiş verileri üst bileşene gönder
   useEffect(() => {
