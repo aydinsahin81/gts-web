@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Grid, 
   Paper, 
@@ -77,6 +77,7 @@ import AllCompletedTasksModal from './AllCompletedTasksModal';
 import { useNavigate } from 'react-router-dom';
 import SurveyCharts from './SurveyCharts';
 import TaskStatusChart from './TaskStatusChart';
+import WeeklyTaskStatusChart from './WeeklyTaskStatusChart';
 import PersonnelPerformanceChart from './PersonnelPerformanceChart';
 import WidgetSelectorModal from './WidgetSelectorModal';
 import StatsCards from './StatsCards';
@@ -279,6 +280,7 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
   const [recentTasks, setRecentTasks] = useState<any[]>([]);
   const [tasks, setTasks] = useState<any[]>([]); // Tüm görevler için liste
   const [taskStatusData, setTaskStatusData] = useState<any[]>([]);
+  const [weeklyTaskStatusData, setWeeklyTaskStatusData] = useState<any[]>([]);
   const [personnelPerformanceData, setPersonnelPerformanceData] = useState<any[]>([]);
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [recentMissedTasks, setRecentMissedTasks] = useState<any[]>([]);
@@ -308,6 +310,7 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
   
   // Görev durum dağılımı ve personel performansı için açıklama modalları için state
   const [taskStatusInfoModalOpen, setTaskStatusInfoModalOpen] = useState(false);
+  const [weeklyTaskStatusInfoModalOpen, setWeeklyTaskStatusInfoModalOpen] = useState(false);
   const [personnelPerformanceInfoModalOpen, setPersonnelPerformanceInfoModalOpen] = useState(false);
   
   // selectedWidgets için localStorage'dan başlangıç değerini alma işlevi
@@ -685,11 +688,20 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
     
     // Görev durumu verilerini hazırla
     setTaskStatusData([
-      { name: 'Tamamlanan', value: totalCompletedTasks, color: THEME_COLORS.completed }, // Tüm tamamlanan görevler (ana liste + veritabanı)
-      { name: 'Devam Eden', value: activeTasksCount, color: '#1976D2' }, // Mavi
-      { name: 'Bekleyen', value: waitingTasksCount, color: '#2196F3' }, // Açık Mavi
-      { name: 'Bekliyor', value: pendingTasksCount, color: THEME_COLORS.pending }, // Turuncu
-      { name: 'Tamamlanmamış', value: missedTasksCount, color: '#F44336' }, // Kırmızı
+      { name: 'Tamamlanan', value: totalCompletedTasks, color: THEME_COLORS.completed },
+      { name: 'Devam Eden', value: activeTasksCount, color: '#1976D2' },
+      { name: 'Bekleyen', value: waitingTasksCount, color: '#2196F3' },
+      { name: 'Bekliyor', value: pendingTasksCount, color: THEME_COLORS.pending },
+      { name: 'Tamamlanmamış', value: missedTasksCount, color: '#F44336' },
+    ].filter(item => item.value > 0));
+    
+    // Haftalık görev durumu verilerini hazırla
+    const weeklyMissedTasksCount = companyData?.missedWeeklyTasks ? Object.keys(companyData.missedWeeklyTasks).length : 0;
+    
+    setWeeklyTaskStatusData([
+      { name: 'Tamamlanan', value: weeklyCompletedTasksCount, color: THEME_COLORS.completed },
+      { name: 'Devam Eden', value: weeklyPendingTasksCount, color: '#1976D2' },
+      { name: 'Tamamlanmamış', value: weeklyMissedTasksCount, color: '#F44336' },
     ].filter(item => item.value > 0));
     
     // Personel performans verilerini hazırla
@@ -1061,6 +1073,14 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
   const handleTaskStatusInfoClose = () => {
     setTaskStatusInfoModalOpen(false);
   };
+  
+  const handleWeeklyTaskStatusInfoOpen = () => {
+    setWeeklyTaskStatusInfoModalOpen(true);
+  };
+
+  const handleWeeklyTaskStatusInfoClose = () => {
+    setWeeklyTaskStatusInfoModalOpen(false);
+  };
 
   const handlePersonnelPerformanceInfoOpen = () => {
     setPersonnelPerformanceInfoModalOpen(true);
@@ -1096,6 +1116,11 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
       id: 'taskStatus',
       title: 'Günlük Görev Durumu Dağılımı',
       description: 'Günlük görevlerin durumlarına göre dağılım grafiği'
+    },
+    {
+      id: 'weeklyTaskStatus',
+      title: 'Haftalık Görev Durumu Dağılımı',
+      description: 'Haftalık görevlerin durumlarına göre dağılım grafiği'
     },
     {
       id: 'personnelPerformance',
@@ -1209,6 +1234,15 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
             <TaskStatusChart 
               taskStatusData={taskStatusData} 
               onInfoClick={handleTaskStatusInfoOpen} 
+            />
+        </Grid>
+        )}
+        
+        {selectedWidgets.includes('weeklyTaskStatus') && (
+        <Grid item xs={12} md={6} className="weekly-task-distribution-section">
+            <WeeklyTaskStatusChart 
+              weeklyTaskStatusData={weeklyTaskStatusData} 
+              onInfoClick={handleWeeklyTaskStatusInfoOpen} 
             />
         </Grid>
         )}
@@ -1840,6 +1874,61 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleTaskStatusInfoClose}>Kapat</Button>
+        </DialogActions>
+      </Dialog>
+      
+      <Dialog open={weeklyTaskStatusInfoModalOpen} onClose={handleWeeklyTaskStatusInfoClose} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          <Box display="flex" alignItems="center">
+            <InfoIcon sx={{ mr: 1, color: 'primary.main' }} />
+            Haftalık Görev Durumu Dağılımı Hakkında
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Typography paragraph>
+            Bu grafik şirketteki tüm haftalık görevlerin durum dağılımını göstermektedir. Her dilim bir görev durumunu temsil eder:
+          </Typography>
+          <List>
+            <ListItem>
+              <ListItemAvatar>
+                <Avatar sx={{ bgcolor: THEME_COLORS.completed }}>
+                  <CompletedIcon />
+                </Avatar>
+              </ListItemAvatar>
+              <ListItemText 
+                primary="Tamamlanan" 
+                secondary="Tamamlanmış haftalık görevlerin toplam sayısı"
+              />
+            </ListItem>
+            <ListItem>
+              <ListItemAvatar>
+                <Avatar sx={{ bgcolor: '#1976D2' }}>
+                  <TaskIcon />
+                </Avatar>
+              </ListItemAvatar>
+              <ListItemText 
+                primary="Devam Eden" 
+                secondary="Henüz tamamlanmamış, aktif haftalık görevlerin sayısı"
+              />
+            </ListItem>
+            <ListItem>
+              <ListItemAvatar>
+                <Avatar sx={{ bgcolor: '#F44336' }}>
+                  <TaskIcon />
+                </Avatar>
+              </ListItemAvatar>
+              <ListItemText 
+                primary="Tamamlanmamış" 
+                secondary="Zamanında tamamlanamamış ve gecikmiş haftalık görevlerin sayısı"
+              />
+            </ListItem>
+          </List>
+          <Typography paragraph>
+            Grafiğin altında her bir durumun toplam haftalık görevlere oranı yüzde olarak gösterilmektedir.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleWeeklyTaskStatusInfoClose}>Kapat</Button>
         </DialogActions>
       </Dialog>
       
