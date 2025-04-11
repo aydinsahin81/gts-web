@@ -270,6 +270,10 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
     totalTasks: 0,
     completedTasks: 0,
     pendingTasks: 0,
+    weeklyPendingTasks: 0,
+    weeklyCompletedTasks: 0,
+    monthlyPendingTasks: 0,
+    monthlyCompletedTasks: 0,
   });
   const [personnel, setPersonnel] = useState<any[]>([]);
   const [recentTasks, setRecentTasks] = useState<any[]>([]);
@@ -594,11 +598,102 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
     
     setWorstPerformers(worstPerformers);
     
+    // Haftalık görevleri hesapla
+    let weeklyCompletedTasksCount = 0;
+    let weeklyPendingTasksCount = 0;
+
+    // Haftalık aktif görevleri say
+    if (companyData && companyData.weeklyTasks) {
+      Object.entries(companyData.weeklyTasks).forEach(([taskId, taskData]: [string, any]) => {
+        // Eğer yönetici ve branchId varsa, sadece bu şubeye ait görevleri filtrele
+        if (isManager && branchId) {
+          const person = personnelList.find(p => p.id === taskData.personnelId);
+          if (!person || person.branchesId !== branchId) {
+            return; // Bu görev bu şubeye ait değil, atlayalım
+          }
+        }
+        
+        // Toplam haftalık görev sayısını artır
+        weeklyPendingTasksCount++;
+      });
+    }
+
+    // Tamamlanan haftalık görevleri say
+    if (companyData && companyData.completedWeeklyTasks) {
+      Object.entries(companyData.completedWeeklyTasks).forEach(([taskId, taskDates]: [string, any]) => {
+        Object.entries(taskDates).forEach(([date, timeSlots]: [string, any]) => {
+          Object.entries(timeSlots).forEach(([time, taskData]: [string, any]) => {
+            // Personel bilgisini bul
+            let personnelId = taskData.personnelId;
+            
+            // Personel bilgisine göre şube filtresi uygula
+            if (isManager && branchId && personnelId) {
+              const person = personnelList.find(p => p.id === personnelId);
+              if (!person || person.branchesId !== branchId) {
+                return; // Bu görev bu şubeye ait değil, atlayalım
+              }
+            }
+            
+            // Tamamlanan haftalık görev sayısını artır
+            weeklyCompletedTasksCount++;
+          });
+        });
+      });
+    }
+
+    // Aylık görevleri hesapla
+    let monthlyCompletedTasksCount = 0;
+    let monthlyPendingTasksCount = 0;
+
+    // Aylık aktif görevleri say
+    if (companyData && companyData.monthlyTasks) {
+      Object.entries(companyData.monthlyTasks).forEach(([taskId, taskData]: [string, any]) => {
+        // Eğer yönetici ve branchId varsa, sadece bu şubeye ait görevleri filtrele
+        if (isManager && branchId) {
+          const person = personnelList.find(p => p.id === taskData.personnelId);
+          if (!person || person.branchesId !== branchId) {
+            return; // Bu görev bu şubeye ait değil, atlayalım
+          }
+        }
+        
+        // Toplam aylık görev sayısını artır
+        monthlyPendingTasksCount++;
+      });
+    }
+
+    // Tamamlanan aylık görevleri say
+    if (companyData && companyData.completedMonthlyTasks) {
+      Object.entries(companyData.completedMonthlyTasks).forEach(([taskId, taskDates]: [string, any]) => {
+        Object.entries(taskDates).forEach(([date, timeSlots]: [string, any]) => {
+          Object.entries(timeSlots).forEach(([time, taskData]: [string, any]) => {
+            // Personel bilgisini bul
+            let personnelId = taskData.personnelId;
+            
+            // Personel bilgisine göre şube filtresi uygula
+            if (isManager && branchId && personnelId) {
+              const person = personnelList.find(p => p.id === personnelId);
+              if (!person || person.branchesId !== branchId) {
+                return; // Bu görev bu şubeye ait değil, atlayalım
+              }
+            }
+            
+            // Tamamlanan aylık görev sayısını artır
+            monthlyCompletedTasksCount++;
+          });
+        });
+      });
+    }
+
+    // Stats state'ini güncelle (haftalık ve aylık görev sayılarını ekliyoruz)
     setStats({
       totalPersonnel: personnelList.length,
       totalTasks, // Sadece tasks altındaki görevleri göster, missedTasks'ı dahil etme
       completedTasks: totalCompletedTasks, // Değiştirildi: Toplam tamamlanan görev sayısı
       pendingTasks: activeTasksCount,
+      weeklyPendingTasks: weeklyPendingTasksCount,
+      weeklyCompletedTasks: weeklyCompletedTasksCount,
+      monthlyPendingTasks: monthlyPendingTasksCount,
+      monthlyCompletedTasks: monthlyCompletedTasksCount,
     });
     
     // Görev durumu verilerini hazırla
@@ -1024,7 +1119,7 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
       }}>
         <Typography variant="h5" fontWeight="bold">
           Gösterge Paneli
-        </Typography>
+              </Typography>
         <Button
           variant="contained"
           startIcon={<SettingsIcon />}
@@ -1057,16 +1152,16 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
       {/* Grafikler */}
       <Grid container spacing={1} sx={{ mb: 2 }}>
         {selectedWidgets.includes('taskStatus') && (
-          <Grid item xs={12} md={6} className="task-distribution-section">
+        <Grid item xs={12} md={6} className="task-distribution-section">
             <TaskStatusChart 
               taskStatusData={taskStatusData} 
               onInfoClick={handleTaskStatusInfoOpen} 
             />
-          </Grid>
+        </Grid>
         )}
         
         {selectedWidgets.includes('personnelPerformance') && (
-          <Grid item xs={12} md={6} className="personnel-performance-section">
+        <Grid item xs={12} md={6} className="personnel-performance-section">
             <PersonnelPerformanceChart 
               personnelPerformanceData={personnelPerformanceData} 
               onInfoClick={handlePersonnelPerformanceInfoOpen}
@@ -1077,180 +1172,234 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
       
       {/* Anket Grafikleri */}
       {selectedWidgets.includes('surveyCharts') && (
-        <Grid container spacing={1} sx={{ mb: 2 }} className="survey-charts-section">
-          <Grid item xs={12}>
-            <SurveyCharts />
-          </Grid>
+      <Grid container spacing={1} sx={{ mb: 2 }} className="survey-charts-section">
+        <Grid item xs={12}>
+          <SurveyCharts />
         </Grid>
+      </Grid>
       )}
       
       {/* Liste Kartları */}
       <Grid container spacing={1} sx={{ mb: 2 }}>
         {selectedWidgets.includes('missedTasks') && (
-          <Grid item xs={12} md={6} className="missed-tasks-section">
-            <StyledCard>
-              <CardHeader 
-                title="Geciken Son 10 Görev" 
-                titleTypographyProps={{ fontWeight: 'bold' }}
-                action={
-                  <Button 
-                    variant="text" 
-                    color="primary" 
-                    onClick={handleOpenMissedTasksModal}
-                    size="small"
-                  >
-                    Tümünü Gör
-                  </Button>
-                }
-              />
-              <Divider />
-              <CardContent>
-                {recentMissedTasks.length === 0 ? (
-                  <Typography variant="body2" color="textSecondary" align="center" sx={{ py: 2 }}>
-                    Henüz geciken görev bulunmuyor
-                  </Typography>
-                ) : (
-                  <TableContainer>
-                    <Table size="small">
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>Görev Adı</TableCell>
-                          <TableCell>Personel</TableCell>
-                          <TableCell>Tarih</TableCell>
+        <Grid item xs={12} md={6} className="missed-tasks-section">
+          <StyledCard>
+            <CardHeader 
+              title="Geciken Son 10 Görev" 
+              titleTypographyProps={{ fontWeight: 'bold' }}
+              action={
+                <Button 
+                  variant="text" 
+                  color="primary" 
+                  onClick={handleOpenMissedTasksModal}
+                  size="small"
+                >
+                  Tümünü Gör
+                </Button>
+              }
+            />
+            <Divider />
+            <CardContent>
+              {recentMissedTasks.length === 0 ? (
+                <Typography variant="body2" color="textSecondary" align="center" sx={{ py: 2 }}>
+                  Henüz geciken görev bulunmuyor
+                </Typography>
+              ) : (
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Görev Adı</TableCell>
+                        <TableCell>Personel</TableCell>
+                        <TableCell>Tarih</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {recentMissedTasks.map((task) => (
+                        <TableRow key={task.id} hover>
+                          <TableCell>
+                            <Typography variant="body2" noWrap>
+                              {task.name}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            {task.personnelName && (
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                <PersonIcon fontSize="small" color="primary" />
+                                <Typography variant="body2" noWrap>
+                                  {task.personnelName}
+                                </Typography>
+                              </Box>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2" noWrap>
+                              {`${task.time} - ${task.date}`}
+                            </Typography>
+                          </TableCell>
                         </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {recentMissedTasks.map((task) => (
-                          <TableRow key={task.id} hover>
-                            <TableCell>
-                              <Typography variant="body2" noWrap>
-                                {task.name}
-                              </Typography>
-                            </TableCell>
-                            <TableCell>
-                              {task.personnelName && (
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                  <PersonIcon fontSize="small" color="primary" />
-                                  <Typography variant="body2" noWrap>
-                                    {task.personnelName}
-                                  </Typography>
-                                </Box>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              <Typography variant="body2" noWrap>
-                                {`${task.time} - ${task.date}`}
-                              </Typography>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                )}
-              </CardContent>
-            </StyledCard>
-          </Grid>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+            </CardContent>
+          </StyledCard>
+        </Grid>
         )}
         
         {selectedWidgets.includes('completedTasks') && (
-          <Grid item xs={12} md={6} className="completed-tasks-section">
-            <StyledCard>
-              <CardHeader 
-                title="Tamamlanan Son 10 Görev" 
-                titleTypographyProps={{ fontWeight: 'bold' }}
-                action={
-                  <Button 
-                    variant="text" 
-                    color="primary" 
-                    onClick={handleOpenCompletedTasksModal}
-                    size="small"
-                  >
-                    Tümünü Gör
-                  </Button>
-                }
-              />
-              <Divider />
-              <CardContent>
-                {recentCompletedTasks.length === 0 ? (
-                  <Typography variant="body2" color="textSecondary" align="center" sx={{ py: 2 }}>
-                    Henüz tamamlanan görev bulunmuyor
-                  </Typography>
-                ) : (
-                  <TableContainer>
-                    <Table size="small">
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>Görev Adı</TableCell>
-                          <TableCell>Personel</TableCell>
-                          <TableCell>Tarih</TableCell>
+        <Grid item xs={12} md={6} className="completed-tasks-section">
+          <StyledCard>
+            <CardHeader 
+              title="Tamamlanan Son 10 Görev" 
+              titleTypographyProps={{ fontWeight: 'bold' }}
+              action={
+                <Button 
+                  variant="text" 
+                  color="primary" 
+                  onClick={handleOpenCompletedTasksModal}
+                  size="small"
+                >
+                  Tümünü Gör
+                </Button>
+              }
+            />
+            <Divider />
+            <CardContent>
+              {recentCompletedTasks.length === 0 ? (
+                <Typography variant="body2" color="textSecondary" align="center" sx={{ py: 2 }}>
+                  Henüz tamamlanan görev bulunmuyor
+                </Typography>
+              ) : (
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Görev Adı</TableCell>
+                        <TableCell>Personel</TableCell>
+                        <TableCell>Tarih</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {recentCompletedTasks.map((task) => (
+                        <TableRow key={task.id} hover>
+                          <TableCell>
+                            <Typography variant="body2" noWrap>
+                              {task.name}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            {task.personnelName && (
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                <PersonIcon fontSize="small" color="success" />
+                                <Typography variant="body2" noWrap>
+                                  {task.personnelName}
+                                </Typography>
+                              </Box>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2" noWrap>
+                              {`${task.time} - ${task.date}`}
+                            </Typography>
+                          </TableCell>
                         </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {recentCompletedTasks.map((task) => (
-                          <TableRow key={task.id} hover>
-                            <TableCell>
-                              <Typography variant="body2" noWrap>
-                                {task.name}
-                              </Typography>
-                            </TableCell>
-                            <TableCell>
-                              {task.personnelName && (
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                  <PersonIcon fontSize="small" color="success" />
-                                  <Typography variant="body2" noWrap>
-                                    {task.personnelName}
-                                  </Typography>
-                                </Box>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              <Typography variant="body2" noWrap>
-                                {`${task.time} - ${task.date}`}
-                              </Typography>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                )}
-              </CardContent>
-            </StyledCard>
-          </Grid>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+            </CardContent>
+          </StyledCard>
+        </Grid>
         )}
       </Grid>
       
       {/* En Çok Görev Geciktiren ve Yapan Personeller */}
       <Grid container spacing={1} sx={{ mb: 2 }}>
         {selectedWidgets.includes('worstPerformers') && (
-          <Grid item xs={12} md={6} className="worst-performers-section">
-            <StyledCard>
-              <CardHeader 
-                title="En Çok Görev Geciktiren Personeller" 
-                titleTypographyProps={{ fontWeight: 'bold' }}
-              />
-              <Divider />
-              <CardContent>
-                {worstPerformers.length === 0 ? (
-                  <Typography variant="body2" color="textSecondary" align="center" sx={{ py: 2 }}>
-                    Henüz gecikmiş görev kaydı bulunmuyor
-                  </Typography>
-                ) : (
-                  <TableContainer>
-                    <Table size="small">
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>Personel</TableCell>
-                          <TableCell>Geciken Görev Sayısı</TableCell>
+        <Grid item xs={12} md={6} className="worst-performers-section">
+          <StyledCard>
+            <CardHeader 
+              title="En Çok Görev Geciktiren Personeller" 
+              titleTypographyProps={{ fontWeight: 'bold' }}
+            />
+            <Divider />
+            <CardContent>
+              {worstPerformers.length === 0 ? (
+                <Typography variant="body2" color="textSecondary" align="center" sx={{ py: 2 }}>
+                  Henüz gecikmiş görev kaydı bulunmuyor
+                </Typography>
+              ) : (
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Personel</TableCell>
+                        <TableCell>Geciken Görev Sayısı</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {worstPerformers.slice(0, 10).map((person, index) => (
+                        <TableRow key={person.id} hover>
+                          <TableCell>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              <Avatar sx={{ width: 24, height: 24, bgcolor: index < 3 ? '#F44336' : theme.palette.grey[500] }}>
+                                <PersonIcon fontSize="small" />
+                              </Avatar>
+                              <Typography variant="body2" noWrap>
+                                {person.name}
+                              </Typography>
+                            </Box>
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2" fontWeight="medium" color={index < 3 ? 'error' : 'inherit'}>
+                              {person.missedCount} görev
+                            </Typography>
+                          </TableCell>
                         </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {worstPerformers.slice(0, 10).map((person, index) => (
-                          <TableRow key={person.id} hover>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+            </CardContent>
+          </StyledCard>
+        </Grid>
+        )}
+        
+        {selectedWidgets.includes('bestPerformers') && (
+        <Grid item xs={12} md={6} className="best-performers-section">
+          <StyledCard>
+            <CardHeader 
+              title="En Çok Görev Yapan Personeller" 
+              titleTypographyProps={{ fontWeight: 'bold' }}
+            />
+            <Divider />
+            <CardContent>
+              {personnelPerformanceData.length === 0 ? (
+                <Typography variant="body2" color="textSecondary" align="center" sx={{ py: 2 }}>
+                  Henüz tamamlanan görev kaydı bulunmuyor
+                </Typography>
+              ) : (
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Personel</TableCell>
+                        <TableCell>Yapılan Görev Sayısı</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {personnelPerformanceData
+                        .sort((a, b) => b.completed - a.completed)
+                        .slice(0, 10)
+                        .map((person, index) => (
+                          <TableRow key={person.name} hover>
                             <TableCell>
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                <Avatar sx={{ width: 24, height: 24, bgcolor: index < 3 ? '#F44336' : theme.palette.grey[500] }}>
+                                <Avatar sx={{ width: 24, height: 24, bgcolor: index < 3 ? THEME_COLORS.completed : theme.palette.grey[500] }}>
                                   <PersonIcon fontSize="small" />
                                 </Avatar>
                                 <Typography variant="body2" noWrap>
@@ -1259,310 +1408,256 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
                               </Box>
                             </TableCell>
                             <TableCell>
-                              <Typography variant="body2" fontWeight="medium" color={index < 3 ? 'error' : 'inherit'}>
-                                {person.missedCount} görev
+                              <Typography variant="body2" fontWeight="medium" color={index < 3 ? 'success.main' : 'inherit'}>
+                                {person.completed} görev
                               </Typography>
                             </TableCell>
                           </TableRow>
                         ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                )}
-              </CardContent>
-            </StyledCard>
-          </Grid>
-        )}
-        
-        {selectedWidgets.includes('bestPerformers') && (
-          <Grid item xs={12} md={6} className="best-performers-section">
-            <StyledCard>
-              <CardHeader 
-                title="En Çok Görev Yapan Personeller" 
-                titleTypographyProps={{ fontWeight: 'bold' }}
-              />
-              <Divider />
-              <CardContent>
-                {personnelPerformanceData.length === 0 ? (
-                  <Typography variant="body2" color="textSecondary" align="center" sx={{ py: 2 }}>
-                    Henüz tamamlanan görev kaydı bulunmuyor
-                  </Typography>
-                ) : (
-                  <TableContainer>
-                    <Table size="small">
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>Personel</TableCell>
-                          <TableCell>Yapılan Görev Sayısı</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {personnelPerformanceData
-                          .sort((a, b) => b.completed - a.completed)
-                          .slice(0, 10)
-                          .map((person, index) => (
-                            <TableRow key={person.name} hover>
-                              <TableCell>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                  <Avatar sx={{ width: 24, height: 24, bgcolor: index < 3 ? THEME_COLORS.completed : theme.palette.grey[500] }}>
-                                    <PersonIcon fontSize="small" />
-                                  </Avatar>
-                                  <Typography variant="body2" noWrap>
-                                    {person.name}
-                                  </Typography>
-                                </Box>
-                              </TableCell>
-                              <TableCell>
-                                <Typography variant="body2" fontWeight="medium" color={index < 3 ? 'success.main' : 'inherit'}>
-                                  {person.completed} görev
-                                </Typography>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                )}
-              </CardContent>
-            </StyledCard>
-          </Grid>
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+            </CardContent>
+          </StyledCard>
+        </Grid>
         )}
       </Grid>
       
       {/* Harita */}
       {selectedWidgets.includes('taskLocations') && (
-        <MapCard sx={{ mb: 2 }} className="task-locations-section">
-          <CardHeader 
-            title="Görev Tamamlama Konumları" 
-            titleTypographyProps={{ fontWeight: 'bold' }}
-            avatar={<Avatar sx={{ bgcolor: THEME_COLORS.completed }}><LocationIcon /></Avatar>}
-          />
-          <Divider />
-          
-          <FilterContainer>
-            <FormControl sx={{ minWidth: 150 }}>
-              <InputLabel>Son Görevler</InputLabel>
-              <Select
-                value={selectedTaskCount}
-                label="Son Görevler"
-                onChange={handleTaskCountChange}
-              >
-                <MenuItem value={10}>Son 10 Görev</MenuItem>
-                <MenuItem value={20}>Son 20 Görev</MenuItem>
-                <MenuItem value={30}>Son 30 Görev</MenuItem>
-                <MenuItem value={50}>Son 50 Görev</MenuItem>
-                <MenuItem value={100}>Son 100 Görev</MenuItem>
-              </Select>
-            </FormControl>
-            
-            <FormControl sx={{ minWidth: 200, maxWidth: 300 }}>
-              <InputLabel>Personel Filtrele</InputLabel>
-              <Select
-                multiple
-                value={selectedPersonnel}
-                label="Personel Filtrele"
-                onChange={handlePersonnelChange}
-                renderValue={(selected) => (
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                    {(selected as string[]).map((value) => {
-                      const person = personnel.find(p => p.id === value);
-                      return (
-                        <Chip 
-                          key={value} 
-                          label={person ? person.name : value} 
-                          size="small" 
-                        />
-                      );
-                    })}
-                  </Box>
-                )}
-                onClose={() => setPersonnelSearchTerm('')}
-                MenuProps={{
-                  PaperProps: {
-                    style: {
-                      maxHeight: 250,
-                      overflow: 'auto'
-                    }
-                  }
-                }}
-              >
-                <ListItem>
-                  <TextField
-                    size="small"
-                    autoFocus
-                    placeholder="Personel Ara..."
-                    fullWidth
-                    value={personnelSearchTerm}
-                    onChange={(e) => setPersonnelSearchTerm(e.target.value)}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <SearchIcon />
-                        </InputAdornment>
-                      ),
-                    }}
-                  />
-                </ListItem>
-                {personnel
-                  .filter(person => 
-                    personnelSearchTerm === '' || 
-                    person.name.toLowerCase().includes(personnelSearchTerm.toLowerCase())
-                  )
-                  .map((person) => (
-                    <MenuItem key={person.id} value={person.id}>
-                      <Checkbox checked={selectedPersonnel.indexOf(person.id) > -1} />
-                      <ListItemText primary={person.name} />
-                    </MenuItem>
-                  ))}
-              </Select>
-            </FormControl>
-            
-            <FormControl sx={{ minWidth: 200, maxWidth: 300 }}>
-              <InputLabel>Görev Filtrele</InputLabel>
-              <Select
-                multiple
-                value={selectedTasks}
-                label="Görev Filtrele"
-                onChange={handleTaskChange}
-                renderValue={(selected) => (
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                    {(selected as string[]).map((value) => {
-                      const task = tasks.find(t => t.id === value);
-                      return (
-                        <Chip 
-                          key={value} 
-                          label={task ? task.name : value} 
-                          size="small" 
-                        />
-                      );
-                    })}
-                  </Box>
-                )}
-                onClose={() => setTaskSearchTerm('')}
-                MenuProps={{
-                  PaperProps: {
-                    style: {
-                      maxHeight: 250,
-                      overflow: 'auto'
-                    }
-                  }
-                }}
-              >
-                <ListItem>
-                  <TextField
-                    size="small"
-                    autoFocus
-                    placeholder="Görev Ara..."
-                    fullWidth
-                    value={taskSearchTerm}
-                    onChange={(e) => setTaskSearchTerm(e.target.value)}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <SearchIcon />
-                        </InputAdornment>
-                      ),
-                    }}
-                  />
-                </ListItem>
-                {tasks
-                  .filter(task => 
-                    taskSearchTerm === '' || 
-                    task.name.toLowerCase().includes(taskSearchTerm.toLowerCase())
-                  )
-                  .map((task) => (
-                    <MenuItem key={task.id} value={task.id}>
-                      <Checkbox checked={selectedTasks.indexOf(task.id) > -1} />
-                      <ListItemText primary={task.name} />
-                    </MenuItem>
-                  ))}
-              </Select>
-            </FormControl>
-            
-            <Button 
-              variant="outlined" 
-              color="secondary" 
-              onClick={handleClearFilters}
-              sx={{ height: 40 }}
+      <MapCard sx={{ mb: 2 }} className="task-locations-section">
+        <CardHeader 
+          title="Görev Tamamlama Konumları" 
+          titleTypographyProps={{ fontWeight: 'bold' }}
+          avatar={<Avatar sx={{ bgcolor: THEME_COLORS.completed }}><LocationIcon /></Avatar>}
+        />
+        <Divider />
+        
+        <FilterContainer>
+          <FormControl sx={{ minWidth: 150 }}>
+            <InputLabel>Son Görevler</InputLabel>
+            <Select
+              value={selectedTaskCount}
+              label="Son Görevler"
+              onChange={handleTaskCountChange}
             >
-              Filtreleri Temizle
-            </Button>
-            
-            <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center' }}>
-              <Typography variant="body2" color="textSecondary">
-                Toplam: {filteredLocations.length} konum gösteriliyor
+              <MenuItem value={10}>Son 10 Görev</MenuItem>
+              <MenuItem value={20}>Son 20 Görev</MenuItem>
+              <MenuItem value={30}>Son 30 Görev</MenuItem>
+              <MenuItem value={50}>Son 50 Görev</MenuItem>
+              <MenuItem value={100}>Son 100 Görev</MenuItem>
+            </Select>
+          </FormControl>
+          
+          <FormControl sx={{ minWidth: 200, maxWidth: 300 }}>
+            <InputLabel>Personel Filtrele</InputLabel>
+            <Select
+              multiple
+              value={selectedPersonnel}
+              label="Personel Filtrele"
+              onChange={handlePersonnelChange}
+              renderValue={(selected) => (
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                  {(selected as string[]).map((value) => {
+                    const person = personnel.find(p => p.id === value);
+                    return (
+                      <Chip 
+                        key={value} 
+                        label={person ? person.name : value} 
+                        size="small" 
+                      />
+                    );
+                  })}
+                </Box>
+              )}
+              onClose={() => setPersonnelSearchTerm('')}
+              MenuProps={{
+                PaperProps: {
+                  style: {
+                    maxHeight: 250,
+                    overflow: 'auto'
+                  }
+                }
+              }}
+            >
+              <ListItem>
+                <TextField
+                  size="small"
+                  autoFocus
+                  placeholder="Personel Ara..."
+                  fullWidth
+                  value={personnelSearchTerm}
+                  onChange={(e) => setPersonnelSearchTerm(e.target.value)}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </ListItem>
+              {personnel
+                .filter(person => 
+                  personnelSearchTerm === '' || 
+                  person.name.toLowerCase().includes(personnelSearchTerm.toLowerCase())
+                )
+                .map((person) => (
+                  <MenuItem key={person.id} value={person.id}>
+                    <Checkbox checked={selectedPersonnel.indexOf(person.id) > -1} />
+                    <ListItemText primary={person.name} />
+                  </MenuItem>
+                ))}
+            </Select>
+          </FormControl>
+          
+          <FormControl sx={{ minWidth: 200, maxWidth: 300 }}>
+            <InputLabel>Görev Filtrele</InputLabel>
+            <Select
+              multiple
+              value={selectedTasks}
+              label="Görev Filtrele"
+              onChange={handleTaskChange}
+              renderValue={(selected) => (
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                  {(selected as string[]).map((value) => {
+                    const task = tasks.find(t => t.id === value);
+                    return (
+                      <Chip 
+                        key={value} 
+                        label={task ? task.name : value} 
+                        size="small" 
+                      />
+                    );
+                  })}
+                </Box>
+              )}
+              onClose={() => setTaskSearchTerm('')}
+              MenuProps={{
+                PaperProps: {
+                  style: {
+                    maxHeight: 250,
+                    overflow: 'auto'
+                  }
+                }
+              }}
+            >
+              <ListItem>
+                <TextField
+                  size="small"
+                  autoFocus
+                  placeholder="Görev Ara..."
+                  fullWidth
+                  value={taskSearchTerm}
+                  onChange={(e) => setTaskSearchTerm(e.target.value)}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </ListItem>
+              {tasks
+                .filter(task => 
+                  taskSearchTerm === '' || 
+                  task.name.toLowerCase().includes(taskSearchTerm.toLowerCase())
+                )
+                .map((task) => (
+                  <MenuItem key={task.id} value={task.id}>
+                    <Checkbox checked={selectedTasks.indexOf(task.id) > -1} />
+                    <ListItemText primary={task.name} />
+                  </MenuItem>
+                ))}
+            </Select>
+          </FormControl>
+          
+          <Button 
+            variant="outlined" 
+            color="secondary" 
+            onClick={handleClearFilters}
+            sx={{ height: 40 }}
+          >
+            Filtreleri Temizle
+          </Button>
+          
+          <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center' }}>
+            <Typography variant="body2" color="textSecondary">
+              Toplam: {filteredLocations.length} konum gösteriliyor
+            </Typography>
+          </Box>
+        </FilterContainer>
+        
+        <MapContainerWrapper>
+          {filteredLocations.length === 0 ? (
+            <Box sx={{ height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+              <Typography color="textSecondary">
+                Konum bilgisi olan görev bulunmuyor veya seçilen filtrelere uygun görev yok
               </Typography>
             </Box>
-          </FilterContainer>
-          
-          <MapContainerWrapper>
-            {filteredLocations.length === 0 ? (
-              <Box sx={{ height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                <Typography color="textSecondary">
-                  Konum bilgisi olan görev bulunmuyor veya seçilen filtrelere uygun görev yok
-                </Typography>
-              </Box>
-            ) : (
-              <MapContainer 
-                style={{ height: '100%', width: '100%' }}
+          ) : (
+            <MapContainer 
+              style={{ height: '100%', width: '100%' }}
+              zoom={13} 
+              scrollWheelZoom={true}
+            >
+              <MapView 
+                center={
+                  filteredLocations.length > 0 
+                    ? [filteredLocations[0].location.latitude, filteredLocations[0].location.longitude] as [number, number]
+                    : [39.9334, 32.8597] as [number, number]
+                } 
                 zoom={13} 
-                scrollWheelZoom={true}
-              >
-                <MapView 
-                  center={
-                    filteredLocations.length > 0 
-                      ? [filteredLocations[0].location.latitude, filteredLocations[0].location.longitude] as [number, number]
-                      : [39.9334, 32.8597] as [number, number]
-                  } 
-                  zoom={13} 
-                />
-                
-                <TileLayer
-                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                />
-                
-                {filteredLocations.map((task, index) => {
+              />
+              
+              <TileLayer
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              />
+              
+              {filteredLocations.map((task, index) => {
                   const icon = createColoredMarkerIcon(getPersonnelColor(index));
-                  return (
-                    <Marker 
-                      key={task.id} 
-                      position={[task.location.latitude, task.location.longitude] as [number, number]} 
-                      icon={icon}
-                    >
-                      <Tooltip permanent={false} direction="top">
-                        <strong>{task.name}</strong><br />
-                        {task.personnelName}
-                      </Tooltip>
-                      <Popup>
-                        <Box sx={{ minWidth: 200 }}>
-                          <Typography variant="subtitle1" fontWeight="bold">{task.name}</Typography>
-                          <Typography variant="body2">{task.description}</Typography>
-                          <Divider sx={{ my: 1 }} />
-                          <Typography variant="body2">
-                            <strong>Personel:</strong> {task.personnelName}
-                          </Typography>
-                          <Typography variant="body2">
-                            <strong>Tarih:</strong> {task.date}
-                          </Typography>
-                          <Typography variant="body2">
-                            <strong>Saat:</strong> {task.time}
-                          </Typography>
-                          <Typography variant="body2">
-                            <strong>Konum:</strong> {task.location.latitude.toFixed(5)}, {task.location.longitude.toFixed(5)}
-                          </Typography>
-                          <Typography variant="body2">
-                            <strong>Doğruluk:</strong> {task.location.accuracy ? `±${task.location.accuracy.toFixed(1)}m` : 'Belirtilmemiş'}
-                          </Typography>
-                        </Box>
-                      </Popup>
-                    </Marker>
-                  );
-                })}
-              </MapContainer>
-            )}
-          </MapContainerWrapper>
-        </MapCard>
+                return (
+                  <Marker 
+                    key={task.id} 
+                    position={[task.location.latitude, task.location.longitude] as [number, number]} 
+                    icon={icon}
+                  >
+                    <Tooltip permanent={false} direction="top">
+                      <strong>{task.name}</strong><br />
+                      {task.personnelName}
+                    </Tooltip>
+                    <Popup>
+                      <Box sx={{ minWidth: 200 }}>
+                        <Typography variant="subtitle1" fontWeight="bold">{task.name}</Typography>
+                        <Typography variant="body2">{task.description}</Typography>
+                        <Divider sx={{ my: 1 }} />
+                        <Typography variant="body2">
+                          <strong>Personel:</strong> {task.personnelName}
+                        </Typography>
+                        <Typography variant="body2">
+                          <strong>Tarih:</strong> {task.date}
+                        </Typography>
+                        <Typography variant="body2">
+                          <strong>Saat:</strong> {task.time}
+                        </Typography>
+                        <Typography variant="body2">
+                          <strong>Konum:</strong> {task.location.latitude.toFixed(5)}, {task.location.longitude.toFixed(5)}
+                        </Typography>
+                        <Typography variant="body2">
+                          <strong>Doğruluk:</strong> {task.location.accuracy ? `±${task.location.accuracy.toFixed(1)}m` : 'Belirtilmemiş'}
+                        </Typography>
+                      </Box>
+                    </Popup>
+                  </Marker>
+                );
+              })}
+            </MapContainer>
+          )}
+        </MapContainerWrapper>
+      </MapCard>
       )}
       
       {/* Widget Seçim Modalı */}

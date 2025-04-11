@@ -5,6 +5,7 @@ import {
   AssignmentOutlined as TaskIcon,
   CheckCircleOutline as CompletedIcon,
   PendingOutlined as PendingIcon,
+  CalendarMonth as CalendarIcon,
 } from '@mui/icons-material';
 import { styled } from '@mui/material/styles';
 
@@ -13,7 +14,11 @@ const THEME_COLORS = {
   personnel: '#1976D2', // Mavi
   tasks: '#9C27B0',     // Mor
   pending: '#FF9800',   // Turuncu
-  completed: '#4CAF50'  // Yeşil
+  completed: '#4CAF50',  // Yeşil
+  weeklyPending: '#FF5722', // Koyu Turuncu
+  weeklyCompleted: '#009688', // Turkuaz
+  monthlyPending: '#673AB7', // Mor
+  monthlyCompleted: '#795548' // Kahverengi
 };
 
 // İstatistik kartı için styled component - tıklanabilir kart
@@ -64,12 +69,20 @@ interface StatsCardsProps {
     totalTasks: number;
     completedTasks: number;
     pendingTasks: number;
+    weeklyPendingTasks?: number;
+    weeklyCompletedTasks?: number;
+    monthlyPendingTasks?: number;
+    monthlyCompletedTasks?: number;
   };
   isManager?: boolean;
   onPersonnelClick?: () => void;
   onTasksClick?: () => void;
   onPendingTasksClick?: () => void;
   onCompletedTasksClick?: () => void;
+  onWeeklyPendingTasksClick?: () => void;
+  onWeeklyCompletedTasksClick?: () => void;
+  onMonthlyPendingTasksClick?: () => void;
+  onMonthlyCompletedTasksClick?: () => void;
 }
 
 const StatsCards: React.FC<StatsCardsProps> = ({
@@ -79,6 +92,10 @@ const StatsCards: React.FC<StatsCardsProps> = ({
   onTasksClick,
   onPendingTasksClick,
   onCompletedTasksClick,
+  onWeeklyPendingTasksClick,
+  onWeeklyCompletedTasksClick,
+  onMonthlyPendingTasksClick,
+  onMonthlyCompletedTasksClick,
 }) => {
   return (
     <Grid container spacing={1} sx={{ mb: 2 }} className="stat-cards-section">
@@ -155,6 +172,82 @@ const StatsCards: React.FC<StatsCardsProps> = ({
             </Typography>
             <Typography variant="body2" color="textSecondary">
               Tamamlanan Günlük Görev
+            </Typography>
+          </StatsText>
+        </StatsCard>
+      </Grid>
+
+      <Grid item xs={12} sm={6} md={3}>
+        <StatsCard 
+          bgcolor={THEME_COLORS.weeklyPending} 
+          onClick={onWeeklyPendingTasksClick}
+        >
+          <IconBox bgcolor={THEME_COLORS.weeklyPending}>
+            <CalendarIcon />
+          </IconBox>
+          <StatsText>
+            <Typography variant="h6" fontWeight="bold">
+              {stats.weeklyPendingTasks || 0}
+            </Typography>
+            <Typography variant="body2" color="textSecondary">
+              Toplam Haftalık Görev
+            </Typography>
+          </StatsText>
+        </StatsCard>
+      </Grid>
+      
+      <Grid item xs={12} sm={6} md={3}>
+        <StatsCard 
+          bgcolor={THEME_COLORS.weeklyCompleted}
+          onClick={onWeeklyCompletedTasksClick}
+        >
+          <IconBox bgcolor={THEME_COLORS.weeklyCompleted}>
+            <CalendarIcon />
+          </IconBox>
+          <StatsText>
+            <Typography variant="h6" fontWeight="bold">
+              {stats.weeklyCompletedTasks || 0}
+            </Typography>
+            <Typography variant="body2" color="textSecondary">
+              Tamamlanan Haftalık Görev
+            </Typography>
+          </StatsText>
+        </StatsCard>
+      </Grid>
+      
+      <Grid item xs={12} sm={6} md={3}>
+        <StatsCard 
+          bgcolor={THEME_COLORS.monthlyPending} 
+          onClick={onMonthlyPendingTasksClick}
+        >
+          <IconBox bgcolor={THEME_COLORS.monthlyPending}>
+            <CalendarIcon />
+          </IconBox>
+          <StatsText>
+            <Typography variant="h6" fontWeight="bold">
+              {stats.monthlyPendingTasks || 0}
+            </Typography>
+            <Typography variant="body2" color="textSecondary">
+              Toplam Aylık Görev
+            </Typography>
+          </StatsText>
+        </StatsCard>
+      </Grid>
+      
+      <Grid item xs={12} sm={6} md={3}>
+        <StatsCard 
+          bgcolor={THEME_COLORS.monthlyCompleted}
+          onClick={onMonthlyCompletedTasksClick}
+        >
+          <IconBox bgcolor={THEME_COLORS.monthlyCompleted}>
+            <CalendarIcon />
+          </IconBox>
+          <StatsText>
+            <Typography variant="h6" fontWeight="bold">
+              {stats.monthlyCompletedTasks || 0}
+            </Typography>
+            <Typography variant="body2" color="textSecondary">
+              Tamamlanan Aylık Görev
             </Typography>
           </StatsText>
         </StatsCard>
