@@ -1094,13 +1094,13 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
     },
     {
       id: 'taskStatus',
-      title: 'Görev Durumu Dağılımı',
-      description: 'Görevlerin durumlarına göre dağılım grafiği'
+      title: 'Günlük Görev Durumu Dağılımı',
+      description: 'Günlük görevlerin durumlarına göre dağılım grafiği'
     },
     {
       id: 'personnelPerformance',
-      title: 'Personel Performansı',
-      description: 'Personellerin görev performans grafiği'
+      title: 'Personel Performansı - Günlük Görevler',
+      description: 'Personellerin günlük görev performans grafiği'
     },
     {
       id: 'surveyCharts',
@@ -1770,12 +1770,12 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
         <DialogTitle>
           <Box display="flex" alignItems="center">
             <InfoIcon sx={{ mr: 1, color: 'primary.main' }} />
-            Görev Durumu Dağılımı Hakkında
+            Günlük Görev Durumu Dağılımı Hakkında
           </Box>
         </DialogTitle>
         <DialogContent>
           <Typography paragraph>
-            Bu grafik şirketteki tüm görevlerin durum dağılımını göstermektedir. Her dilim bir görev durumunu temsil eder:
+            Bu grafik şirketteki tüm günlük görevlerin durum dağılımını göstermektedir. Her dilim bir görev durumunu temsil eder:
           </Typography>
           <List>
             <ListItem>
@@ -1786,7 +1786,7 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
               </ListItemAvatar>
               <ListItemText 
                 primary="Tamamlanan" 
-                secondary="Ana görev listesindeki tamamlanan görevler ile veritabanındaki tamamlanan görevlerin toplamı"
+                secondary="Ana görev listesindeki tamamlanan günlük görevler ile veritabanındaki tamamlanan görevlerin toplamı"
               />
             </ListItem>
             <ListItem>
@@ -1797,7 +1797,7 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
               </ListItemAvatar>
               <ListItemText 
                 primary="Devam Eden" 
-                secondary="Personel tarafından kabul edilmiş veya atanmış durumda olan görevler"
+                secondary="Personel tarafından kabul edilmiş veya atanmış durumda olan günlük görevler"
               />
             </ListItem>
             <ListItem>
@@ -1808,7 +1808,7 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
               </ListItemAvatar>
               <ListItemText 
                 primary="Bekleyen" 
-                secondary="Henüz personele atanmamış, bekleyen görevler"
+                secondary="Henüz personele atanmamış, bekleyen günlük görevler"
               />
             </ListItem>
             <ListItem>
@@ -1819,7 +1819,7 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
               </ListItemAvatar>
               <ListItemText 
                 primary="Bekliyor" 
-                secondary="Bekleyen durumundaki görevler"
+                secondary="Bekleyen durumundaki günlük görevler"
               />
             </ListItem>
             <ListItem>
@@ -1830,12 +1830,12 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
               </ListItemAvatar>
               <ListItemText 
                 primary="Tamamlanmamış" 
-                secondary="Zamanında tamamlanamamış ve gecikmiş görevler"
+                secondary="Zamanında tamamlanamamış ve gecikmiş günlük görevler"
               />
             </ListItem>
           </List>
           <Typography paragraph>
-            Grafiğin altında her bir durumun toplam görevlere oranı yüzde olarak gösterilmektedir.
+            Grafiğin altında her bir durumun toplam günlük görevlere oranı yüzde olarak gösterilmektedir.
           </Typography>
         </DialogContent>
         <DialogActions>
@@ -1847,12 +1847,15 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
         <DialogTitle>
           <Box display="flex" alignItems="center">
             <InfoIcon sx={{ mr: 1, color: 'primary.main' }} />
-            Personel Performansı Hakkında
+            Personel Performansı - Günlük Görevler Hakkında
           </Box>
         </DialogTitle>
         <DialogContent>
+          <Typography paragraph sx={{ fontWeight: 'bold' }}>
+            Bu grafik, en aktif 5 personelinizin günlük görev performansını göstermektedir.
+          </Typography>
           <Typography paragraph>
-            Bu grafik, en aktif 5 personelinizin görev performansını göstermektedir. Her çubuk bir personelin görev dağılımını temsil eder:
+            Her çubuk bir personelin görev dağılımını temsil eder:
           </Typography>
           <List>
             <ListItem>
@@ -1863,7 +1866,7 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
               </ListItemAvatar>
               <ListItemText 
                 primary="Tamamlanan" 
-                secondary="Personelin başarıyla tamamladığı görevlerin toplam sayısı"
+                secondary="Personelin başarıyla tamamladığı günlük görevlerin toplam sayısı"
               />
             </ListItem>
             <ListItem>
@@ -1874,7 +1877,7 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
               </ListItemAvatar>
               <ListItemText 
                 primary="Devam Eden" 
-                secondary="Personelin şu anda devam ettiği görevlerin sayısı"
+                secondary="Personelin şu anda devam ettiği günlük görevlerin sayısı"
               />
             </ListItem>
             <ListItem>
@@ -1885,12 +1888,12 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
               </ListItemAvatar>
               <ListItemText 
                 primary="Kaçırılan" 
-                secondary="Personelin zamanında tamamlayamadığı görevlerin sayısı"
+                secondary="Personelin zamanında tamamlayamadığı günlük görevlerin sayısı"
               />
             </ListItem>
           </List>
           <Typography paragraph>
-            Bu grafik, hangi personelin daha fazla görev üstlendiğini ve bu görevleri ne kadar başarılı bir şekilde tamamladığını göstermektedir. Toplam görev sayısına göre en çok göreve sahip 5 personel listelenmektedir.
+            Bu grafik, toplam görev sayısına göre en çok göreve sahip 5 personeli gösterir. Hangi personelin daha fazla günlük görev üstlendiğini ve bu görevleri ne kadar başarılı bir şekilde tamamladığını değerlendirmenize yardımcı olur.
           </Typography>
         </DialogContent>
         <DialogActions>

@@ -76,7 +76,7 @@ const TaskStatusChart: React.FC<TaskStatusChartProps> = ({ taskStatusData, onInf
     <ChartContainer>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
         <Typography variant="h6" fontWeight="bold">
-          Görev Durumu Dağılımı
+          Günlük Görev Durumu Dağılımı
         </Typography>
         <IconButton onClick={onInfoClick} size="small">
           <InfoIcon fontSize="small" />
