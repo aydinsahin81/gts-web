@@ -868,6 +868,27 @@ const Tasks: React.FC<TasksProps> = ({ branchId, isManager = false }) => {
             // Tarih ve saat formatını oluştur
             const completionDate = new Date(`${date} ${time}`);
             
+            // Personelin şube bilgisini bul
+            let branchesId = null;
+            
+            // Önce orijinal görevden şube ID'sini kontrol et
+            if ('branchesId' in originalTask) {
+              branchesId = originalTask.branchesId;
+            }
+            
+            // Sonra personelin şube ID'sini kontrol et
+            if (!branchesId && personnelId && personnelData[personnelId] && personnelData[personnelId].branchesId) {
+              branchesId = personnelData[personnelId].branchesId;
+              
+              // branchesId bir nesne ise, ilk anahtarını al (format düzeltme)
+              if (typeof branchesId === 'object' && branchesId !== null) {
+                const keys = Object.keys(branchesId);
+                if (keys.length > 0) {
+                  branchesId = keys[0];
+                }
+              }
+            }
+            
             completedTasksList.push({
               id: `${taskId}_${date}_${time}`,
               originalTaskId: taskId,
@@ -883,7 +904,8 @@ const Tasks: React.FC<TasksProps> = ({ branchId, isManager = false }) => {
               isRecurring: originalTask.isRecurring || false,
               completionType: originalTask.completionType || 'button',
               repetitionTimes: [time], // Sadece bu tamamlanan saati göster
-              fromDatabase: true // Veritabanından geldiğini belirt
+              fromDatabase: true, // Veritabanından geldiğini belirt
+              branchesId: branchesId // Şube ID'sini ekle
             });
           });
         });
@@ -920,6 +942,27 @@ const Tasks: React.FC<TasksProps> = ({ branchId, isManager = false }) => {
             // Tarih ve saat formatını oluştur
             const missedDate = new Date(`${date} ${time}`);
             
+            // Personelin şube bilgisini bul
+            let branchesId = null;
+            
+            // Önce orijinal görevden şube ID'sini kontrol et
+            if ('branchesId' in originalTask) {
+              branchesId = originalTask.branchesId;
+            }
+            
+            // Sonra personelin şube ID'sini kontrol et
+            if (!branchesId && personnelId && personnelData[personnelId] && personnelData[personnelId].branchesId) {
+              branchesId = personnelData[personnelId].branchesId;
+              
+              // branchesId bir nesne ise, ilk anahtarını al (format düzeltme)
+              if (typeof branchesId === 'object' && branchesId !== null) {
+                const keys = Object.keys(branchesId);
+                if (keys.length > 0) {
+                  branchesId = keys[0];
+                }
+              }
+            }
+            
             missedTasksList.push({
               id: `${taskId}_${date}_${time}`,
               originalTaskId: taskId,
@@ -935,7 +978,8 @@ const Tasks: React.FC<TasksProps> = ({ branchId, isManager = false }) => {
               isRecurring: originalTask.isRecurring || false,
               completionType: originalTask.completionType || 'button',
               repetitionTimes: [time], // Sadece bu kaçırılan saati göster
-              fromDatabase: true // Veritabanından geldiğini belirt
+              fromDatabase: true, // Veritabanından geldiğini belirt
+              branchesId: branchesId // Şube ID'sini ekle
             });
           });
         });
