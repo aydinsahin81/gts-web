@@ -337,6 +337,7 @@ const Takvim: React.FC<TakvimProps> = ({ companyId }) => {
     // Görevleri dinle
     const tasksRef = ref(database, `companies/${companyId}/tasks`);
     const weeklyTasksRef = ref(database, `companies/${companyId}/weeklyTasks`);
+    const monthlyTasksRef = ref(database, `companies/${companyId}/monthlyTasks`);
     
     const handleTasksData = (snapshot: any) => {
       if (!snapshot.exists()) {
@@ -354,13 +355,25 @@ const Takvim: React.FC<TakvimProps> = ({ companyId }) => {
       
       setAllTasks(tasksArray);
       
-      // Haftalık görevler için
-      get(weeklyTasksRef).then((weeklySnapshot) => {
+      // Haftalık ve aylık görevler için
+      Promise.all([
+        get(weeklyTasksRef),
+        get(monthlyTasksRef)
+      ]).then(([weeklySnapshot, monthlySnapshot]) => {
         let weeklyTasksData: any[] = [];
+        let monthlyTasksData: any[] = [];
         
         if (weeklySnapshot.exists()) {
           const data = weeklySnapshot.val();
           weeklyTasksData = Object.keys(data).map(key => ({
+            id: key,
+            ...data[key]
+          }));
+        }
+        
+        if (monthlySnapshot.exists()) {
+          const data = monthlySnapshot.val();
+          monthlyTasksData = Object.keys(data).map(key => ({
             id: key,
             ...data[key]
           }));
@@ -387,6 +400,40 @@ const Takvim: React.FC<TakvimProps> = ({ companyId }) => {
           date.setDate(today.getDate() + i);
           
           const currentDay = date.getDay(); // 0: Pazar, 1: Pazartesi, ...
+          const currentMonth = date.getMonth(); // 0-11 arası ay (0: Ocak, 11: Aralık)
+          const currentDayOfMonth = date.getDate(); // 1-31 arası gün
+          
+          // Aylık görevler için, bu güne denk gelen görevleri bul
+          const monthlyTasksForDay = monthlyTasksData.filter(task => {
+            // Aylık görevlerde ay numarası ve gün kontrolü yap
+            if (!task) return false;
+            
+            // MonthlyTasks.tsx içindeki getTaskMonthDays fonksiyonuna benzer mantık
+            for (const key in task) {
+              if (key.startsWith('month')) {
+                const monthNumber = parseInt(key.replace('month', ''));
+                
+                // Şu anki ay ile eşleşiyor mu?
+                if (monthNumber === currentMonth) {
+                  const monthData = task[key];
+                  
+                  // Ay içindeki günleri kontrol et
+                  for (const dayKey in monthData) {
+                    if (dayKey.startsWith('day')) {
+                      const dayNumber = parseInt(dayKey.replace('day', ''));
+                      
+                      // Şu anki gün ile eşleşiyor mu?
+                      if (dayNumber === currentDayOfMonth) {
+                        return true;
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            
+            return false;
+          });
           
           // O güne ait haftalık görevleri bul
           const weeklyTasksForDay = weeklyTasksData.filter(task => {
@@ -395,6 +442,26 @@ const Takvim: React.FC<TakvimProps> = ({ companyId }) => {
             // task.days nesnesinde gün numarası (0-6) key olarak var mı kontrol et
             return task.days[currentDay] !== undefined;
           });
+          
+          // Aylık görevler için event oluştur
+          if (monthlyTasksForDay.length > 0) {
+            calendarEvents.push({
+              id: `monthly-tasks-${i}`,
+              title: 'Aylık Görevler',
+              start: new Date(date.setHours(0, 0, 0, 0)),
+              end: new Date(date.setHours(23, 59, 59, 999)),
+              allDay: true,
+              backgroundColor: '#FF5722', // Turuncu
+              borderColor: '#E64A19',
+              extendedProps: {
+                taskCount: monthlyTasksForDay.length,
+                taskType: 'monthly',
+                date: new Date(date),
+                dayOfMonth: currentDayOfMonth,
+                month: currentMonth
+              }
+            });
+          }
           
           // Haftalık görevler için event oluştur
           if (weeklyTasksForDay.length > 0) {
@@ -437,7 +504,7 @@ const Takvim: React.FC<TakvimProps> = ({ companyId }) => {
         setEvents(calendarEvents);
         setLoading(false);
       }).catch(error => {
-        console.error("Haftalık görevleri yüklerken hata:", error);
+        console.error("Görevleri yüklerken hata:", error);
         setLoading(false);
       });
     };
@@ -466,6 +533,12 @@ const Takvim: React.FC<TakvimProps> = ({ companyId }) => {
     // Seçilen günün haftanın kaçıncı günü olduğunu bul (0: Pazar, 1: Pazartesi, ...)
     const selectedDayOfWeek = selectedDateStart.getDay();
     
+    // Seçilen günün ayın kaçıncı günü olduğunu bul (1-31)
+    const selectedDayOfMonth = selectedDateStart.getDate();
+    
+    // Seçilen günün ay numarasını bul (0-11)
+    const selectedMonth = selectedDateStart.getMonth();
+    
     // Günlük görevleri filtrele
     const dayTasks = allTasks.filter(task => {
       if (task.isRecurring && task.repeatType === 'daily') {
@@ -474,14 +547,20 @@ const Takvim: React.FC<TakvimProps> = ({ companyId }) => {
       return false;
     });
     
-    // Haftalık görevleri çek
+    // Haftalık ve aylık görevleri çek
     const weeklyTasksRef = ref(database, `companies/${companyId}/weeklyTasks`);
+    const monthlyTasksRef = ref(database, `companies/${companyId}/monthlyTasks`);
     
-    get(weeklyTasksRef).then((snapshot) => {
+    Promise.all([
+      get(weeklyTasksRef),
+      get(monthlyTasksRef)
+    ]).then(([weeklySnapshot, monthlySnapshot]) => {
       let weeklyTasks: any[] = [];
+      let monthlyTasks: any[] = [];
       
-      if (snapshot.exists()) {
-        const data = snapshot.val();
+      // Haftalık görevleri işle
+      if (weeklySnapshot.exists()) {
+        const data = weeklySnapshot.val();
         
         // Tüm haftalık görevleri dön
         Object.keys(data).forEach(taskId => {
@@ -499,13 +578,36 @@ const Takvim: React.FC<TakvimProps> = ({ companyId }) => {
         });
       }
       
+      // Aylık görevleri işle
+      if (monthlySnapshot.exists()) {
+        const data = monthlySnapshot.val();
+        
+        // Tüm aylık görevleri dön
+        Object.keys(data).forEach(taskId => {
+          const task = data[taskId];
+          
+          // Görevin seçilen aya ve güne ait olup olmadığını kontrol et
+          const monthKey = `month${selectedMonth}`;
+          const dayKey = `day${selectedDayOfMonth}`;
+          
+          if (task[monthKey] && task[monthKey][dayKey]) {
+            monthlyTasks.push({
+              id: taskId,
+              ...task,
+              // Tekrarlama zamanlarını da ekle
+              repetitionTimes: task[monthKey][dayKey].repetitionTimes || []
+            });
+          }
+        });
+      }
+      
       setDailyTasks(dayTasks);
       setWeeklyTasks(weeklyTasks);
-      setMonthlyTasks([]);
+      setMonthlyTasks(monthlyTasks);
       setModalOpen(true);
       setLoading(false);
     }).catch(error => {
-      console.error("Haftalık görevleri yüklerken hata:", error);
+      console.error("Görevleri yüklerken hata:", error);
       setDailyTasks(dayTasks);
       setWeeklyTasks([]);
       setMonthlyTasks([]);
