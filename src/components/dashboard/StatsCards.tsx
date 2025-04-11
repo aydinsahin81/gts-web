@@ -135,7 +135,7 @@ const StatsCards: React.FC<StatsCardsProps> = ({
               {stats.pendingTasks}
             </Typography>
             <Typography variant="body2" color="textSecondary">
-              Devam Eden Görev
+              Devam Eden Günlük Görev
             </Typography>
           </StatsText>
         </StatsCard>
@@ -154,7 +154,7 @@ const StatsCards: React.FC<StatsCardsProps> = ({
               {stats.completedTasks}
             </Typography>
             <Typography variant="body2" color="textSecondary">
-              Tamamlanan Görev
+              Tamamlanan Günlük Görev
             </Typography>
           </StatsText>
         </StatsCard>

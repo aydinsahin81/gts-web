@@ -1014,16 +1014,17 @@ const Dashboard: React.FC<DashboardProps> = ({ branchId, isManager = false }) =>
       {/* Widget Yönetim Butonu */}
       <Box sx={{ 
         display: 'flex', 
-        justifyContent: 'flex-end', 
+        justifyContent: 'space-between', 
+        alignItems: 'center',
         mb: 2,
-        position: 'sticky',
-        top: 0,
-        zIndex: 1000,
         backgroundColor: 'background.paper',
         py: 1,
         borderBottom: '1px solid',
         borderColor: 'divider'
       }}>
+        <Typography variant="h5" fontWeight="bold">
+          Gösterge Paneli
+        </Typography>
         <Button
           variant="contained"
           startIcon={<SettingsIcon />}
