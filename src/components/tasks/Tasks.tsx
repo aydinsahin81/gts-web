@@ -573,6 +573,13 @@ const Tasks: React.FC<TasksProps> = ({ branchId, isManager = false }) => {
   const [branches, setBranches] = useState<{[key: string]: string}>({});
   const [showFilters, setShowFilters] = useState(false); // Filtre görünürlüğü için yeni state
 
+  // isManager olduğunda takvim tabı seçilmişse, otomatik olarak daily'ye geçiş yap
+  useEffect(() => {
+    if (isManager && taskType === 'takvim') {
+      setTaskType('daily');
+    }
+  }, [isManager, taskType]);
+
   // Verileri saklamak için referanslar oluşturuyorum
   const [weeklyTasksData, setWeeklyTasksData] = useState<any[]>([]);
   const [monthlyTasksData, setMonthlyTasksData] = useState<any[]>([]);
@@ -2201,12 +2208,15 @@ const Tasks: React.FC<TasksProps> = ({ branchId, isManager = false }) => {
             icon={<YearIcon />} 
             iconPosition="start"
           />
-          <Tab 
-            value="takvim" 
-            label="Takvim" 
-            icon={<TakvimIcon />} 
-            iconPosition="start"
-          />
+          {/* Takvim tabını sadece manager olmayan kullanıcılar için göster */}
+          {!isManager && (
+            <Tab 
+              value="takvim" 
+              label="Takvim" 
+              icon={<TakvimIcon />} 
+              iconPosition="start"
+            />
+          )}
         </Tabs>
       </Box>
 
